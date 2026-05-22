@@ -1,0 +1,279 @@
+package common.cn.kafei.simukraft.storage;
+
+import common.cn.kafei.simukraft.SimuKraft;
+import common.cn.kafei.simukraft.building.BuildingBlockData;
+import common.cn.kafei.simukraft.building.BuildingPoiDefinition;
+import common.cn.kafei.simukraft.building.BuildingPoiInstance;
+import common.cn.kafei.simukraft.building.PlacedBuildingRecord;
+import common.cn.kafei.simukraft.city.poi.CityPoiType;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.Property;
+
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
+import java.util.UUID;
+
+@SuppressWarnings("null")
+public final class BuildingStructureRepository {
+    private final BuildingStructureSqliteDatabase database;
+
+    public BuildingStructureRepository(BuildingStructureSqliteDatabase database) {
+        this.database = database;
+    }
+
+    public synchronized void upsert(PlacedBuildingRecord record) {
+        try (Connection connection = database.openConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                saveBuilding(connection, record);
+                connection.commit();
+            } catch (SQLException exception) {
+                connection.rollback();
+                throw exception;
+            }
+        } catch (SQLException exception) {
+            SimuKraft.LOGGER.error("Failed to save placed building structure", exception);
+        }
+    }
+
+    public synchronized List<PlacedBuildingRecord> loadByDimension(String dimensionId) {
+        List<PlacedBuildingRecord> result = new ArrayList<>();
+        try (Connection connection = database.openConnection();
+             PreparedStatement statement = connection.prepareStatement("SELECT * FROM placed_buildings WHERE dimension_id = ? ORDER BY completed_at")) {
+            statement.setString(1, dimensionId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    UUID buildingId = UUID.fromString(resultSet.getString("building_id"));
+                    result.add(new PlacedBuildingRecord(
+                            buildingId,
+                            nullableUuid(resultSet.getString("city_id")),
+                            resultSet.getString("dimension_id"),
+                            resultSet.getString("category"),
+                            resultSet.getString("building_file_name"),
+                            resultSet.getString("display_name"),
+                            resultSet.getString("structure_file_name"),
+                            resultSet.getString("facing"),
+                            new BlockPos(resultSet.getInt("origin_x"), resultSet.getInt("origin_y"), resultSet.getInt("origin_z")),
+                            new BlockPos(resultSet.getInt("anchor_x"), resultSet.getInt("anchor_y"), resultSet.getInt("anchor_z")),
+                            new BlockPos(resultSet.getInt("min_x"), resultSet.getInt("min_y"), resultSet.getInt("min_z")),
+                            new BlockPos(resultSet.getInt("max_x"), resultSet.getInt("max_y"), resultSet.getInt("max_z")),
+                            resultSet.getLong("completed_at"),
+                            loadBlocks(connection, buildingId),
+                            loadPois(connection, buildingId),
+                            loadPoiInstances(connection, buildingId)
+                    ));
+                }
+            }
+        } catch (SQLException | IllegalArgumentException exception) {
+            SimuKraft.LOGGER.error("Failed to load placed building structures", exception);
+        }
+        return List.copyOf(result);
+    }
+
+    public synchronized void delete(UUID buildingId) {
+        if (buildingId == null) {
+            return;
+        }
+        try (Connection connection = database.openConnection()) {
+            connection.setAutoCommit(false);
+            try (PreparedStatement deleteBlocks = connection.prepareStatement("DELETE FROM placed_building_blocks WHERE building_id = ?");
+                 PreparedStatement deletePois = connection.prepareStatement("DELETE FROM placed_building_pois WHERE building_id = ?");
+                 PreparedStatement deleteBuilding = connection.prepareStatement("DELETE FROM placed_buildings WHERE building_id = ?")) {
+                String id = buildingId.toString();
+                deleteBlocks.setString(1, id);
+                deleteBlocks.executeUpdate();
+                deletePois.setString(1, id);
+                deletePois.executeUpdate();
+                deleteBuilding.setString(1, id);
+                deleteBuilding.executeUpdate();
+                connection.commit();
+            } catch (SQLException exception) {
+                connection.rollback();
+                throw exception;
+            }
+        } catch (SQLException exception) {
+            SimuKraft.LOGGER.error("Failed to delete placed building structure", exception);
+        }
+    }
+
+    private void saveBuilding(Connection connection, PlacedBuildingRecord record) throws SQLException {
+        try (PreparedStatement buildingStatement = connection.prepareStatement("INSERT INTO placed_buildings(building_id, city_id, dimension_id, category, building_file_name, display_name, structure_file_name, facing, origin_x, origin_y, origin_z, anchor_x, anchor_y, anchor_z, min_x, min_y, min_z, max_x, max_y, max_z, completed_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(building_id) DO UPDATE SET city_id = excluded.city_id, dimension_id = excluded.dimension_id, category = excluded.category, building_file_name = excluded.building_file_name, display_name = excluded.display_name, structure_file_name = excluded.structure_file_name, facing = excluded.facing, origin_x = excluded.origin_x, origin_y = excluded.origin_y, origin_z = excluded.origin_z, anchor_x = excluded.anchor_x, anchor_y = excluded.anchor_y, anchor_z = excluded.anchor_z, min_x = excluded.min_x, min_y = excluded.min_y, min_z = excluded.min_z, max_x = excluded.max_x, max_y = excluded.max_y, max_z = excluded.max_z, completed_at = excluded.completed_at");
+             PreparedStatement deleteBlocks = connection.prepareStatement("DELETE FROM placed_building_blocks WHERE building_id = ?");
+             PreparedStatement deletePois = connection.prepareStatement("DELETE FROM placed_building_pois WHERE building_id = ?");
+             PreparedStatement blockStatement = connection.prepareStatement("INSERT INTO placed_building_blocks(building_id, relative_x, relative_y, relative_z, block_id, block_state_nbt, original_x, original_y, original_z) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)");
+             PreparedStatement poiStatement = connection.prepareStatement("INSERT INTO placed_building_pois(building_id, poi_key, poi_type, capacity, world_x, world_y, world_z) VALUES(?, ?, ?, ?, ?, ?, ?)") ) {
+            buildingStatement.setString(1, record.buildingId().toString());
+            SqliteNbtHelper.setNullableString(buildingStatement, 2, record.cityId() != null ? record.cityId().toString() : null);
+            buildingStatement.setString(3, record.dimensionId());
+            buildingStatement.setString(4, record.category());
+            buildingStatement.setString(5, record.buildingFileName());
+            buildingStatement.setString(6, record.displayName());
+            buildingStatement.setString(7, record.structureFileName());
+            buildingStatement.setString(8, record.facing());
+            buildingStatement.setInt(9, record.worldOrigin().getX());
+            buildingStatement.setInt(10, record.worldOrigin().getY());
+            buildingStatement.setInt(11, record.worldOrigin().getZ());
+            buildingStatement.setInt(12, record.structureAnchor().getX());
+            buildingStatement.setInt(13, record.structureAnchor().getY());
+            buildingStatement.setInt(14, record.structureAnchor().getZ());
+            buildingStatement.setInt(15, record.minPos().getX());
+            buildingStatement.setInt(16, record.minPos().getY());
+            buildingStatement.setInt(17, record.minPos().getZ());
+            buildingStatement.setInt(18, record.maxPos().getX());
+            buildingStatement.setInt(19, record.maxPos().getY());
+            buildingStatement.setInt(20, record.maxPos().getZ());
+            buildingStatement.setLong(21, record.completedAt());
+            buildingStatement.executeUpdate();
+
+            deleteBlocks.setString(1, record.buildingId().toString());
+            deleteBlocks.executeUpdate();
+            deletePois.setString(1, record.buildingId().toString());
+            deletePois.executeUpdate();
+
+            for (BuildingBlockData block : record.blocks()) {
+                Block blockType = block.state().getBlock();
+                blockStatement.setString(1, record.buildingId().toString());
+                blockStatement.setInt(2, block.relativePos().getX());
+                blockStatement.setInt(3, block.relativePos().getY());
+                blockStatement.setInt(4, block.relativePos().getZ());
+                blockStatement.setString(5, BuiltInRegistries.BLOCK.getKey(blockType).toString());
+                blockStatement.setString(6, encodeBlockState(block.state()));
+                blockStatement.setInt(7, block.originalStructurePos().getX());
+                blockStatement.setInt(8, block.originalStructurePos().getY());
+                blockStatement.setInt(9, block.originalStructurePos().getZ());
+                blockStatement.addBatch();
+            }
+            blockStatement.executeBatch();
+
+            for (BuildingPoiInstance poi : record.poiInstances()) {
+                poiStatement.setString(1, record.buildingId().toString());
+                poiStatement.setString(2, poi.key());
+                poiStatement.setString(3, poi.poiType().name());
+                poiStatement.setInt(4, poi.capacity());
+                poiStatement.setInt(5, poi.worldPos().getX());
+                poiStatement.setInt(6, poi.worldPos().getY());
+                poiStatement.setInt(7, poi.worldPos().getZ());
+                poiStatement.addBatch();
+            }
+            poiStatement.executeBatch();
+        }
+    }
+
+    private List<BuildingBlockData> loadBlocks(Connection connection, UUID buildingId) throws SQLException {
+        List<BuildingBlockData> blocks = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement("SELECT * FROM placed_building_blocks WHERE building_id = ? ORDER BY relative_y, relative_x, relative_z")) {
+            statement.setString(1, buildingId.toString());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    BlockState state = decodeBlockState(resultSet.getString("block_state_nbt"), resultSet.getString("block_id"));
+                    if (state == null) {
+                        continue;
+                    }
+                    blocks.add(new BuildingBlockData(
+                            new BlockPos(resultSet.getInt("relative_x"), resultSet.getInt("relative_y"), resultSet.getInt("relative_z")),
+                            state,
+                            new BlockPos(resultSet.getInt("original_x"), resultSet.getInt("original_y"), resultSet.getInt("original_z"))
+                    ));
+                }
+            }
+        }
+        return List.copyOf(blocks);
+    }
+
+    private List<BuildingPoiDefinition> loadPois(Connection connection, UUID buildingId) throws SQLException {
+        List<BuildingPoiDefinition> pois = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement("SELECT * FROM placed_building_pois WHERE building_id = ? ORDER BY poi_key")) {
+            statement.setString(1, buildingId.toString());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    pois.add(new BuildingPoiDefinition(resultSet.getString("poi_key"), CityPoiType.fromName(resultSet.getString("poi_type")), resultSet.getInt("capacity")));
+                }
+            }
+        }
+        return List.copyOf(pois);
+    }
+
+    private List<BuildingPoiInstance> loadPoiInstances(Connection connection, UUID buildingId) throws SQLException {
+        List<BuildingPoiInstance> pois = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement("SELECT * FROM placed_building_pois WHERE building_id = ? ORDER BY poi_key")) {
+            statement.setString(1, buildingId.toString());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    pois.add(new BuildingPoiInstance(
+                            resultSet.getString("poi_key"),
+                            CityPoiType.fromName(resultSet.getString("poi_type")),
+                            resultSet.getInt("capacity"),
+                            new BlockPos(resultSet.getInt("world_x"), resultSet.getInt("world_y"), resultSet.getInt("world_z"))
+                    ));
+                }
+            }
+        }
+        return List.copyOf(pois);
+    }
+
+    private static String encodeBlockState(BlockState state) {
+        CompoundTag tag = new CompoundTag();
+        tag.putString("Name", BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
+        CompoundTag properties = new CompoundTag();
+        for (Property<?> property : state.getProperties()) {
+            properties.putString(property.getName(), state.getValue(property).toString());
+        }
+        tag.put("Properties", properties);
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream(); DataOutputStream data = new DataOutputStream(output)) {
+            NbtIo.write(tag, data);
+            return Base64.getEncoder().encodeToString(output.toByteArray());
+        } catch (IOException ioException) {
+            return "";
+        }
+    }
+
+    private static BlockState decodeBlockState(String encoded, String blockId) {
+        try {
+            byte[] bytes = Base64.getDecoder().decode(encoded);
+            var tag = NbtIo.read(new java.io.DataInputStream(new java.io.ByteArrayInputStream(bytes)));
+            if (tag == null) {
+                return null;
+            }
+            String name = tag.getString("Name");
+            Block block = BuiltInRegistries.BLOCK.getOptional(net.minecraft.resources.ResourceLocation.parse(name)).orElse(null);
+            if (block == null) {
+                return null;
+            }
+            BlockState state = block.defaultBlockState();
+            if (tag.contains("Properties", net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+                CompoundTag properties = tag.getCompound("Properties");
+                for (String key : properties.getAllKeys()) {
+                    Property<?> property = state.getBlock().getStateDefinition().getProperty(key);
+                    if (property != null) {
+                        state = applyProperty(state, property, properties.getString(key));
+                    }
+                }
+            }
+            return state;
+        } catch (Exception exception) {
+            Block block = BuiltInRegistries.BLOCK.getOptional(net.minecraft.resources.ResourceLocation.parse(blockId)).orElse(null);
+            return block != null ? block.defaultBlockState() : null;
+        }
+    }
+
+    private static <T extends Comparable<T>> BlockState applyProperty(BlockState state, Property<T> property, String value) {
+        return property.getValue(value).map(parsed -> state.setValue(property, parsed)).orElse(state);
+    }
+
+    private static UUID nullableUuid(String value) {
+        return value == null || value.isBlank() ? null : UUID.fromString(value);
+    }
+}

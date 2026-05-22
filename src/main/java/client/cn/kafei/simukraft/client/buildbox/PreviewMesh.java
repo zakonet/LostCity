@@ -1,0 +1,85 @@
+package client.cn.kafei.simukraft.client.buildbox;
+
+import com.mojang.blaze3d.vertex.VertexBuffer;
+import net.minecraft.core.BlockPos;
+
+import java.util.Collections;
+import java.util.List;
+
+public final class PreviewMesh implements AutoCloseable {
+    public static final PreviewMesh EMPTY = new PreviewMesh(BlockPos.ZERO, null, null, null, null, null, Collections.emptyList());
+
+    private final BlockPos origin;
+    private VertexBuffer solidBuffer;
+    private VertexBuffer cutoutMippedBuffer;
+    private VertexBuffer cutoutBuffer;
+    private VertexBuffer translucentBuffer;
+    private VertexBuffer tripwireBuffer;
+    private final List<PreviewBlockData> entityBlocks;
+
+    public PreviewMesh(BlockPos origin, VertexBuffer solidBuffer, VertexBuffer cutoutMippedBuffer, VertexBuffer cutoutBuffer, VertexBuffer translucentBuffer, VertexBuffer tripwireBuffer, List<PreviewBlockData> entityBlocks) {
+        this.origin = origin;
+        this.solidBuffer = solidBuffer;
+        this.cutoutMippedBuffer = cutoutMippedBuffer;
+        this.cutoutBuffer = cutoutBuffer;
+        this.translucentBuffer = translucentBuffer;
+        this.tripwireBuffer = tripwireBuffer;
+        this.entityBlocks = entityBlocks;
+    }
+
+    public BlockPos origin() {
+        return origin;
+    }
+
+    public VertexBuffer solidBuffer() {
+        return solidBuffer;
+    }
+
+    public VertexBuffer cutoutMippedBuffer() {
+        return cutoutMippedBuffer;
+    }
+
+    public VertexBuffer cutoutBuffer() {
+        return cutoutBuffer;
+    }
+
+    public VertexBuffer translucentBuffer() {
+        return translucentBuffer;
+    }
+
+    public VertexBuffer tripwireBuffer() {
+        return tripwireBuffer;
+    }
+
+    public List<PreviewBlockData> entityBlocks() {
+        return entityBlocks;
+    }
+
+    public boolean isEmpty() {
+        return solidBuffer == null && cutoutMippedBuffer == null && cutoutBuffer == null && translucentBuffer == null && tripwireBuffer == null && entityBlocks.isEmpty();
+    }
+
+    @Override
+    public void close() {
+        if (solidBuffer != null) {
+            solidBuffer.close();
+            solidBuffer = null;
+        }
+        if (cutoutMippedBuffer != null) {
+            cutoutMippedBuffer.close();
+            cutoutMippedBuffer = null;
+        }
+        if (cutoutBuffer != null) {
+            cutoutBuffer.close();
+            cutoutBuffer = null;
+        }
+        if (translucentBuffer != null) {
+            translucentBuffer.close();
+            translucentBuffer = null;
+        }
+        if (tripwireBuffer != null) {
+            tripwireBuffer.close();
+            tripwireBuffer = null;
+        }
+    }
+}

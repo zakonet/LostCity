@@ -1,0 +1,174 @@
+package common.cn.kafei.simukraft.storage;
+
+import common.cn.kafei.simukraft.SimuKraft;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+
+import java.nio.file.Path;
+import java.util.List;
+import java.util.UUID;
+
+public final class SimuSqliteStorage {
+    private final SimuSqliteDatabase database;
+    private final CitySqliteRepository cities;
+    private final CityChunkSqliteRepository cityChunks;
+    private final CityPoiSqliteRepository cityPois;
+    private final CitizenSqliteRepository citizens;
+    private final BuildingTaskSqliteRepository buildingTasks;
+
+    private SimuSqliteStorage(SimuSqliteDatabase database) {
+        this.database = database;
+        this.cities = new CitySqliteRepository(database);
+        this.cityChunks = new CityChunkSqliteRepository(database);
+        this.cityPois = new CityPoiSqliteRepository(database);
+        this.citizens = new CitizenSqliteRepository(database);
+        this.buildingTasks = new BuildingTaskSqliteRepository(database);
+    }
+
+    public static SimuSqliteStorage open(MinecraftServer server) {
+        return new SimuSqliteStorage(SimuSqliteDatabase.open(server));
+    }
+
+    private static SimuSqliteStorage openSafely(ServerLevel level) {
+        if (level == null || level.getServer() == null) {
+            return null;
+        }
+        try {
+            return open(level.getServer());
+        } catch (RuntimeException exception) {
+            // 数据库不可用时不让游戏崩溃，当前 tick 退回内存/SavedData 状态。
+            SimuKraft.LOGGER.error("SQLite storage is unavailable. Falling back to in-memory/SavedData state for this operation.", exception);
+            return null;
+        }
+    }
+
+    public static CompoundTag loadCities(ServerLevel level) {
+        SimuSqliteStorage storage = openSafely(level);
+        return storage != null ? storage.cities.loadAll() : null;
+    }
+
+    public static void saveCities(ServerLevel level, CompoundTag tag) {
+        if (level != null && level.getServer() != null && tag != null) {
+            open(level.getServer()).cities.saveAll(tag);
+        }
+    }
+
+    public static void saveCity(ServerLevel level, CompoundTag cityTag) {
+        SimuSqliteStorage storage = openSafely(level);
+        if (storage != null && cityTag != null) {
+            storage.cities.upsert(cityTag);
+        }
+    }
+
+    public static void deleteCity(ServerLevel level, UUID cityId) {
+        if (level != null && level.getServer() != null && cityId != null) {
+            open(level.getServer()).cities.delete(cityId);
+        }
+    }
+
+    public static CompoundTag loadCityChunks(ServerLevel level) {
+        SimuSqliteStorage storage = openSafely(level);
+        return storage != null ? storage.cityChunks.loadAll() : null;
+    }
+
+    public static void saveCityChunks(ServerLevel level, CompoundTag tag) {
+        SimuSqliteStorage storage = openSafely(level);
+        if (storage != null) {
+            storage.cityChunks.saveAll(tag);
+        }
+    }
+
+    public static void saveCityChunk(ServerLevel level, UUID cityId, long chunkLong) {
+        if (level != null && level.getServer() != null && cityId != null) {
+            open(level.getServer()).cityChunks.upsert(cityId, chunkLong);
+        }
+    }
+
+    public static void deleteCityChunks(ServerLevel level, UUID cityId) {
+        if (level != null && level.getServer() != null && cityId != null) {
+            open(level.getServer()).cityChunks.deleteCity(cityId);
+        }
+    }
+
+    public static CompoundTag loadCityPois(ServerLevel level) {
+        SimuSqliteStorage storage = openSafely(level);
+        return storage != null ? storage.cityPois.loadAll() : null;
+    }
+
+    public static void saveCityPois(ServerLevel level, CompoundTag tag) {
+        if (level != null && level.getServer() != null && tag != null) {
+            open(level.getServer()).cityPois.saveAll(tag);
+        }
+    }
+
+    public static void saveCityPoi(ServerLevel level, CompoundTag poiTag) {
+        SimuSqliteStorage storage = openSafely(level);
+        if (storage != null && poiTag != null) {
+            storage.cityPois.upsert(poiTag);
+        }
+    }
+
+    public static void deleteCityPois(ServerLevel level, UUID cityId) {
+        if (level != null && level.getServer() != null && cityId != null) {
+            open(level.getServer()).cityPois.deleteCity(cityId);
+        }
+    }
+
+    public static CompoundTag loadCitizens(ServerLevel level) {
+        SimuSqliteStorage storage = openSafely(level);
+        return storage != null ? storage.citizens.loadAll() : null;
+    }
+
+    public static void saveCitizens(ServerLevel level, CompoundTag tag) {
+        SimuSqliteStorage storage = openSafely(level);
+        if (storage != null) {
+            storage.citizens.saveAll(tag);
+        }
+    }
+
+    public static void saveCitizen(ServerLevel level, CompoundTag citizenTag) {
+        if (level != null && level.getServer() != null && citizenTag != null) {
+            SimuSqliteStorage storage = open(level.getServer());
+            storage.citizens.upsert(citizenTag);
+        }
+    }
+
+    public static void deleteCitizen(ServerLevel level, UUID citizenId) {
+        SimuSqliteStorage storage = openSafely(level);
+        if (storage != null && citizenId != null) {
+            storage.citizens.delete(citizenId);
+        }
+    }
+
+    public static void saveBuildingTask(ServerLevel level, common.cn.kafei.simukraft.building.BuildingTaskData task) {
+        SimuSqliteStorage storage = openSafely(level);
+        if (storage != null && task != null) {
+            storage.buildingTasks.upsert(task);
+        }
+    }
+
+    public static common.cn.kafei.simukraft.building.BuildingTaskData loadBuildingTask(ServerLevel level, UUID citizenId) {
+        SimuSqliteStorage storage = openSafely(level);
+        return storage != null && citizenId != null ? storage.buildingTasks.findByCitizen(citizenId) : null;
+    }
+
+    public static List<common.cn.kafei.simukraft.building.BuildingTaskData> loadBuildingTasks(ServerLevel level) {
+        SimuSqliteStorage storage = openSafely(level);
+        if (storage == null || level == null) {
+            return List.of();
+        }
+        return storage.buildingTasks.findByDimension(level.dimension().location().toString());
+    }
+
+    public static void deleteBuildingTask(ServerLevel level, UUID citizenId) {
+        SimuSqliteStorage storage = openSafely(level);
+        if (storage != null && citizenId != null) {
+            storage.buildingTasks.deleteByCitizen(citizenId);
+        }
+    }
+
+    public Path databasePath() {
+        return database.databasePath();
+    }
+}

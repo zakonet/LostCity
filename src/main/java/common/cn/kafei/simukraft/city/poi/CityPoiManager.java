@@ -1,0 +1,225 @@
+package common.cn.kafei.simukraft.city.poi;
+
+import common.cn.kafei.simukraft.SimuKraft;
+import common.cn.kafei.simukraft.job.CityJobAssignmentService;
+import common.cn.kafei.simukraft.storage.SimuSqliteStorage;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.saveddata.SavedData;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+@SuppressWarnings("null")
+public final class CityPoiManager extends SavedData {
+    private static final String DATA_NAME = SimuKraft.MOD_ID + "_city_pois";
+    private static final Factory<CityPoiManager> FACTORY = new Factory<>(CityPoiManager::new, CityPoiManager::load, null);
+
+    private final ConcurrentMap<UUID, CityPoiData> pois = new ConcurrentHashMap<>();
+    // cityPoiIndex 和 posIndex 是查询加速索引，真实数据仍以 pois 为准。
+    private final ConcurrentMap<UUID, Set<UUID>> cityPoiIndex = new ConcurrentHashMap<>();
+    private final ConcurrentMap<BlockPos, UUID> posIndex = new ConcurrentHashMap<>();
+    private volatile boolean sqliteLoaded;
+    private volatile ServerLevel level;
+
+    public static CityPoiManager get(ServerLevel level) {
+        CityPoiManager manager = level.getDataStorage().computeIfAbsent(FACTORY, DATA_NAME);
+        manager.level = level;
+        manager.loadFromSqlite(level);
+        return manager;
+    }
+
+    private static CityPoiManager load(CompoundTag tag, HolderLookup.Provider registries) {
+        CityPoiManager manager = new CityPoiManager();
+        ListTag poiTags = tag.getList("Pois", CompoundTag.TAG_COMPOUND);
+        for (int i = 0; i < poiTags.size(); i++) {
+            CityPoiData poi = CityPoiData.fromTag(poiTags.getCompound(i));
+            manager.putLoaded(poi);
+        }
+        return manager;
+    }
+
+    @Override
+    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+        ListTag poiTags = new ListTag();
+        pois.values().forEach(poi -> poiTags.add(poi.toTag()));
+        tag.put("Pois", poiTags);
+        return tag;
+    }
+
+    public synchronized void saveToSqlite(ServerLevel level) {
+        if (level == null) {
+            return;
+        }
+        SimuSqliteStorage.saveCityPois(level, save(new CompoundTag(), level.registryAccess()));
+    }
+
+    private synchronized void loadFromSqlite(ServerLevel level) {
+        if (sqliteLoaded) {
+            return;
+        }
+        sqliteLoaded = true;
+        // SQLite 是主要持久化来源；SavedData 作为兼容兜底，加载后重建索引。
+        CompoundTag sqliteTag = SimuSqliteStorage.loadCityPois(level);
+        if (sqliteTag == null || sqliteTag.isEmpty()) {
+            return;
+        }
+        CityPoiManager loaded = load(sqliteTag, level.registryAccess());
+        pois.clear();
+        cityPoiIndex.clear();
+        posIndex.clear();
+        pois.putAll(loaded.pois);
+        cityPoiIndex.putAll(loaded.cityPoiIndex);
+        posIndex.putAll(loaded.posIndex);
+    }
+
+    private void savePoiIncremental(CityPoiData poi) {
+        ServerLevel targetLevel = level;
+        if (targetLevel != null && poi != null) {
+            SimuSqliteStorage.saveCityPoi(targetLevel, poi.toTag());
+        }
+    }
+
+    private void deleteCityPoisIncremental(UUID cityId) {
+        ServerLevel targetLevel = level;
+        if (targetLevel != null && cityId != null) {
+            SimuSqliteStorage.deleteCityPois(targetLevel, cityId);
+        }
+    }
+
+    public synchronized CityPoiData registerPoi(UUID cityId, BlockPos pos, CityPoiType type, int capacity) {
+        return registerPoi(null, cityId, pos, type, capacity);
+    }
+
+    public synchronized CityPoiData registerPoi(UUID requestedPoiId, UUID cityId, BlockPos pos, CityPoiType type, int capacity) {
+        BlockPos immutablePos = pos.immutable();
+        // 建筑恢复时会传入稳定 UUID；手动注册时按坐标复用旧 POI。
+        UUID existingPoiId = requestedPoiId != null && pois.containsKey(requestedPoiId) ? requestedPoiId : posIndex.get(immutablePos);
+        if (existingPoiId != null) {
+            CityPoiData existing = pois.get(existingPoiId);
+            if (existing != null) {
+                CityPoiData updated = new CityPoiData(requestedPoiId != null ? requestedPoiId : existing.poiId(), cityId, immutablePos, type, Math.max(0, capacity), true);
+                replacePoi(existing, updated);
+                CityJobAssignmentService.invalidate(existing.cityId());
+                CityJobAssignmentService.invalidate(cityId);
+                savePoiIncremental(updated);
+                setDirty();
+                return updated;
+            }
+        }
+        CityPoiData poi = new CityPoiData(requestedPoiId != null ? requestedPoiId : UUID.randomUUID(), cityId, immutablePos, type, Math.max(0, capacity), true);
+        putLoaded(poi);
+        CityJobAssignmentService.invalidate(cityId);
+        savePoiIncremental(poi);
+        setDirty();
+        return poi;
+    }
+
+    public synchronized boolean deactivatePoi(BlockPos pos) {
+        UUID poiId = posIndex.get(pos.immutable());
+        if (poiId == null) {
+            return false;
+        }
+        CityPoiData poi = pois.get(poiId);
+        if (poi == null || !poi.active()) {
+            return false;
+        }
+        pois.put(poiId, poi.withActive(false));
+        if (level != null) {
+            SimuSqliteStorage.saveCityPoi(level, pois.get(poiId).toTag());
+        }
+        CityJobAssignmentService.invalidate(poi.cityId());
+        setDirty();
+        return true;
+    }
+
+    public synchronized boolean deactivatePoi(UUID poiId) {
+        CityPoiData poi = poiId != null ? pois.get(poiId) : null;
+        if (poi == null || !poi.active()) {
+            return false;
+        }
+        pois.put(poiId, poi.withActive(false));
+        if (level != null) {
+            SimuSqliteStorage.saveCityPoi(level, pois.get(poiId).toTag());
+        }
+        CityJobAssignmentService.invalidate(poi.cityId());
+        setDirty();
+        return true;
+    }
+
+    public synchronized void releaseCity(UUID cityId) {
+        Set<UUID> poiIds = cityPoiIndex.remove(cityId);
+        if (poiIds == null) {
+            return;
+        }
+        poiIds.forEach(poiId -> {
+            CityPoiData poi = pois.remove(poiId);
+            if (poi != null) {
+                posIndex.remove(poi.pos(), poiId);
+            }
+        });
+        CityJobAssignmentService.invalidate(cityId);
+        deleteCityPoisIncremental(cityId);
+        setDirty();
+    }
+
+    public List<CityPoiData> getCityPois(UUID cityId) {
+        Set<UUID> poiIds = cityPoiIndex.get(cityId);
+        if (poiIds == null || poiIds.isEmpty()) {
+            return List.of();
+        }
+        return poiIds.stream().map(pois::get).filter(poi -> poi != null && poi.active()).toList();
+    }
+
+    public List<CityPoiData> getCityPois(UUID cityId, CityPoiType type) {
+        return getCityPois(cityId).stream().filter(poi -> poi.type() == type).toList();
+    }
+
+    public CityPoiData getPoi(UUID poiId) {
+        return poiId == null ? null : pois.get(poiId);
+    }
+
+    public CityPoiData getPoiAt(BlockPos pos) {
+        if (pos == null) {
+            return null;
+        }
+        UUID poiId = posIndex.get(pos.immutable());
+        return poiId != null ? pois.get(poiId) : null;
+    }
+
+    public int getActiveCapacity(UUID cityId, CityPoiType type) {
+        return getCityPois(cityId, type).stream().mapToInt(CityPoiData::capacity).sum();
+    }
+
+    public Collection<CityPoiData> allPois() {
+        return List.copyOf(pois.values());
+    }
+
+    private void putLoaded(CityPoiData poi) {
+        pois.put(poi.poiId(), poi);
+        cityPoiIndex.computeIfAbsent(poi.cityId(), id -> ConcurrentHashMap.newKeySet()).add(poi.poiId());
+        posIndex.put(poi.pos().immutable(), poi.poiId());
+    }
+
+    private void replacePoi(CityPoiData oldPoi, CityPoiData newPoi) {
+        // 替换时必须同步维护三个索引，否则容量统计和按坐标查询会读到旧数据。
+        Set<UUID> oldCityPois = cityPoiIndex.get(oldPoi.cityId());
+        if (oldCityPois != null) {
+            oldCityPois.remove(oldPoi.poiId());
+        }
+        posIndex.remove(oldPoi.pos(), oldPoi.poiId());
+        if (!oldPoi.poiId().equals(newPoi.poiId())) {
+            pois.remove(oldPoi.poiId());
+        }
+        pois.put(newPoi.poiId(), newPoi);
+        cityPoiIndex.computeIfAbsent(newPoi.cityId(), id -> ConcurrentHashMap.newKeySet()).add(newPoi.poiId());
+        posIndex.put(newPoi.pos().immutable(), newPoi.poiId());
+    }
+}

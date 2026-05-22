@@ -1,0 +1,188 @@
+package common.cn.kafei.simukraft.storage;
+
+import common.cn.kafei.simukraft.SimuKraft;
+import common.cn.kafei.simukraft.building.BuildingPoiDefinition;
+import common.cn.kafei.simukraft.building.BuildingTaskData;
+import common.cn.kafei.simukraft.city.poi.CityPoiType;
+import net.minecraft.core.BlockPos;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+public final class BuildingTaskSqliteRepository {
+    private final SimuSqliteDatabase database;
+
+    public BuildingTaskSqliteRepository(SimuSqliteDatabase database) {
+        this.database = database;
+    }
+
+    public synchronized void upsert(BuildingTaskData task) {
+        try (Connection connection = database.openConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                saveTask(connection, task);
+                connection.commit();
+            } catch (SQLException exception) {
+                connection.rollback();
+                throw exception;
+            }
+        } catch (SQLException exception) {
+            SimuKraft.LOGGER.error("Failed to save building task", exception);
+        }
+    }
+
+    public synchronized BuildingTaskData findByCitizen(UUID citizenId) {
+        if (citizenId == null) {
+            return null;
+        }
+        try (Connection connection = database.openConnection();
+             PreparedStatement statement = connection.prepareStatement("SELECT * FROM building_tasks WHERE citizen_id = ?")) {
+            statement.setString(1, citizenId.toString());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return null;
+                }
+                UUID taskId = UUID.fromString(resultSet.getString("task_id"));
+                return new BuildingTaskData(
+                        taskId,
+                        UUID.fromString(resultSet.getString("citizen_id")),
+                        nullableUuid(resultSet.getString("city_id")),
+                        resultSet.getString("dimension_id"),
+                        new BlockPos(resultSet.getInt("build_box_x"), resultSet.getInt("build_box_y"), resultSet.getInt("build_box_z")),
+                        resultSet.getString("category"),
+                        resultSet.getString("building_file_name"),
+                        resultSet.getString("display_name"),
+                        resultSet.getString("structure_file_name"),
+                        new BlockPos(resultSet.getInt("origin_x"), resultSet.getInt("origin_y"), resultSet.getInt("origin_z")),
+                        resultSet.getInt("rotation_degrees"),
+                        resultSet.getInt("current_block_index"),
+                        resultSet.getInt("total_blocks"),
+                        resultSet.getString("status"),
+                        resultSet.getLong("created_at"),
+                        resultSet.getLong("updated_at"),
+                        loadTaskPois(connection, taskId)
+                );
+            }
+        } catch (SQLException | IllegalArgumentException exception) {
+            SimuKraft.LOGGER.error("Failed to load building task by citizen", exception);
+            return null;
+        }
+    }
+
+    public synchronized List<BuildingTaskData> findByDimension(String dimensionId) {
+        if (dimensionId == null || dimensionId.isBlank()) {
+            return List.of();
+        }
+        List<BuildingTaskData> tasks = new ArrayList<>();
+        try (Connection connection = database.openConnection();
+             PreparedStatement statement = connection.prepareStatement("SELECT * FROM building_tasks WHERE dimension_id = ? ORDER BY updated_at")) {
+            statement.setString(1, dimensionId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    UUID taskId = UUID.fromString(resultSet.getString("task_id"));
+                    tasks.add(readTask(connection, resultSet, taskId));
+                }
+            }
+        } catch (SQLException | IllegalArgumentException exception) {
+            SimuKraft.LOGGER.error("Failed to load building tasks by dimension", exception);
+            return List.of();
+        }
+        return List.copyOf(tasks);
+    }
+
+    public synchronized void deleteByCitizen(UUID citizenId) {
+        if (citizenId == null) {
+            return;
+        }
+        try (Connection connection = database.openConnection();
+             PreparedStatement statement = connection.prepareStatement("DELETE FROM building_tasks WHERE citizen_id = ?")) {
+            statement.setString(1, citizenId.toString());
+            statement.executeUpdate();
+        } catch (SQLException exception) {
+            SimuKraft.LOGGER.error("Failed to delete building task", exception);
+        }
+    }
+
+    private void saveTask(Connection connection, BuildingTaskData task) throws SQLException {
+        try (PreparedStatement taskStatement = connection.prepareStatement("INSERT INTO building_tasks(task_id, citizen_id, city_id, dimension_id, build_box_x, build_box_y, build_box_z, category, building_file_name, display_name, structure_file_name, origin_x, origin_y, origin_z, rotation_degrees, current_block_index, total_blocks, status, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(task_id) DO UPDATE SET citizen_id = excluded.citizen_id, city_id = excluded.city_id, dimension_id = excluded.dimension_id, build_box_x = excluded.build_box_x, build_box_y = excluded.build_box_y, build_box_z = excluded.build_box_z, category = excluded.category, building_file_name = excluded.building_file_name, display_name = excluded.display_name, structure_file_name = excluded.structure_file_name, origin_x = excluded.origin_x, origin_y = excluded.origin_y, origin_z = excluded.origin_z, rotation_degrees = excluded.rotation_degrees, current_block_index = excluded.current_block_index, total_blocks = excluded.total_blocks, status = excluded.status, created_at = excluded.created_at, updated_at = excluded.updated_at");
+             PreparedStatement deletePois = connection.prepareStatement("DELETE FROM building_task_pois WHERE task_id = ?");
+             PreparedStatement poiStatement = connection.prepareStatement("INSERT INTO building_task_pois(task_id, poi_key, poi_type, capacity) VALUES(?, ?, ?, ?)") ) {
+            taskStatement.setString(1, task.taskId().toString());
+            taskStatement.setString(2, task.citizenId().toString());
+            SqliteNbtHelper.setNullableString(taskStatement, 3, task.cityId() != null ? task.cityId().toString() : null);
+            taskStatement.setString(4, task.dimensionId());
+            taskStatement.setInt(5, task.buildBoxPos().getX());
+            taskStatement.setInt(6, task.buildBoxPos().getY());
+            taskStatement.setInt(7, task.buildBoxPos().getZ());
+            taskStatement.setString(8, task.category());
+            taskStatement.setString(9, task.buildingFileName());
+            taskStatement.setString(10, task.displayName());
+            taskStatement.setString(11, task.structureFileName());
+            taskStatement.setInt(12, task.origin().getX());
+            taskStatement.setInt(13, task.origin().getY());
+            taskStatement.setInt(14, task.origin().getZ());
+            taskStatement.setInt(15, task.rotationDegrees());
+            taskStatement.setInt(16, task.currentBlockIndex());
+            taskStatement.setInt(17, task.totalBlocks());
+            taskStatement.setString(18, task.status());
+            taskStatement.setLong(19, task.createdAt());
+            taskStatement.setLong(20, task.updatedAt());
+            taskStatement.executeUpdate();
+
+            deletePois.setString(1, task.taskId().toString());
+            deletePois.executeUpdate();
+            for (BuildingPoiDefinition poi : task.poiDefinitions()) {
+                poiStatement.setString(1, task.taskId().toString());
+                poiStatement.setString(2, poi.id());
+                poiStatement.setString(3, poi.poiType().name());
+                poiStatement.setInt(4, poi.capacity());
+                poiStatement.addBatch();
+            }
+            poiStatement.executeBatch();
+        }
+    }
+
+    private BuildingTaskData readTask(Connection connection, ResultSet resultSet, UUID taskId) throws SQLException {
+        return new BuildingTaskData(
+                taskId,
+                UUID.fromString(resultSet.getString("citizen_id")),
+                nullableUuid(resultSet.getString("city_id")),
+                resultSet.getString("dimension_id"),
+                new BlockPos(resultSet.getInt("build_box_x"), resultSet.getInt("build_box_y"), resultSet.getInt("build_box_z")),
+                resultSet.getString("category"),
+                resultSet.getString("building_file_name"),
+                resultSet.getString("display_name"),
+                resultSet.getString("structure_file_name"),
+                new BlockPos(resultSet.getInt("origin_x"), resultSet.getInt("origin_y"), resultSet.getInt("origin_z")),
+                resultSet.getInt("rotation_degrees"),
+                resultSet.getInt("current_block_index"),
+                resultSet.getInt("total_blocks"),
+                resultSet.getString("status"),
+                resultSet.getLong("created_at"),
+                resultSet.getLong("updated_at"),
+                loadTaskPois(connection, taskId)
+        );
+    }
+
+    private List<BuildingPoiDefinition> loadTaskPois(Connection connection, UUID taskId) throws SQLException {
+        List<BuildingPoiDefinition> pois = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement("SELECT * FROM building_task_pois WHERE task_id = ? ORDER BY poi_key")) {
+            statement.setString(1, taskId.toString());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    pois.add(new BuildingPoiDefinition(resultSet.getString("poi_key"), CityPoiType.fromName(resultSet.getString("poi_type")), resultSet.getInt("capacity")));
+                }
+            }
+        }
+        return List.copyOf(pois);
+    }
+
+    private static UUID nullableUuid(String value) {
+        return value == null || value.isBlank() ? null : UUID.fromString(value);
+    }
+}

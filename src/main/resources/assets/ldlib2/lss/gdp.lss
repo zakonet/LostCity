@@ -1,0 +1,310 @@
+.panel_bg {
+  background: group(built-in(ui-gdp:RECT_SOLID), built-in(ui-gdp:RECT_SOLID) color(#22ffffff));
+  padding-all: 5;
+  gap-all: 4;
+}
+
+.preview_bg {
+  background: built-in(ui-gdp:BORDER1_RT1);
+  padding-all: 3;
+}
+
+.configurator_preview_bg {
+  background: built-in(ui-gdp:BORDER1_RT1);
+  padding-all: 3;
+}
+
+text,
+label {
+  text-shadow: false;
+  font: minecraft:default;
+}
+
+button:host {
+  base-background: built-in(ui-gdp:BORDER1_RT1);
+  hover-background: group(built-in(ui-gdp:BORDER1_RT1), built-in(ui-gdp:BORDER1_RT1_TRANSLATE) color(#55add8e6));
+  pressed-background: group(built-in(ui-gdp:BORDER1_RT1), built-in(ui-gdp:BORDER1_RT1_TRANSLATE) color(#55add8e6));
+  padding-all: 3;
+  height: 16;
+}
+
+button:host > .__button_text__ {
+  text-shadow: false;
+  font: minecraft:default;
+}
+
+button.__disabled__ .__button_text__ {
+  text-color: #666;
+  text-shadow: false;
+}
+
+text-field:host,
+.__tag-field_text-field__,
+.__search-component_text-field__ {
+  background: built-in(ui-gdp:BORDER1_RT1);
+  focus-overlay: sdf(#00000000, 4, 1, #d9b06c);
+  padding-all: 2;
+  font: minecraft:default;
+}
+
+search-component:host {
+  background: built-in(ui-gdp:BORDER1_RT1);
+  height: 16;
+  focus-overlay: sdf(#00000000, 4, 1, #d9b06c);
+}
+
+switch:host {
+  base-background: built-in(ui-gdp:BORDER1_RT1);
+  pressed-background: sdf(#d9b06c, 5);
+  unmark-background: sdf(#a1a1a9, 4);
+  mark-background: sdf(#1c1914, 4);
+  height: 10;
+  width: 20;
+  padding-all: 1;
+}
+
+selector:host {
+  background: built-in(ui-gdp:BORDER1_RT1);
+  focus-overlay: sdf(#00000000, 4, 1, #d9b06c);
+}
+
+.__selector_button-icon__ {
+  background: sprite(ldlib2:textures/gui/down.png) scale(0.6);
+}
+
+.__selector_dialog__,
+.__search-component_dialog__ {
+  background: built-in(ui-gdp:BORDER1_RT1);
+}
+
+progress-bar:host {
+  height: 8;
+}
+
+progress-bar:host label {
+  font-size: 6;
+  font: minecraft:default;
+}
+
+.__progress-bar_bar-container__ {
+  background: built-in(ui-gdp:BORDER1_RT1);
+  padding-all: 0;
+}
+
+.__progress-bar_bar__ {
+  background: sdf(#d9b06c, 3);
+  padding-all: 0;
+}
+
+item-slot {
+  background: built-in(ui-gdp:BORDER1_RT1);
+  hover-overlay: sdf(#80FFFFFF, 2);
+}
+
+fluid-slot {
+  background: built-in(ui-gdp:BORDER1_RT1);
+}
+
+color-selector:host text-field {
+  background: built-in(ui-gdp:BORDER1_RT1);
+  focus-overlay: sdf(#00000000, 4, 1, #d9b06c);
+  padding-all: 2;
+  font: minecraft:default;
+}
+
+color-selector:host button {
+  base-background: built-in(ui-gdp:RECT_SOLID);
+  hover-background: built-in(ui-gdp:BORDER1_RT1);
+  pressed-background: built-in(ui-gdp:BORDER1_RT1);
+}
+
+color-selector:host .__color-selector_alpha-slider__,
+color-selector:host .__color-selector_color-slider__,
+color-selector:host .__color-selector_color-preview__ {
+  background: built-in(ui-gdp:BORDER1_RT1);
+  padding-all: 2;
+}
+
+color-selector:host .__color-selector_alpha-slider__,
+color-selector:host .__color-selector_color-preview__ {
+  margin-right: 2;
+}
+
+color-selector:host .__color-selector_color-slider__,
+color-selector:host .__color-selector_color-preview__ {
+  margin-bottom: 2;
+}
+
+toggle:host {
+  mark-background: sdf(#d9b06c, 3);
+  height: 12;
+}
+
+.__toggle_button__ {
+  base-background: built-in(ui-gdp:BORDER1_RT1);
+  pressed-background: built-in(ui-gdp:BORDER1_RT1);
+  hover-background: sdf(#5b5140, 5, 1, #fff0cf);
+}
+
+.__toggle_mark-icon__ {
+  margin-all: 2;
+  width: auto;
+  height: auto;
+  flex: 1;
+}
+
+text-area {
+  scroller-view-margin: 8;
+  font: minecraft:default;
+}
+
+text-area:host {
+  focus-overlay: sdf(#00000000, 4, 1, #d9b06c);
+}
+
+.__text-area_content-view__ {
+  background: built-in(ui-gdp:BORDER1_RT1);
+  padding-all: 2;
+}
+
+.__text-area_horizontal-scroller__ {
+  height: 6;
+  margin-top: 2;
+}
+
+.__text-area_vertical-scroller__ {
+  width: 6;
+  margin-left: 2;
+}
+
+scroller-horizontal:host {
+  height: 6;
+}
+
+scroller-vertical:host {
+  width: 6;
+}
+
+.__scroller_scroll_container__ {
+  background: built-in(ui-gdp:BORDER1_RT1);
+  padding-all: 1;
+}
+
+.__scroller_view_horizontal-scroller__,
+.__text-area_horizontal-scroller__ {
+  height: 8;
+  margin-top: 3;
+}
+
+.__scroller_view_vertical-scroller__,
+.__text-area_vertical-scroller__ {
+  width: 8;
+  margin-left: 3;
+}
+
+.__scroller_scroll_bar__ {
+  base-background: built-in(ui-gdp:RECT_SOLID);
+  hover-background: built-in(ui-gdp:BORDER1_RT1);
+  pressed-background: sdf(#fff0cf, 2, 1, #d9b06c);
+}
+
+.__scroller_head_button__,
+.__scroller_tail_button__ {
+  display: none;
+}
+
+scroller-view {
+  scroller-view-margin: 8;
+}
+
+.__scroller_view_view-port__ {
+  background: built-in(ui-gdp:BORDER1_RT1);
+  padding-all: 2;
+}
+
+.__scroller_view_horizontal-scroller__ {
+  height: 8;
+  margin-top: 3;
+}
+
+.__scroller_view_vertical-scroller__ {
+  width: 8;
+  margin-left: 3;
+}
+
+.__tab-view_tab_header_container__ {
+  background: built-in(ui-gdp:RECT_SOLID);
+  margin-bottom: -1;
+  padding-all: 3;
+}
+
+.__tab-view_tab_header_container__ .__scroller_view_view-container__ {
+  gap-all: 3;
+}
+
+.__tab-view_tab_content_container__ {
+  background: built-in(ui-gdp:BORDER1_RT1);
+  padding-all: 3;
+}
+
+tab-view .__tab-view_tab_scroller__ {
+  margin-bottom: 0;
+}
+
+tab:host {
+  base-background: empty;
+  hover-background: sdf(#d9b06c) scale(1, 0.1) translate(0, 6.5);
+  pressed-background: sdf(#fff0cf) scale(1, 0.1) translate(0, 6.5);
+  padding-all: 2;
+}
+
+.__dialog_title__ {
+  background: built-in(ui-gdp:RECT_SOLID);
+  transform: translateY(1);
+}
+
+.__dialog_content-container__ {
+  background: built-in(ui-gdp:BORDER1_RT1);
+}
+
+.__dialog_button-container__ {
+  background: built-in(ui-gdp:RECT_SOLID);
+  transform: translateY(-1);
+}
+
+menu {
+  background: built-in(ui-gdp:BORDER1_RT1);
+  arrow: sprite(ldlib2:textures/gui/right.png) scale(0.6);
+}
+
+.__editor__ code-editor {
+  background: built-in(ui-gdp:BORDER1_RT1);
+}
+
+.__editor_top__ {
+  background: built-in(ui-gdp:RECT_SOLID);
+}
+
+.__editor__ button:host {
+  base-background: built-in(ui-gdp:BORDER1_RT1);
+}
+
+.__editor__ tab:host {
+  height: 14;
+}
+
+.__view-container__ {
+  background: built-in(ui-gdp:RECT_SOLID);
+}
+
+.__view-container_tab-view__ .__tab-view_tab_content_container__ {
+  padding-all: 3;
+}
+
+.__editor-window_active__ {
+  background: built-in(ui-gdp:BORDER1_RT1);
+}
+
+.__editor-window_inactive__ {
+  background: built-in(ui-gdp:RECT_SOLID);
+}
