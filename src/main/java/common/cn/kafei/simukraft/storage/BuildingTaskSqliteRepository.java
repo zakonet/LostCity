@@ -57,6 +57,7 @@ public final class BuildingTaskSqliteRepository {
                         resultSet.getString("category"),
                         resultSet.getString("building_file_name"),
                         resultSet.getString("display_name"),
+                        resultSet.getString("amount"),
                         resultSet.getString("structure_file_name"),
                         new BlockPos(resultSet.getInt("origin_x"), resultSet.getInt("origin_y"), resultSet.getInt("origin_z")),
                         resultSet.getInt("rotation_degrees"),
@@ -109,7 +110,7 @@ public final class BuildingTaskSqliteRepository {
     }
 
     private void saveTask(Connection connection, BuildingTaskData task) throws SQLException {
-        try (PreparedStatement taskStatement = connection.prepareStatement("INSERT INTO building_tasks(task_id, citizen_id, city_id, dimension_id, build_box_x, build_box_y, build_box_z, category, building_file_name, display_name, structure_file_name, origin_x, origin_y, origin_z, rotation_degrees, current_block_index, total_blocks, status, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(task_id) DO UPDATE SET citizen_id = excluded.citizen_id, city_id = excluded.city_id, dimension_id = excluded.dimension_id, build_box_x = excluded.build_box_x, build_box_y = excluded.build_box_y, build_box_z = excluded.build_box_z, category = excluded.category, building_file_name = excluded.building_file_name, display_name = excluded.display_name, structure_file_name = excluded.structure_file_name, origin_x = excluded.origin_x, origin_y = excluded.origin_y, origin_z = excluded.origin_z, rotation_degrees = excluded.rotation_degrees, current_block_index = excluded.current_block_index, total_blocks = excluded.total_blocks, status = excluded.status, created_at = excluded.created_at, updated_at = excluded.updated_at");
+        try (PreparedStatement taskStatement = connection.prepareStatement("INSERT INTO building_tasks(task_id, citizen_id, city_id, dimension_id, build_box_x, build_box_y, build_box_z, category, building_file_name, display_name, amount, structure_file_name, origin_x, origin_y, origin_z, rotation_degrees, current_block_index, total_blocks, status, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(task_id) DO UPDATE SET citizen_id = excluded.citizen_id, city_id = excluded.city_id, dimension_id = excluded.dimension_id, build_box_x = excluded.build_box_x, build_box_y = excluded.build_box_y, build_box_z = excluded.build_box_z, category = excluded.category, building_file_name = excluded.building_file_name, display_name = excluded.display_name, amount = excluded.amount, structure_file_name = excluded.structure_file_name, origin_x = excluded.origin_x, origin_y = excluded.origin_y, origin_z = excluded.origin_z, rotation_degrees = excluded.rotation_degrees, current_block_index = excluded.current_block_index, total_blocks = excluded.total_blocks, status = excluded.status, created_at = excluded.created_at, updated_at = excluded.updated_at");
              PreparedStatement deletePois = connection.prepareStatement("DELETE FROM building_task_pois WHERE task_id = ?");
              PreparedStatement poiStatement = connection.prepareStatement("INSERT INTO building_task_pois(task_id, poi_key, poi_type, capacity) VALUES(?, ?, ?, ?)") ) {
             taskStatement.setString(1, task.taskId().toString());
@@ -122,16 +123,17 @@ public final class BuildingTaskSqliteRepository {
             taskStatement.setString(8, task.category());
             taskStatement.setString(9, task.buildingFileName());
             taskStatement.setString(10, task.displayName());
-            taskStatement.setString(11, task.structureFileName());
-            taskStatement.setInt(12, task.origin().getX());
-            taskStatement.setInt(13, task.origin().getY());
-            taskStatement.setInt(14, task.origin().getZ());
-            taskStatement.setInt(15, task.rotationDegrees());
-            taskStatement.setInt(16, task.currentBlockIndex());
-            taskStatement.setInt(17, task.totalBlocks());
-            taskStatement.setString(18, task.status());
-            taskStatement.setLong(19, task.createdAt());
-            taskStatement.setLong(20, task.updatedAt());
+            taskStatement.setString(11, task.amount());
+            taskStatement.setString(12, task.structureFileName());
+            taskStatement.setInt(13, task.origin().getX());
+            taskStatement.setInt(14, task.origin().getY());
+            taskStatement.setInt(15, task.origin().getZ());
+            taskStatement.setInt(16, task.rotationDegrees());
+            taskStatement.setInt(17, task.currentBlockIndex());
+            taskStatement.setInt(18, task.totalBlocks());
+            taskStatement.setString(19, task.status());
+            taskStatement.setLong(20, task.createdAt());
+            taskStatement.setLong(21, task.updatedAt());
             taskStatement.executeUpdate();
 
             deletePois.setString(1, task.taskId().toString());
@@ -157,6 +159,7 @@ public final class BuildingTaskSqliteRepository {
                 resultSet.getString("category"),
                 resultSet.getString("building_file_name"),
                 resultSet.getString("display_name"),
+                resultSet.getString("amount"),
                 resultSet.getString("structure_file_name"),
                 new BlockPos(resultSet.getInt("origin_x"), resultSet.getInt("origin_y"), resultSet.getInt("origin_z")),
                 resultSet.getInt("rotation_degrees"),

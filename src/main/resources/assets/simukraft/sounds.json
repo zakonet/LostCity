@@ -1,0 +1,14 @@
+{
+  "player.wake_up": {
+    "subtitle": "simukraft.subtitle.player.wake_up",
+    "sounds": [
+      "simukraft:player/wake_up"
+    ]
+  },
+  "money.collect": {
+    "subtitle": "simukraft.subtitle.money.collect",
+    "sounds": [
+      "simukraft:money/collect"
+    ]
+  }
+}

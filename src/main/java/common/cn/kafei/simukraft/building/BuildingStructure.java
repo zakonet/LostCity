@@ -7,6 +7,7 @@ import java.util.List;
 public record BuildingStructure(String category,
                                 String displayName,
                                 String fileName,
+                                String amount,
                                 String structureFileName,
                                 String author,
                                 String sizeText,

@@ -196,7 +196,7 @@ public final class BuilderConstructionService {
             return;
         }
         long now = System.currentTimeMillis();
-        BuildingTaskData updated = new BuildingTaskData(task.taskId(), task.citizenId(), task.cityId(), task.dimensionId(), task.buildBoxPos(), task.category(), task.buildingFileName(), task.displayName(), task.structureFileName(), task.origin(), task.rotationDegrees(), index, task.totalBlocks(), index >= cached.blocks().size() ? BuildingTaskStatus.COMPLETED.id() : BuildingTaskStatus.BUILDING.id(), task.createdAt(), now, task.poiDefinitions());
+        BuildingTaskData updated = new BuildingTaskData(task.taskId(), task.citizenId(), task.cityId(), task.dimensionId(), task.buildBoxPos(), task.category(), task.buildingFileName(), task.displayName(), task.amount(), task.structureFileName(), task.origin(), task.rotationDegrees(), index, task.totalBlocks(), index >= cached.blocks().size() ? BuildingTaskStatus.COMPLETED.id() : BuildingTaskStatus.BUILDING.id(), task.createdAt(), now, task.poiDefinitions());
         taskRuntime.task = updated;
         taskRuntime.dirty = true;
         taskRuntime.missingMaterialName = "";
@@ -224,7 +224,7 @@ public final class BuilderConstructionService {
         }
         BlockPos minPos = cached.blocks().stream().map(BuildingBlockData::relativePos).reduce(task.origin(), (current, pos) -> new BlockPos(Math.min(current.getX(), pos.getX()), Math.min(current.getY(), pos.getY()), Math.min(current.getZ(), pos.getZ())));
         BlockPos maxPos = cached.blocks().stream().map(BuildingBlockData::relativePos).reduce(task.origin(), (current, pos) -> new BlockPos(Math.max(current.getX(), pos.getX()), Math.max(current.getY(), pos.getY()), Math.max(current.getZ(), pos.getZ())));
-        PlacedBuildingRecord placedBuilding = new PlacedBuildingRecord(UUID.randomUUID(), cityId, task.dimensionId(), task.category(), task.buildingFileName(), task.displayName(), task.structureFileName(), BuildingTransform.directionFromRotation(task.rotationDegrees()).getSerializedName(), task.origin(), BlockPos.ZERO, minPos, maxPos, System.currentTimeMillis(), cached.blocks(), task.poiDefinitions(), poiInstances);
+        PlacedBuildingRecord placedBuilding = new PlacedBuildingRecord(UUID.randomUUID(), cityId, task.dimensionId(), task.category(), task.buildingFileName(), task.displayName(), task.amount(), task.structureFileName(), BuildingTransform.directionFromRotation(task.rotationDegrees()).getSerializedName(), task.origin(), BlockPos.ZERO, minPos, maxPos, System.currentTimeMillis(), cached.blocks(), task.poiDefinitions(), poiInstances);
         PlacedBuildingService.register(level, placedBuilding);
         ResidentialBedPoiService.addRecordedBeds(level, placedBuilding);
         runtime.tasksByCitizen.remove(citizen.uuid(), taskRuntime);
@@ -317,6 +317,7 @@ public final class BuilderConstructionService {
                 task.category(),
                 task.buildingFileName(),
                 task.displayName(),
+                task.amount(),
                 task.structureFileName(),
                 task.origin(),
                 task.rotationDegrees(),
@@ -480,6 +481,7 @@ public final class BuilderConstructionService {
                 task.category(),
                 task.buildingFileName(),
                 task.displayName(),
+                task.amount(),
                 task.structureFileName(),
                 task.origin(),
                 task.rotationDegrees(),

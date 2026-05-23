@@ -84,7 +84,7 @@ public final class ClientHUDOverlay {
         StringBuilder statusLine = new StringBuilder(128);
 
         if (!safeCityName.isEmpty()) {
-            String fundsDisplay = creativeMode ? "∞" : String.format(Locale.US, "%.2f", funds);
+            String fundsDisplay = String.format(Locale.US, "%.2f", funds);
             statusLine.append(Component.translatable("hud.simukraft.mayor_prefix").getString()).append(' ');
             statusLine.append(Component.translatable("hud.simukraft.city", safeCityName).getString()).append(" | ");
             statusLine.append(Component.translatable("hud.simukraft.funds", fundsDisplay).getString()).append(" | ");

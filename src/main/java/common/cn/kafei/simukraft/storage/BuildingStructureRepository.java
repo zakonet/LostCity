@@ -2,6 +2,7 @@ package common.cn.kafei.simukraft.storage;
 
 import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.building.BuildingBlockData;
+import common.cn.kafei.simukraft.building.BuildingCatalog;
 import common.cn.kafei.simukraft.building.BuildingPoiDefinition;
 import common.cn.kafei.simukraft.building.BuildingPoiInstance;
 import common.cn.kafei.simukraft.building.PlacedBuildingRecord;
@@ -64,6 +65,7 @@ public final class BuildingStructureRepository {
                             resultSet.getString("category"),
                             resultSet.getString("building_file_name"),
                             resultSet.getString("display_name"),
+                            resolveAmount(resultSet.getString("amount"), resultSet.getString("category"), resultSet.getString("building_file_name")),
                             resultSet.getString("structure_file_name"),
                             resultSet.getString("facing"),
                             new BlockPos(resultSet.getInt("origin_x"), resultSet.getInt("origin_y"), resultSet.getInt("origin_z")),
@@ -110,7 +112,7 @@ public final class BuildingStructureRepository {
     }
 
     private void saveBuilding(Connection connection, PlacedBuildingRecord record) throws SQLException {
-        try (PreparedStatement buildingStatement = connection.prepareStatement("INSERT INTO placed_buildings(building_id, city_id, dimension_id, category, building_file_name, display_name, structure_file_name, facing, origin_x, origin_y, origin_z, anchor_x, anchor_y, anchor_z, min_x, min_y, min_z, max_x, max_y, max_z, completed_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(building_id) DO UPDATE SET city_id = excluded.city_id, dimension_id = excluded.dimension_id, category = excluded.category, building_file_name = excluded.building_file_name, display_name = excluded.display_name, structure_file_name = excluded.structure_file_name, facing = excluded.facing, origin_x = excluded.origin_x, origin_y = excluded.origin_y, origin_z = excluded.origin_z, anchor_x = excluded.anchor_x, anchor_y = excluded.anchor_y, anchor_z = excluded.anchor_z, min_x = excluded.min_x, min_y = excluded.min_y, min_z = excluded.min_z, max_x = excluded.max_x, max_y = excluded.max_y, max_z = excluded.max_z, completed_at = excluded.completed_at");
+        try (PreparedStatement buildingStatement = connection.prepareStatement("INSERT INTO placed_buildings(building_id, city_id, dimension_id, category, building_file_name, display_name, amount, structure_file_name, facing, origin_x, origin_y, origin_z, anchor_x, anchor_y, anchor_z, min_x, min_y, min_z, max_x, max_y, max_z, completed_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(building_id) DO UPDATE SET city_id = excluded.city_id, dimension_id = excluded.dimension_id, category = excluded.category, building_file_name = excluded.building_file_name, display_name = excluded.display_name, amount = excluded.amount, structure_file_name = excluded.structure_file_name, facing = excluded.facing, origin_x = excluded.origin_x, origin_y = excluded.origin_y, origin_z = excluded.origin_z, anchor_x = excluded.anchor_x, anchor_y = excluded.anchor_y, anchor_z = excluded.anchor_z, min_x = excluded.min_x, min_y = excluded.min_y, min_z = excluded.min_z, max_x = excluded.max_x, max_y = excluded.max_y, max_z = excluded.max_z, completed_at = excluded.completed_at");
              PreparedStatement deleteBlocks = connection.prepareStatement("DELETE FROM placed_building_blocks WHERE building_id = ?");
              PreparedStatement deletePois = connection.prepareStatement("DELETE FROM placed_building_pois WHERE building_id = ?");
              PreparedStatement blockStatement = connection.prepareStatement("INSERT INTO placed_building_blocks(building_id, relative_x, relative_y, relative_z, block_id, block_state_nbt, original_x, original_y, original_z) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -121,21 +123,22 @@ public final class BuildingStructureRepository {
             buildingStatement.setString(4, record.category());
             buildingStatement.setString(5, record.buildingFileName());
             buildingStatement.setString(6, record.displayName());
-            buildingStatement.setString(7, record.structureFileName());
-            buildingStatement.setString(8, record.facing());
-            buildingStatement.setInt(9, record.worldOrigin().getX());
-            buildingStatement.setInt(10, record.worldOrigin().getY());
-            buildingStatement.setInt(11, record.worldOrigin().getZ());
-            buildingStatement.setInt(12, record.structureAnchor().getX());
-            buildingStatement.setInt(13, record.structureAnchor().getY());
-            buildingStatement.setInt(14, record.structureAnchor().getZ());
-            buildingStatement.setInt(15, record.minPos().getX());
-            buildingStatement.setInt(16, record.minPos().getY());
-            buildingStatement.setInt(17, record.minPos().getZ());
-            buildingStatement.setInt(18, record.maxPos().getX());
-            buildingStatement.setInt(19, record.maxPos().getY());
-            buildingStatement.setInt(20, record.maxPos().getZ());
-            buildingStatement.setLong(21, record.completedAt());
+            buildingStatement.setString(7, record.amount());
+            buildingStatement.setString(8, record.structureFileName());
+            buildingStatement.setString(9, record.facing());
+            buildingStatement.setInt(10, record.worldOrigin().getX());
+            buildingStatement.setInt(11, record.worldOrigin().getY());
+            buildingStatement.setInt(12, record.worldOrigin().getZ());
+            buildingStatement.setInt(13, record.structureAnchor().getX());
+            buildingStatement.setInt(14, record.structureAnchor().getY());
+            buildingStatement.setInt(15, record.structureAnchor().getZ());
+            buildingStatement.setInt(16, record.minPos().getX());
+            buildingStatement.setInt(17, record.minPos().getY());
+            buildingStatement.setInt(18, record.minPos().getZ());
+            buildingStatement.setInt(19, record.maxPos().getX());
+            buildingStatement.setInt(20, record.maxPos().getY());
+            buildingStatement.setInt(21, record.maxPos().getZ());
+            buildingStatement.setLong(22, record.completedAt());
             buildingStatement.executeUpdate();
 
             deleteBlocks.setString(1, record.buildingId().toString());
@@ -275,5 +278,14 @@ public final class BuildingStructureRepository {
 
     private static UUID nullableUuid(String value) {
         return value == null || value.isBlank() ? null : UUID.fromString(value);
+    }
+
+    private static String resolveAmount(String storedAmount, String category, String buildingFileName) {
+        if (storedAmount != null && !storedAmount.isBlank()) {
+            return storedAmount;
+        }
+        return BuildingCatalog.findBuilding(category, buildingFileName)
+                .map(BuildingCatalog.BuildingDefinition::amount)
+                .orElse("");
     }
 }

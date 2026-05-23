@@ -58,6 +58,7 @@ public final class BuildingStructureService {
                 definition.category(),
                 definition.displayName(),
                 stripExtension(definition.metaFileName()),
+                definition.amount(),
                 definition.structureFileName(),
                 definition.author(),
                 definition.size(),

@@ -115,6 +115,7 @@ public final class ResidentialControlBoxService {
                 building.category(),
                 building.buildingFileName(),
                 building.displayName(),
+                building.amount(),
                 building.structureFileName(),
                 building.facing(),
                 building.worldOrigin(),

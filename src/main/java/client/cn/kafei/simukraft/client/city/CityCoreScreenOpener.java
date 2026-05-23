@@ -340,7 +340,6 @@ public final class CityCoreScreenOpener {
     }
 
     private static void addManageContent(UIElement panel, CityCoreOpenResponsePacket packet) {
-        panel.addChild(line(Component.translatable("screen.simukraft.city_core.map_title")));
         addCitySummary(panel, packet);
     }
 
@@ -369,29 +368,10 @@ public final class CityCoreScreenOpener {
                 line(Component.translatable("screen.simukraft.city_core.city_name", packet.cityName())),
                 line(Component.translatable("screen.simukraft.city_core.funds", String.format(Locale.ROOT, "%.2f", packet.funds()))),
                 line(Component.translatable("screen.simukraft.city_core.level", packet.cityLevel())),
-                line(Component.translatable("screen.simukraft.city_core.members", packet.memberCount())),
                 line(Component.translatable("screen.simukraft.city_core.population", packet.cityPopulation(), packet.housingCapacity())),
                 line(Component.translatable("screen.simukraft.city_core.permission", Component.translatable("permission.simukraft." + packet.permissionLevel().name().toLowerCase(Locale.ROOT)).getString())),
                 line(Component.translatable("screen.simukraft.city_core.core_pos", packet.pos().getX(), packet.pos().getY(), packet.pos().getZ()))
         );
-        addPoiSummary(root, packet);
-    }
-
-    private static void addPoiSummary(UIElement root, CityCoreOpenResponsePacket packet) {
-        root.addChild(contentSpacerSmall());
-        root.addChild(line(Component.translatable("screen.simukraft.city_core.poi.title")));
-        if (packet.poiStats().isEmpty()) {
-            root.addChild(line(Component.translatable("screen.simukraft.city_core.poi.empty")));
-            return;
-        }
-        for (CityCoreOpenResponsePacket.PoiStat stat : packet.poiStats()) {
-            root.addChild(line(Component.translatable(
-                    "screen.simukraft.city_core.poi.row",
-                    Component.translatable("screen.simukraft.city_core.poi.type." + stat.type().name().toLowerCase(Locale.ROOT)).getString(),
-                    stat.count(),
-                    stat.capacity()
-            )));
-        }
         addJobSummary(root, packet);
     }
 

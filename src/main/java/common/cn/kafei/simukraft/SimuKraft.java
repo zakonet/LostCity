@@ -14,6 +14,7 @@ import common.cn.kafei.simukraft.building.PlacedBuildingService;
 import common.cn.kafei.simukraft.building.ResidentialBedPoiService;
 import common.cn.kafei.simukraft.command.SimuKraftCommand;
 import common.cn.kafei.simukraft.config.ServerConfig;
+import common.cn.kafei.simukraft.economy.ResidentialRentService;
 import common.cn.kafei.simukraft.event.CityPlacementRestrictionHandler;
 import common.cn.kafei.simukraft.network.ModNetwork;
 import common.cn.kafei.simukraft.network.city.chunk.CityChunkSyncService;
@@ -23,6 +24,7 @@ import common.cn.kafei.simukraft.registry.ModBlocks;
 import common.cn.kafei.simukraft.registry.ModCreativeModeTabs;
 import common.cn.kafei.simukraft.registry.ModEntities;
 import common.cn.kafei.simukraft.registry.ModEntityAttributes;
+import common.cn.kafei.simukraft.registry.ModSoundEvents;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
@@ -47,6 +49,7 @@ public final class SimuKraft {
         ModCreativeModeTabs.register(modEventBus);
         ModEntities.register(modEventBus);
         ModEntityAttributes.register(modEventBus);
+        ModSoundEvents.register(modEventBus);
         modContainer.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);
         modEventBus.register(ModNetwork.class);
         if (FMLEnvironment.dist == Dist.CLIENT) {
@@ -85,6 +88,7 @@ public final class SimuKraft {
             CitizenHomeRestService.tick(level);
             BuilderConstructionService.tick(level);
             PopulationGrowthService.tick(level);
+            ResidentialRentService.tick(level);
             HudSyncService.tick(level);
             if (level.getGameTime() % 1200L == 0L) {
                 CityManager.get(level).saveToSqlite(level);
@@ -108,6 +112,7 @@ public final class SimuKraft {
         ResidentialBedPoiService.clearServerCaches(event.getServer());
         CitizenHomeRestService.clearServerCaches(event.getServer());
         CityJobAssignmentService.clearServerCaches(event.getServer());
+        ResidentialRentService.clearServerCaches(event.getServer());
         HudSyncService.clearServerCaches(event.getServer());
         BuilderMaterialPolicy.clearCache();
     }

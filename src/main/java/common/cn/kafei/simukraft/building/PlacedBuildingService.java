@@ -157,6 +157,7 @@ public final class PlacedBuildingService {
                             record.category(),
                             record.buildingFileName(),
                             record.displayName(),
+                            record.amount(),
                             record.structureFileName(),
                             record.facing(),
                             record.worldOrigin(),
