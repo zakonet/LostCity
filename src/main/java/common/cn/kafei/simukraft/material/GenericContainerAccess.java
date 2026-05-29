@@ -1,0 +1,246 @@
+package common.cn.kafei.simukraft.material;
+
+import common.cn.kafei.simukraft.SimuKraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.Container;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.ChestType;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.items.IItemHandler;
+
+import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Predicate;
+
+/**
+ * 通用容器访问：优先支持 NeoForge IItemHandler，回退原版 Container。
+ */
+@SuppressWarnings("null")
+public final class GenericContainerAccess {
+    private GenericContainerAccess() {
+    }
+
+    public static boolean isContainer(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null || !level.isLoaded(pos)) {
+            return false;
+        }
+        return resolveContainer(level, pos) != null || resolveItemHandler(level, pos) != null;
+    }
+
+    public static List<SlotSnapshot> snapshotSlots(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null || !level.isLoaded(pos)) {
+            return List.of();
+        }
+        Container chestContainer = resolveChestContainer(level, pos);
+        if (chestContainer != null) {
+            return snapshotContainer(chestContainer);
+        }
+        ItemHandlerAccess handlerAccess = resolveItemHandler(level, pos);
+        if (handlerAccess != null) {
+            return snapshotItemHandler(handlerAccess);
+        }
+        Container container = resolveContainer(level, pos);
+        if (container == null) {
+            return List.of();
+        }
+        return snapshotContainer(container);
+    }
+
+    public static boolean consumeSingleItemAtSlot(ServerLevel level, BlockPos pos, int slot, SlotAccess access, @Nullable Direction side, Item item) {
+        return consumeSingleItemAtSlot(level, pos, slot, access, side, stack -> !stack.isEmpty() && stack.getItem() == item);
+    }
+
+    public static boolean consumeSingleItemAtSlot(ServerLevel level, BlockPos pos, int slot, SlotAccess access, @Nullable Direction side, Predicate<ItemStack> matcher) {
+        if (level == null || pos == null || matcher == null || !level.isLoaded(pos)) {
+            return false;
+        }
+        try {
+            return switch (access) {
+                case ITEM_HANDLER -> consumeFromItemHandler(level, pos, side, slot, matcher);
+                case CONTAINER -> consumeFromContainer(level, pos, slot, matcher);
+            };
+        } catch (RuntimeException exception) {
+            SimuKraft.LOGGER.warn("Simukraft: Failed to consume material from container at {}", pos, exception);
+            return false;
+        }
+    }
+
+    public static ItemStack stackAtSlot(ServerLevel level, BlockPos pos, int slot, SlotAccess access, @Nullable Direction side) {
+        if (level == null || pos == null || !level.isLoaded(pos)) {
+            return ItemStack.EMPTY;
+        }
+        try {
+            return switch (access) {
+                case ITEM_HANDLER -> stackFromItemHandler(level, pos, side, slot);
+                case CONTAINER -> stackFromContainer(level, pos, slot);
+            };
+        } catch (RuntimeException exception) {
+            SimuKraft.LOGGER.warn("Simukraft: Failed to read material slot from container at {}", pos, exception);
+            return ItemStack.EMPTY;
+        }
+    }
+
+    public static BlockPos canonicalContainerPos(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null || !level.isLoaded(pos)) {
+            return pos;
+        }
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof ChestBlock) || !state.hasProperty(ChestBlock.TYPE)) {
+            return pos.immutable();
+        }
+        ChestType type = state.getValue(ChestBlock.TYPE);
+        if (type == ChestType.SINGLE) {
+            return pos.immutable();
+        }
+        BlockPos otherHalf = pos.relative(ChestBlock.getConnectedDirection(state));
+        if (!level.isLoaded(otherHalf)) {
+            return pos.immutable();
+        }
+        BlockState otherState = level.getBlockState(otherHalf);
+        if (otherState.getBlock() != state.getBlock() || !otherState.hasProperty(ChestBlock.TYPE)) {
+            return pos.immutable();
+        }
+        return comparePositions(pos, otherHalf) <= 0 ? pos.immutable() : otherHalf.immutable();
+    }
+
+    private static List<SlotSnapshot> snapshotItemHandler(ItemHandlerAccess handlerAccess) {
+        List<SlotSnapshot> snapshots = new ArrayList<>();
+        IItemHandler handler = handlerAccess.handler();
+        for (int slot = 0; slot < handler.getSlots(); slot++) {
+            ItemStack stack = handler.getStackInSlot(slot);
+            if (!stack.isEmpty()) {
+                snapshots.add(new SlotSnapshot(slot, SlotAccess.ITEM_HANDLER, handlerAccess.side(), stack.copy()));
+            }
+        }
+        return List.copyOf(snapshots);
+    }
+
+    private static List<SlotSnapshot> snapshotContainer(Container container) {
+        List<SlotSnapshot> snapshots = new ArrayList<>();
+        for (int slot = 0; slot < container.getContainerSize(); slot++) {
+            ItemStack stack = container.getItem(slot);
+            if (!stack.isEmpty()) {
+                snapshots.add(new SlotSnapshot(slot, SlotAccess.CONTAINER, null, stack.copy()));
+            }
+        }
+        return List.copyOf(snapshots);
+    }
+
+    @Nullable
+    private static ItemHandlerAccess resolveItemHandler(ServerLevel level, BlockPos pos) {
+        IItemHandler unsided = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
+        if (hasSlots(unsided)) {
+            return new ItemHandlerAccess(unsided, null);
+        }
+        for (Direction side : Direction.values()) {
+            IItemHandler sided = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, side);
+            if (hasSlots(sided)) {
+                return new ItemHandlerAccess(sided, side);
+            }
+        }
+        return null;
+    }
+
+    @Nullable
+    private static Container resolveContainer(ServerLevel level, BlockPos pos) {
+        Container chestContainer = resolveChestContainer(level, pos);
+        if (chestContainer != null) {
+            return chestContainer;
+        }
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        return blockEntity instanceof Container container ? container : null;
+    }
+
+    @Nullable
+    private static Container resolveChestContainer(ServerLevel level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (state.getBlock() instanceof ChestBlock chestBlock) {
+            return ChestBlock.getContainer(chestBlock, state, level, pos, true);
+        }
+        return null;
+    }
+
+    private static boolean hasSlots(@Nullable IItemHandler handler) {
+        return handler != null && handler.getSlots() > 0;
+    }
+
+    private static boolean consumeFromItemHandler(ServerLevel level, BlockPos pos, @Nullable Direction side, int slot, Predicate<ItemStack> matcher) {
+        IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, side);
+        if (handler == null || slot < 0 || slot >= handler.getSlots()) {
+            return false;
+        }
+        ItemStack current = handler.getStackInSlot(slot);
+        if (current.isEmpty() || !matcher.test(current)) {
+            return false;
+        }
+        ItemStack extracted = handler.extractItem(slot, 1, false);
+        return !extracted.isEmpty() && matcher.test(extracted);
+    }
+
+    private static ItemStack stackFromItemHandler(ServerLevel level, BlockPos pos, @Nullable Direction side, int slot) {
+        IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, side);
+        if (handler == null || slot < 0 || slot >= handler.getSlots()) {
+            return ItemStack.EMPTY;
+        }
+        return handler.getStackInSlot(slot).copy();
+    }
+
+    private static boolean consumeFromContainer(ServerLevel level, BlockPos pos, int slot, Predicate<ItemStack> matcher) {
+        Container container = resolveContainer(level, pos);
+        if (container == null || slot < 0 || slot >= container.getContainerSize()) {
+            return false;
+        }
+        ItemStack current = container.getItem(slot);
+        if (current.isEmpty() || !matcher.test(current)) {
+            return false;
+        }
+        ItemStack removed = container.removeItem(slot, 1);
+        if (removed.isEmpty() || !matcher.test(removed)) {
+            return false;
+        }
+        container.setChanged();
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (blockEntity != null) {
+            blockEntity.setChanged();
+        }
+        return true;
+    }
+
+    private static ItemStack stackFromContainer(ServerLevel level, BlockPos pos, int slot) {
+        Container container = resolveContainer(level, pos);
+        if (container == null || slot < 0 || slot >= container.getContainerSize()) {
+            return ItemStack.EMPTY;
+        }
+        return container.getItem(slot).copy();
+    }
+
+    private static int comparePositions(BlockPos first, BlockPos second) {
+        int y = Integer.compare(first.getY(), second.getY());
+        if (y != 0) {
+            return y;
+        }
+        int x = Integer.compare(first.getX(), second.getX());
+        if (x != 0) {
+            return x;
+        }
+        return Integer.compare(first.getZ(), second.getZ());
+    }
+
+    public enum SlotAccess {
+        ITEM_HANDLER,
+        CONTAINER
+    }
+
+    public record SlotSnapshot(int slot, SlotAccess access, @Nullable Direction side, ItemStack stack) {
+    }
+
+    private record ItemHandlerAccess(IItemHandler handler, @Nullable Direction side) {
+    }
+}

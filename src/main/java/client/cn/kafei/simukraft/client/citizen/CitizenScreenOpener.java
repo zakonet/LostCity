@@ -12,6 +12,9 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Tab;
 import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollerMode;
+import common.cn.kafei.simukraft.citizen.CitizenLevelService;
+import common.cn.kafei.simukraft.citizen.CitizenSkillSnapshot;
+import common.cn.kafei.simukraft.job.CityJobType;
 import common.cn.kafei.simukraft.network.citizen.info.CitizenInfoResponsePacket;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
@@ -84,7 +87,9 @@ public final class CitizenScreenOpener {
         panel.addChild(line(Component.translatable("screen.simukraft.citizen_info.menu.work")));
         panel.addChild(contentSpacerSmall());
         panel.addChild(line(Component.translatable("screen.simukraft.citizen_info.work_status", workStatusText(packet))));
+        panel.addChild(line(Component.translatable("screen.simukraft.citizen_info.work_detail", blankFallback(packet.statusLabel()))));
         panel.addChild(line(Component.translatable("screen.simukraft.citizen_info.job", jobText(packet))));
+        panel.addChild(line(Component.translatable("screen.simukraft.citizen_info.skill_level", skillText(packet))));
         return panel;
     }
 
@@ -147,6 +152,14 @@ public final class CitizenScreenOpener {
 
     private static String jobText(CitizenInfoResponsePacket packet) {
         return Component.translatable(common.cn.kafei.simukraft.job.CityJobType.fromName(packet.jobType()).translationKey()).getString();
+    }
+
+    private static String skillText(CitizenInfoResponsePacket packet) {
+        CitizenSkillSnapshot skill = new CitizenSkillSnapshot(CityJobType.fromName(packet.jobType()), Math.max(1, packet.skillLevel()), Math.max(0, packet.skillXp()), Math.max(1, packet.skillMaxLevel()));
+        if (skill.maxLevelReached()) {
+            return "Lv." + skill.level() + " MAX";
+        }
+        return "Lv." + skill.level() + " " + CitizenLevelService.xpInCurrentLevel(skill) + "/" + CitizenLevelService.xpNeededForCurrentLevel(skill);
     }
 
     private static String healthText(CitizenInfoResponsePacket packet) {

@@ -65,7 +65,9 @@
     "screen.simukraft.citizen_info.health":  "Health: %s",
     "screen.simukraft.citizen_info.hunger":  "Hunger: %s",
     "screen.simukraft.citizen_info.work_status":  "Work Status: %s",
+    "screen.simukraft.citizen_info.work_detail":  "Work Detail: %s",
     "screen.simukraft.citizen_info.job":  "Job: %s",
+    "screen.simukraft.citizen_info.skill_level":  "Profession Level: %s",
     "screen.simukraft.citizen_info.city":  "City: %s",
     "screen.simukraft.citizen_info.home":  "Home: %s",
     "screen.simukraft.citizen_info.workplace":  "Workplace: %s",
@@ -282,5 +284,17 @@
     "gui.residential_control_box.assign_existing":  "Move In NPC",
     "gui.residential_control_box.spawn_new":  "Add New NPC",
     "message.simukraft.residential_control_box.assigned_existing":  "Assigned %s NPC(s) to vacant beds.",
-    "message.simukraft.residential_control_box.spawned_new":  "Added %s new NPC(s) to the city."
+    "message.simukraft.residential_control_box.spawned_new":  "Added %s new NPC(s) to the city.",
+    "config.simukraft.construction.builderBlocksPerSecond":  "Builder Base Blocks Per Second",
+    "config.simukraft.npc_leveling.maxLevel":  "NPC Max Level",
+    "config.simukraft.npc_leveling.builderEnableXpGain":  "Builder XP Gain",
+    "config.simukraft.npc_leveling.builderXpPerBlock":  "Builder XP Per Block",
+    "config.simukraft.materials.enableCreativeMode":  "Material Creative Mode",
+    "config.simukraft.materials.enableExpertMode":  "Expert Material Mode",
+    "config.simukraft.materials.enableMaterialCategoryMatching":  "Enable Material Category Matching",
+    "config.simukraft.materials.basicMaterials":  "Basic Materials",
+    "config.simukraft.materials.materialCategoryGroups":  "Material Category Groups",
+    "config.simukraft.materials.expertModeSkipList":  "Expert Mode Skip List",
+    "simukraft.material.available":  "Available",
+    "simukraft.material.etc":  "etc."
 }

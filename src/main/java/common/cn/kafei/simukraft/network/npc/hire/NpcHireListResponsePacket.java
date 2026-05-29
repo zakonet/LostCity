@@ -54,7 +54,8 @@ public record NpcHireListResponsePacket(BlockPos sourcePos, String sourceType, S
     }
 
     public record HireCandidate(UUID citizenId, String name, String gender, int age, double health, double hunger,
-                                String skinPath, String currentJob, String workStatus, int skillLevel) {
+                                String skinPath, String currentJob, String workStatus, int skillLevel, int skillXp,
+                                int skillMaxLevel) {
         public static final StreamCodec<RegistryFriendlyByteBuf, HireCandidate> STREAM_CODEC = StreamCodec.of(HireCandidate::encode, HireCandidate::decode);
 
         private static void encode(RegistryFriendlyByteBuf buffer, HireCandidate candidate) {
@@ -68,6 +69,8 @@ public record NpcHireListResponsePacket(BlockPos sourcePos, String sourceType, S
             buffer.writeUtf(candidate.currentJob(), 32);
             buffer.writeUtf(candidate.workStatus(), 32);
             buffer.writeVarInt(candidate.skillLevel());
+            buffer.writeVarInt(candidate.skillXp());
+            buffer.writeVarInt(candidate.skillMaxLevel());
         }
 
         private static HireCandidate decode(RegistryFriendlyByteBuf buffer) {
@@ -81,6 +84,8 @@ public record NpcHireListResponsePacket(BlockPos sourcePos, String sourceType, S
                     buffer.readUtf(128),
                     buffer.readUtf(32),
                     buffer.readUtf(32),
+                    buffer.readVarInt(),
+                    buffer.readVarInt(),
                     buffer.readVarInt()
             );
         }

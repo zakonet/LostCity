@@ -1,7 +1,11 @@
 package common.cn.kafei.simukraft.network.npc.hire;
 
 import common.cn.kafei.simukraft.SimuKraft;
+import common.cn.kafei.simukraft.citizen.CitizenLevelService;
 import common.cn.kafei.simukraft.citizen.CitizenService;
+import common.cn.kafei.simukraft.citizen.CitizenSkillSnapshot;
+import common.cn.kafei.simukraft.job.CityJobMobilityService;
+import common.cn.kafei.simukraft.job.CityJobType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -45,19 +49,25 @@ public record NpcHireListRequestPacket(BlockPos sourcePos, String sourceType, St
             }
             UUID workplaceId = UUID.nameUUIDFromBytes((packet.sourceType() + ":" + packet.role() + "@" + packet.sourcePos().toShortString()).getBytes(StandardCharsets.UTF_8));
             UUID assignedCitizenId = CitizenService.findAssignedCitizen(level, workplaceId);
+            CityJobType requestedJobType = CityJobMobilityService.resolveHireRole(packet.role());
             List<NpcHireListResponsePacket.HireCandidate> candidates = CitizenService.listHireableCitizens(level).stream()
-                    .map(data -> new NpcHireListResponsePacket.HireCandidate(
-                            data.uuid(),
-                            data.name(),
-                            data.gender(),
-                            data.age(),
-                            data.health(),
-                            data.hunger(),
-                            data.skinPath(),
-                            data.jobType().name(),
-                            data.workStatus(),
-                            1
-                    ))
+                    .map(data -> {
+                        CitizenSkillSnapshot skill = CitizenLevelService.snapshot(data, requestedJobType);
+                        return new NpcHireListResponsePacket.HireCandidate(
+                                data.uuid(),
+                                data.name(),
+                                data.gender(),
+                                data.age(),
+                                data.health(),
+                                data.hunger(),
+                                data.skinPath(),
+                                data.jobType().name(),
+                                data.workStatus(),
+                                skill.level(),
+                                skill.xp(),
+                                skill.maxLevel()
+                        );
+                    })
                     .toList();
             PacketDistributor.sendToPlayer(player, new NpcHireListResponsePacket(packet.sourcePos(), packet.sourceType(), packet.role(), assignedCitizenId, candidates));
         }

@@ -2,6 +2,8 @@ package common.cn.kafei.simukraft.network.citizen.info;
 
 import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.citizen.CitizenData;
+import common.cn.kafei.simukraft.citizen.CitizenLevelService;
+import common.cn.kafei.simukraft.citizen.CitizenSkillSnapshot;
 import common.cn.kafei.simukraft.city.CityData;
 import common.cn.kafei.simukraft.city.CityManager;
 import common.cn.kafei.simukraft.city.poi.CityPoiData;
@@ -19,8 +21,8 @@ import java.util.UUID;
 @SuppressWarnings("null")
 public record CitizenInfoResponsePacket(UUID citizenId, String name, String gender, int age, int lifespan,
                                         double health, double hunger, boolean sick, boolean child,
-                                        String workStatus, String jobType, String cityName, String homeName,
-                                        String workplaceName) implements CustomPacketPayload {
+                                        String workStatus, String statusLabel, String jobType, String cityName, String homeName,
+                                        String workplaceName, int skillLevel, int skillXp, int skillMaxLevel) implements CustomPacketPayload {
     public static final Type<CitizenInfoResponsePacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SimuKraft.MOD_ID, "citizen_info_response"));
     public static final StreamCodec<RegistryFriendlyByteBuf, CitizenInfoResponsePacket> STREAM_CODEC = StreamCodec.of(CitizenInfoResponsePacket::encode, CitizenInfoResponsePacket::decode);
 
@@ -29,6 +31,7 @@ public record CitizenInfoResponsePacket(UUID citizenId, String name, String gend
         CityPoiManager poiManager = CityPoiManager.get(level);
         String homeName = poiName(poiManager, data.homeId());
         String workplaceName = poiName(poiManager, data.workplaceId());
+        CitizenSkillSnapshot skill = CitizenLevelService.snapshot(data, data.jobType());
         return new CitizenInfoResponsePacket(
                 data.uuid(),
                 data.name(),
@@ -40,10 +43,14 @@ public record CitizenInfoResponsePacket(UUID citizenId, String name, String gend
                 data.sick(),
                 data.child(),
                 data.workStatus(),
+                data.statusLabel(),
                 data.jobType().name(),
                 cityName,
                 homeName,
-                workplaceName
+                workplaceName,
+                skill.level(),
+                skill.xp(),
+                skill.maxLevel()
         );
     }
 
@@ -63,10 +70,14 @@ public record CitizenInfoResponsePacket(UUID citizenId, String name, String gend
         buffer.writeBoolean(packet.sick());
         buffer.writeBoolean(packet.child());
         buffer.writeUtf(packet.workStatus(), 32);
+        buffer.writeUtf(packet.statusLabel(), 128);
         buffer.writeUtf(packet.jobType(), 32);
         buffer.writeUtf(packet.cityName(), 64);
         buffer.writeUtf(packet.homeName(), 96);
         buffer.writeUtf(packet.workplaceName(), 96);
+        buffer.writeVarInt(packet.skillLevel());
+        buffer.writeVarInt(packet.skillXp());
+        buffer.writeVarInt(packet.skillMaxLevel());
     }
 
     public static CitizenInfoResponsePacket decode(RegistryFriendlyByteBuf buffer) {
@@ -81,10 +92,14 @@ public record CitizenInfoResponsePacket(UUID citizenId, String name, String gend
                 buffer.readBoolean(),
                 buffer.readBoolean(),
                 buffer.readUtf(32),
+                buffer.readUtf(128),
                 buffer.readUtf(32),
                 buffer.readUtf(64),
                 buffer.readUtf(96),
-                buffer.readUtf(96)
+                buffer.readUtf(96),
+                buffer.readVarInt(),
+                buffer.readVarInt(),
+                buffer.readVarInt()
         );
     }
 

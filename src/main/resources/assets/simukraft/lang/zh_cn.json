@@ -65,7 +65,9 @@
     "screen.simukraft.citizen_info.health":  "健康：%s",
     "screen.simukraft.citizen_info.hunger":  "饥饿：%s",
     "screen.simukraft.citizen_info.work_status":  "工作状态：%s",
+    "screen.simukraft.citizen_info.work_detail":  "工作内容：%s",
     "screen.simukraft.citizen_info.job":  "职业：%s",
+    "screen.simukraft.citizen_info.skill_level":  "职业等级：%s",
     "screen.simukraft.citizen_info.city":  "所属城市：%s",
     "screen.simukraft.citizen_info.home":  "住宅：%s",
     "screen.simukraft.citizen_info.workplace":  "工作点：%s",
@@ -307,5 +309,17 @@
     "gui.residential_control_box.assign_existing":  "NPC入住",
     "gui.residential_control_box.spawn_new":  "新增NPC",
     "message.simukraft.residential_control_box.assigned_existing":  "已安排 %s 名 NPC 入住房屋。",
-    "message.simukraft.residential_control_box.spawned_new":  "已向城市新增 %s 名 NPC。"
+    "message.simukraft.residential_control_box.spawned_new":  "已向城市新增 %s 名 NPC。",
+    "config.simukraft.construction.builderBlocksPerSecond":  "建筑师基础每秒方块数",
+    "config.simukraft.npc_leveling.maxLevel":  "NPC最高等级",
+    "config.simukraft.npc_leveling.builderEnableXpGain":  "建筑师获得经验",
+    "config.simukraft.npc_leveling.builderXpPerBlock":  "建筑师每方块经验",
+    "config.simukraft.materials.enableCreativeMode":  "材料创造模式",
+    "config.simukraft.materials.enableExpertMode":  "专家材料模式",
+    "config.simukraft.materials.enableMaterialCategoryMatching":  "启用材料通类匹配",
+    "config.simukraft.materials.basicMaterials":  "基础材料列表",
+    "config.simukraft.materials.materialCategoryGroups":  "材料通类匹配组",
+    "config.simukraft.materials.expertModeSkipList":  "专家模式跳过列表",
+    "simukraft.material.available":  "可用",
+    "simukraft.material.etc":  "等"
 }

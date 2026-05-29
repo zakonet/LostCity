@@ -10,6 +10,9 @@ import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ProgressBar;
+import common.cn.kafei.simukraft.citizen.CitizenLevelService;
+import common.cn.kafei.simukraft.citizen.CitizenSkillSnapshot;
+import common.cn.kafei.simukraft.job.CityJobType;
 import common.cn.kafei.simukraft.network.npc.hire.NpcHireAssignPacket;
 import common.cn.kafei.simukraft.network.npc.hire.NpcHireListRequestPacket;
 import common.cn.kafei.simukraft.network.npc.hire.NpcHireListResponsePacket;
@@ -312,13 +315,11 @@ public final class NpcHireScreen {
     }
 
     private static UIElement expBar(NpcHireListResponsePacket.HireCandidate candidate, int width, int height) {
-        int level = Math.max(1, candidate.skillLevel());
-        int currentXp = getXpForCurrentLevel(level);
-        int nextXp = getXpForNextLevel(level);
-        boolean isMaxLevel = nextXp < 0;
-        float progress = isMaxLevel ? 1.0F : 0.35F;
+        CitizenSkillSnapshot skill = new CitizenSkillSnapshot(CityJobType.fromName(candidate.currentJob()), Math.max(1, candidate.skillLevel()), Math.max(0, candidate.skillXp()), Math.max(1, candidate.skillMaxLevel()));
+        boolean isMaxLevel = skill.maxLevelReached();
+        float progress = CitizenLevelService.progress(skill);
         int barWidth = width - 16;
-        String expText = isMaxLevel ? "MAX" : currentXp + "/" + nextXp;
+        String expText = isMaxLevel ? "MAX" : CitizenLevelService.xpInCurrentLevel(skill) + "/" + CitizenLevelService.xpNeededForCurrentLevel(skill);
 
         ProgressBar bar = new ProgressBar();
         bar.setRange(0.0F, 1.0F);
@@ -438,32 +439,6 @@ public final class NpcHireScreen {
             }
         }
         return "";
-    }
-
-    private static int getXpForCurrentLevel(int level) {
-        return switch (level) {
-            case 1 -> 0;
-            case 2 -> 50;
-            case 3 -> 150;
-            case 4 -> 350;
-            case 5 -> 650;
-            case 6 -> 1150;
-            case 7 -> 1850;
-            default -> 2850;
-        };
-    }
-
-    private static int getXpForNextLevel(int level) {
-        return switch (level) {
-            case 1 -> 50;
-            case 2 -> 150;
-            case 3 -> 350;
-            case 4 -> 650;
-            case 5 -> 1150;
-            case 6 -> 1850;
-            case 7 -> 2850;
-            default -> -1;
-        };
     }
 
     private static void returnToSource(String sourceType, BlockPos sourcePos) {

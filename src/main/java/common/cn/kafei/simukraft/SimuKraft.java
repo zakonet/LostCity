@@ -9,7 +9,6 @@ import common.cn.kafei.simukraft.city.CityChunkManager;
 import common.cn.kafei.simukraft.city.CityManager;
 import common.cn.kafei.simukraft.city.poi.CityPoiManager;
 import common.cn.kafei.simukraft.building.BuilderConstructionService;
-import common.cn.kafei.simukraft.building.BuilderMaterialPolicy;
 import common.cn.kafei.simukraft.building.PlacedBuildingService;
 import common.cn.kafei.simukraft.building.ResidentialBedPoiService;
 import common.cn.kafei.simukraft.command.SimuKraftCommand;
@@ -20,6 +19,7 @@ import common.cn.kafei.simukraft.network.ModNetwork;
 import common.cn.kafei.simukraft.network.city.chunk.CityChunkSyncService;
 import common.cn.kafei.simukraft.network.hud.HudSyncService;
 import common.cn.kafei.simukraft.job.CityJobAssignmentService;
+import common.cn.kafei.simukraft.material.WorkMaterialPolicy;
 import common.cn.kafei.simukraft.registry.ModBlocks;
 import common.cn.kafei.simukraft.registry.ModCreativeModeTabs;
 import common.cn.kafei.simukraft.registry.ModEntities;
@@ -36,6 +36,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.fml.loading.FMLEnvironment;
 import org.slf4j.Logger;
 
@@ -52,6 +53,8 @@ public final class SimuKraft {
         ModSoundEvents.register(modEventBus);
         modContainer.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);
         modEventBus.register(ModNetwork.class);
+        modEventBus.addListener(this::onConfigLoading);
+        modEventBus.addListener(this::onConfigReloading);
         if (FMLEnvironment.dist == Dist.CLIENT) {
             client.cn.kafei.simukraft.ClientSetup.registerModBusEvents(modEventBus);
         }
@@ -66,6 +69,20 @@ public final class SimuKraft {
 
     private void onRegisterCommands(RegisterCommandsEvent event) {
         SimuKraftCommand.register(event.getDispatcher());
+    }
+
+    private void onConfigLoading(ModConfigEvent.Loading event) {
+        clearMaterialPolicyIfServerConfig(event);
+    }
+
+    private void onConfigReloading(ModConfigEvent.Reloading event) {
+        clearMaterialPolicyIfServerConfig(event);
+    }
+
+    private void clearMaterialPolicyIfServerConfig(ModConfigEvent event) {
+        if (event.getConfig().getSpec() == ServerConfig.SPEC) {
+            WorkMaterialPolicy.clearCache();
+        }
     }
 
     private void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
@@ -114,6 +131,6 @@ public final class SimuKraft {
         CityJobAssignmentService.clearServerCaches(event.getServer());
         ResidentialRentService.clearServerCaches(event.getServer());
         HudSyncService.clearServerCaches(event.getServer());
-        BuilderMaterialPolicy.clearCache();
+        WorkMaterialPolicy.clearCache();
     }
 }
