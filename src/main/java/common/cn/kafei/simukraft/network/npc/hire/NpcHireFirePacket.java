@@ -1,10 +1,9 @@
 package common.cn.kafei.simukraft.network.npc.hire;
 
 import common.cn.kafei.simukraft.SimuKraft;
-import common.cn.kafei.simukraft.building.BuilderConstructionService;
 import common.cn.kafei.simukraft.citizen.CitizenData;
 import common.cn.kafei.simukraft.citizen.CitizenService;
-import common.cn.kafei.simukraft.job.CityJobMobilityService;
+import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -19,7 +18,6 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import java.util.Optional;
 import java.util.UUID;
 
-@SuppressWarnings("null")
 public record NpcHireFirePacket(BlockPos sourcePos, String sourceType, String role, UUID citizenId) implements CustomPacketPayload {
     public static final Type<NpcHireFirePacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SimuKraft.MOD_ID, "npc_hire_fire"));
     public static final StreamCodec<RegistryFriendlyByteBuf, NpcHireFirePacket> STREAM_CODEC = StreamCodec.of(NpcHireFirePacket::encode, NpcHireFirePacket::decode);
@@ -60,11 +58,7 @@ public record NpcHireFirePacket(BlockPos sourcePos, String sourceType, String ro
                 InfoToastService.warning(player, Component.translatable("message.simukraft.fire_npc.unavailable", citizen.name()));
                 return;
             }
-            if ("build_box".equalsIgnoreCase(packet.sourceType()) && "builder".equalsIgnoreCase(packet.role())) {
-                BuilderConstructionService.interruptTask(level, citizen.uuid(), "builder_fired");
-            }
-            CitizenService.clearEmployment(level, citizen.uuid());
-            CityJobMobilityService.resetCitizenAfterFire(level, citizen.uuid());
+            CitizenEmploymentService.fire(level, citizen.uuid(), packet.sourceType(), packet.role(), packet.sourcePos(), packet.role() + "_fired");
             InfoToastService.success(player, Component.translatable("message.simukraft.fire_npc.success", citizen.name()));
         }
     }

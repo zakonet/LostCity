@@ -18,7 +18,6 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.UUID;
 
-@SuppressWarnings("null")
 public record CitizenInfoResponsePacket(UUID citizenId, String name, String gender, int age, int lifespan,
                                         double health, double hunger, boolean sick, boolean child,
                                         String workStatus, String statusLabel, String jobType, String cityName, String homeName,

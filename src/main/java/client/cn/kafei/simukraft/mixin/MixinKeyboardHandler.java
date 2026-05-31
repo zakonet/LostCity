@@ -32,16 +32,20 @@ public final class MixinKeyboardHandler {
             return;
         }
         boolean state = pressed;
-        switch (key) {
-            case GLFW.GLFW_KEY_W -> FreeCameraManager.setMovingForward(state);
-            case GLFW.GLFW_KEY_S -> FreeCameraManager.setMovingBackward(state);
-            case GLFW.GLFW_KEY_A -> FreeCameraManager.setMovingLeft(state);
-            case GLFW.GLFW_KEY_D -> FreeCameraManager.setMovingRight(state);
-            case GLFW.GLFW_KEY_SPACE -> FreeCameraManager.setMovingUp(state);
-            case GLFW.GLFW_KEY_LEFT_SHIFT, GLFW.GLFW_KEY_RIGHT_SHIFT -> FreeCameraManager.setMovingDown(state);
-            case GLFW.GLFW_KEY_LEFT_CONTROL, GLFW.GLFW_KEY_RIGHT_CONTROL -> FreeCameraManager.setSprinting(state);
-            default -> {
-            }
+        if (minecraft.options.keyUp.matches(key, scanCode)) {
+            FreeCameraManager.setMovingForward(state);
+        } else if (minecraft.options.keyDown.matches(key, scanCode)) {
+            FreeCameraManager.setMovingBackward(state);
+        } else if (minecraft.options.keyLeft.matches(key, scanCode)) {
+            FreeCameraManager.setMovingLeft(state);
+        } else if (minecraft.options.keyRight.matches(key, scanCode)) {
+            FreeCameraManager.setMovingRight(state);
+        } else if (minecraft.options.keyJump.matches(key, scanCode)) {
+            FreeCameraManager.setMovingUp(state);
+        } else if (minecraft.options.keyShift.matches(key, scanCode)) {
+            FreeCameraManager.setMovingDown(state);
+        } else if (minecraft.options.keySprint.matches(key, scanCode)) {
+            FreeCameraManager.setSprinting(state);
         }
     }
 }

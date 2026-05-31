@@ -15,7 +15,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-@SuppressWarnings("null")
 public final class WorkMaterialNotificationService {
     private static final ConcurrentMap<MaterialNoticeKey, Long> NEXT_NOTICE_TICK = new ConcurrentHashMap<>();
     private static final int MAX_NOTICE_KEYS = 2048;

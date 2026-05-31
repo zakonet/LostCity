@@ -57,7 +57,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-@SuppressWarnings("null")
 public final class CityCoreScreenOpener {
     private static final int BUTTON_WIDTH = 120;
     private static final int COLLAPSED_SIDEBAR_WIDTH = 18;

@@ -16,7 +16,6 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
 
 @EventBusSubscriber(modid = SimuKraft.MOD_ID, value = Dist.CLIENT)
-@SuppressWarnings("null")
 public final class BuildingPreviewRenderer {
     private static boolean loggedOnce;
 

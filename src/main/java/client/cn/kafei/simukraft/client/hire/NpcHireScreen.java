@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-@SuppressWarnings("null")
 public final class NpcHireScreen {
     private static final int CARD_TEXT_COLOR = SimuKraftUiTheme.CARD_TEXT_COLOR;
     private static final int MAX_NPC_PER_PAGE = 12;

@@ -3,9 +3,7 @@ package common.cn.kafei.simukraft.network.npc.hire;
 import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.citizen.CitizenData;
 import common.cn.kafei.simukraft.citizen.CitizenService;
-import common.cn.kafei.simukraft.citizen.CitizenWorkStatus;
-import common.cn.kafei.simukraft.job.CityJobMobilityService;
-import common.cn.kafei.simukraft.job.CityJobType;
+import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -17,11 +15,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.UUID;
 
-@SuppressWarnings("null")
 public record NpcHireAssignPacket(BlockPos sourcePos, String sourceType, String role, UUID citizenId) implements CustomPacketPayload {
     public static final Type<NpcHireAssignPacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SimuKraft.MOD_ID, "npc_hire_assign"));
     public static final StreamCodec<RegistryFriendlyByteBuf, NpcHireAssignPacket> STREAM_CODEC = StreamCodec.of(NpcHireAssignPacket::encode, NpcHireAssignPacket::decode);
@@ -58,10 +54,8 @@ public record NpcHireAssignPacket(BlockPos sourcePos, String sourceType, String 
                 InfoToastService.warning(player, Component.translatable("message.simukraft.hire_npc.unavailable", citizen.name()));
                 return;
             }
-            CityJobType jobType = CityJobMobilityService.resolveHireRole(packet.role());
-            UUID workplaceId = UUID.nameUUIDFromBytes((packet.sourceType() + ":" + packet.role() + "@" + packet.sourcePos().toShortString()).getBytes(StandardCharsets.UTF_8));
-            CitizenService.applyEmployment(level, citizen.uuid(), jobType, workplaceId, packet.sourcePos(), "");
-            CityJobMobilityService.teleportCitizenToWorkplace(level, citizen.uuid(), packet.sourcePos(), jobType, CitizenWorkStatus.WORKING, "");
+            CitizenEmploymentService.hireForSource(level, citizen.uuid(), packet.sourceType(), packet.role(), packet.sourcePos(), "");
+            SimuKraft.LOGGER.info("Simukraft: Hired citizen {} ({}) as {} for {} at {}", citizen.name(), citizen.uuid(), packet.role(), packet.sourceType(), packet.sourcePos());
             InfoToastService.success(player, Component.translatable("message.simukraft.hire_npc.success", citizen.name()));
         }
     }

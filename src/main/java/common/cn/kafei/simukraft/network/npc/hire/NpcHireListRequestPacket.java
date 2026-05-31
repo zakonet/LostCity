@@ -4,6 +4,7 @@ import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.citizen.CitizenLevelService;
 import common.cn.kafei.simukraft.citizen.CitizenService;
 import common.cn.kafei.simukraft.citizen.CitizenSkillSnapshot;
+import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.job.CityJobMobilityService;
 import common.cn.kafei.simukraft.job.CityJobType;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
@@ -18,11 +19,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
-@SuppressWarnings("null")
 public record NpcHireListRequestPacket(BlockPos sourcePos, String sourceType, String role) implements CustomPacketPayload {
     public static final Type<NpcHireListRequestPacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SimuKraft.MOD_ID, "npc_hire_list_request"));
     public static final StreamCodec<RegistryFriendlyByteBuf, NpcHireListRequestPacket> STREAM_CODEC = StreamCodec.of(NpcHireListRequestPacket::encode, NpcHireListRequestPacket::decode);
@@ -48,7 +47,7 @@ public record NpcHireListRequestPacket(BlockPos sourcePos, String sourceType, St
                 InfoToastService.warning(player, Component.translatable("message.simukraft.build_box.too_far"));
                 return;
             }
-            UUID workplaceId = UUID.nameUUIDFromBytes((packet.sourceType() + ":" + packet.role() + "@" + packet.sourcePos().toShortString()).getBytes(StandardCharsets.UTF_8));
+            UUID workplaceId = CitizenEmploymentService.workplaceId(packet.sourceType(), packet.role(), packet.sourcePos());
             UUID assignedCitizenId = CitizenService.findAssignedCitizen(level, workplaceId);
             CityJobType requestedJobType = CityJobMobilityService.resolveHireRole(packet.role());
             List<NpcHireListResponsePacket.HireCandidate> candidates = CitizenService.listHireableCitizens(level).stream()

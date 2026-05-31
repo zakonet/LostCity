@@ -11,7 +11,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@SuppressWarnings("null")
 public final class BuildingStructureSqliteDatabase {
     private static final String STORAGE_DIR = SimuKraft.MOD_ID;
     private static final String DATABASE_FILE = SimuKraft.MOD_ID + "_buildings.sqlite";

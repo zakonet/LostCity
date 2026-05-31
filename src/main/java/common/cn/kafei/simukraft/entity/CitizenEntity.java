@@ -23,7 +23,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-@SuppressWarnings("null")
 public class CitizenEntity extends PathfinderMob {
     // SynchedEntityData 会自动同步到客户端，用于渲染名字、职业、状态和皮肤。
     private static final EntityDataAccessor<String> DATA_CITIZEN_NAME = SynchedEntityData.defineId(CitizenEntity.class, EntityDataSerializers.STRING);
@@ -38,6 +37,10 @@ public class CitizenEntity extends PathfinderMob {
     private static final EntityDataAccessor<Boolean> DATA_IS_SICK = SynchedEntityData.defineId(CitizenEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_IS_CHILD = SynchedEntityData.defineId(CitizenEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> DATA_HAS_ACTIVE_TASK = SynchedEntityData.defineId(CitizenEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Integer> DATA_WORK_SWING_PULSE = SynchedEntityData.defineId(CitizenEntity.class, EntityDataSerializers.INT);
+    private static final int WORK_SWING_DURATION_TICKS = 6;
+    private int lastWorkSwingPulse = -1;
+    private int workSwingStartTick = -WORK_SWING_DURATION_TICKS;
 
     public CitizenEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
@@ -57,7 +60,10 @@ public class CitizenEntity extends PathfinderMob {
             return InteractionResult.PASS;
         }
         if (level() instanceof ServerLevel serverLevel && player instanceof ServerPlayer serverPlayer && player.distanceToSqr(this) <= 64.0D) {
-            PacketDistributor.sendToPlayer(serverPlayer, CitizenInfoResponsePacket.from(serverLevel, this, common.cn.kafei.simukraft.citizen.CitizenService.ensureCitizen(serverLevel, this)));
+            common.cn.kafei.simukraft.citizen.CitizenData data = common.cn.kafei.simukraft.citizen.CitizenService.ensureCitizen(serverLevel, this);
+            if (data != null) {
+                PacketDistributor.sendToPlayer(serverPlayer, CitizenInfoResponsePacket.from(serverLevel, this, data));
+            }
         }
         return InteractionResult.sidedSuccess(level().isClientSide());
     }
@@ -77,6 +83,7 @@ public class CitizenEntity extends PathfinderMob {
         builder.define(DATA_IS_SICK, false);
         builder.define(DATA_IS_CHILD, false);
         builder.define(DATA_HAS_ACTIVE_TASK, false);
+        builder.define(DATA_WORK_SWING_PULSE, 0);
     }
 
     @Override
@@ -89,6 +96,7 @@ public class CitizenEntity extends PathfinderMob {
     @Override
     public void tick() {
         super.tick();
+        syncClientWorkSwingPulse();
         if (!canSyncCitizenData()) {
             return;
         }
@@ -102,6 +110,32 @@ public class CitizenEntity extends PathfinderMob {
         }
     }
 
+    // syncClientWorkSwingPulse：客户端收到服务端脉冲后走原版 swing 动画，不再手写僵硬曲线。
+    private void syncClientWorkSwingPulse() {
+        if (!level().isClientSide()) {
+            return;
+        }
+        int pulse = this.entityData.get(DATA_WORK_SWING_PULSE);
+        if (lastWorkSwingPulse < 0) {
+            lastWorkSwingPulse = pulse;
+            if (pulse != 0) {
+                startClientWorkSwing();
+            }
+            return;
+        }
+        if (pulse != lastWorkSwingPulse) {
+            lastWorkSwingPulse = pulse;
+            startClientWorkSwing();
+        }
+    }
+
+    private void startClientWorkSwing() {
+        workSwingStartTick = tickCount;
+        if (!swinging) {
+            swing(InteractionHand.MAIN_HAND);
+        }
+    }
+
     // canSyncCitizenData：死亡实体在真正移除前仍可能 tick，不能在这个窗口重建 CitizenData。
     private boolean canSyncCitizenData() {
         return !isRemoved() && isAlive() && getHealth() > 0.0F;
@@ -109,11 +143,15 @@ public class CitizenEntity extends PathfinderMob {
 
     @Override
     public float getAttackAnim(float partialTick) {
-        if (hasActiveVisualTask()) {
-            float continuous = Mth.sin((tickCount + partialTick) / 2.0F) / 20.0F + 0.05F;
-            return Math.max(super.getAttackAnim(partialTick), continuous);
+        return Math.max(super.getAttackAnim(partialTick), workSwingProgress(partialTick));
+    }
+
+    private float workSwingProgress(float partialTick) {
+        int elapsed = tickCount - workSwingStartTick;
+        if (elapsed < 0 || elapsed >= WORK_SWING_DURATION_TICKS) {
+            return 0.0F;
         }
-        return super.getAttackAnim(partialTick);
+        return Mth.clamp((elapsed + partialTick) / WORK_SWING_DURATION_TICKS, 0.0F, 1.0F);
     }
 
     @Override
@@ -251,6 +289,17 @@ public class CitizenEntity extends PathfinderMob {
     // setHasActiveVisualTask：同步客户端手臂动作开关，参考旧版 DATA_HAS_ACTIVE_TASK。
     public void setHasActiveVisualTask(boolean active) {
         this.entityData.set(DATA_HAS_ACTIVE_TASK, active);
+    }
+
+    // triggerWorkSwing：服务端触发一次短挥手，保证职业工具使用动作同步到客户端。
+    public void triggerWorkSwing(InteractionHand hand) {
+        InteractionHand normalizedHand = hand != null ? hand : InteractionHand.MAIN_HAND;
+        if (level().isClientSide()) {
+            swing(normalizedHand);
+            return;
+        }
+        swing(normalizedHand, true);
+        this.entityData.set(DATA_WORK_SWING_PULSE, this.entityData.get(DATA_WORK_SWING_PULSE) + 1);
     }
 
     public String getHungerLevelKey() {

@@ -22,7 +22,6 @@ import org.lwjgl.glfw.GLFW;
  * 建筑盒"规划区域"界面：键盘操作的自由视角，自由飞行观察并框选 3D 区域，选择操作类型(清除/填充/替换)，
  * 确认后由服务端按体积预扣城市资金并派给规划师执行。填充/替换的方块取自玩家手持(主手=填充/目标方块，副手=替换的源方块)。
  */
-@SuppressWarnings("null")
 public final class PlanningAreaScreen extends Screen implements FreeCameraScreen {
     private static final int MAX_LEN = 64;
     private static final int MAX_HALF_WIDTH = 32;

@@ -4,7 +4,6 @@ import common.cn.kafei.simukraft.entity.CitizenEntity;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
 
-@SuppressWarnings("null")
 public final class ModEntityAttributes {
     private ModEntityAttributes() {
     }

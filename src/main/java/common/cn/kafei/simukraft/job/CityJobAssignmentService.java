@@ -18,7 +18,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-@SuppressWarnings("null")
 public final class CityJobAssignmentService {
     // 职位占用统计按存档+城市缓存，分配/解雇后通过 invalidate 重建。
     private static final ConcurrentMap<AssignmentCacheKey, AssignmentIndex> INDICES = new ConcurrentHashMap<>();
@@ -55,7 +54,7 @@ public final class CityJobAssignmentService {
         }
         CitizenData data = citizen.get();
         UUID cityId = data.cityId();
-        CitizenService.clearEmployment(level, data.uuid());
+        CitizenEmploymentService.fire(level, data.uuid(), null, null, data.workplacePos(), "assignment_cleared");
         if (cityId != null) {
             invalidate(cityId);
         }
@@ -99,7 +98,7 @@ public final class CityJobAssignmentService {
         if (assignedAtPoi >= poi.capacity()) {
             return JobAssignmentResult.NO_CAPACITY;
         }
-        CitizenService.applyEmployment(level, citizen.uuid(), jobType, poi.poiId(), poi.pos(), citizen.statusLabel());
+        CitizenEmploymentService.assign(level, citizen.uuid(), jobType, poi.poiId(), poi.pos(), common.cn.kafei.simukraft.citizen.CitizenWorkStatus.WORKING, citizen.statusLabel());
         invalidate(cityId);
         return JobAssignmentResult.ASSIGNED;
     }

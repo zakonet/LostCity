@@ -11,7 +11,6 @@ import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import net.minecraft.network.chat.Component;
 
-@SuppressWarnings("null")
 public final class SimuKraftWindowFrame {
     private static final int TITLE_BAR_HEIGHT = 24;
     private static final int CLOSE_BUTTON_SIZE = 18;

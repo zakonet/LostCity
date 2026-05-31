@@ -9,7 +9,6 @@ import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import java.util.Locale;
 import java.util.Objects;
 
-@SuppressWarnings("null")
 public final class ClientHUDOverlay {
     private static final int HUD_COLOR = 0xFFFFFF;
     private static final String[] WEEKDAYS = {

@@ -25,7 +25,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-@SuppressWarnings("null")
 public final class CitizenScreenOpener {
     private CitizenScreenOpener() {
     }

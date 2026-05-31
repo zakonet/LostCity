@@ -4,6 +4,7 @@ import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.citizen.CitizenData;
 import common.cn.kafei.simukraft.citizen.CitizenManager;
 import common.cn.kafei.simukraft.citizen.CitizenService;
+import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -16,11 +17,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.UUID;
 
-@SuppressWarnings("null")
 public record EmploymentStateResponsePacket(BlockPos sourcePos, String sourceType, UUID builderCitizenId, UUID plannerCitizenId, String statusKey) implements CustomPacketPayload {
     public static final Type<EmploymentStateResponsePacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SimuKraft.MOD_ID, "employment_state_response"));
     public static final StreamCodec<RegistryFriendlyByteBuf, EmploymentStateResponsePacket> STREAM_CODEC = StreamCodec.of(EmploymentStateResponsePacket::encode, EmploymentStateResponsePacket::decode);
@@ -97,6 +96,6 @@ public record EmploymentStateResponsePacket(BlockPos sourcePos, String sourceTyp
     }
 
     private static UUID workplaceId(String sourceType, String role, BlockPos pos) {
-        return UUID.nameUUIDFromBytes((sourceType + ":" + role + "@" + pos.toShortString()).getBytes(StandardCharsets.UTF_8));
+        return CitizenEmploymentService.workplaceId(sourceType, role, pos);
     }
 }

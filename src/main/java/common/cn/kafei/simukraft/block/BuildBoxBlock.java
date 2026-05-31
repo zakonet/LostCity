@@ -1,10 +1,7 @@
 package common.cn.kafei.simukraft.block;
 
 import common.cn.kafei.simukraft.building.BuilderConstructionService;
-import common.cn.kafei.simukraft.citizen.CitizenData;
-import common.cn.kafei.simukraft.citizen.CitizenManager;
-import common.cn.kafei.simukraft.citizen.CitizenService;
-import common.cn.kafei.simukraft.job.CityJobMobilityService;
+import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.registry.ModSoundEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.sounds.SoundSource;
@@ -17,10 +14,6 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
-import java.nio.charset.StandardCharsets;
-import java.util.UUID;
-
-@SuppressWarnings("null")
 public class BuildBoxBlock extends Block {
     public BuildBoxBlock() {
         super(BlockBehaviour.Properties.of().strength(2.0F, 6.0F).sound(SoundType.METAL).requiresCorrectToolForDrops());
@@ -61,20 +54,7 @@ public class BuildBoxBlock extends Block {
     }
 
     private static void releaseAssignedCitizen(net.minecraft.server.level.ServerLevel level, BlockPos pos, String role) {
-        UUID workplaceId = workplaceId(pos, role);
-        CitizenManager.get(level).allCitizens().stream()
-                .filter(citizen -> !citizen.dead())
-                .filter(citizen -> workplaceId.equals(citizen.workplaceId()))
-                .map(CitizenData::uuid)
-                .toList()
-                .forEach(citizenId -> {
-                    CitizenService.clearEmployment(level, citizenId);
-                    CityJobMobilityService.resetCitizenAfterFire(level, citizenId);
-                });
-    }
-
-    private static UUID workplaceId(BlockPos pos, String role) {
-        return UUID.nameUUIDFromBytes(("build_box:" + role + "@" + pos.toShortString()).getBytes(StandardCharsets.UTF_8));
+        CitizenEmploymentService.fireAssigned(level, CitizenEmploymentService.workplaceId("build_box", role, pos), "build_box", role, pos, "build_box_removed");
     }
 
     private static final class ClientOpener {

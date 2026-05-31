@@ -9,7 +9,7 @@ import common.cn.kafei.simukraft.building.BuildingTaskData;
 import common.cn.kafei.simukraft.citizen.CitizenData;
 import common.cn.kafei.simukraft.citizen.CitizenService;
 import common.cn.kafei.simukraft.citizen.CitizenWorkStatus;
-import common.cn.kafei.simukraft.job.CityJobMobilityService;
+import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.job.CityJobType;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import net.minecraft.core.BlockPos;
@@ -25,7 +25,6 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import java.util.Optional;
 import java.util.UUID;
 
-@SuppressWarnings("null")
 public record BuildBoxStartConstructionPacket(BlockPos buildBoxPos,
                                               String category,
                                               String buildingFileName,
@@ -59,7 +58,7 @@ public record BuildBoxStartConstructionPacket(BlockPos buildBoxPos,
             InfoToastService.warning(player, Component.translatable("message.simukraft.build_box.too_far"));
             return;
         }
-        UUID citizenId = CitizenService.findAssignedCitizen(level, workplaceId(packet.buildBoxPos(), "builder"));
+        UUID citizenId = CitizenService.findAssignedCitizen(level, CitizenEmploymentService.workplaceId("build_box", "builder", packet.buildBoxPos()));
         if (citizenId == null) {
             InfoToastService.warning(player, Component.translatable("message.simukraft.hire_npc.not_found"));
             return;
@@ -103,15 +102,11 @@ public record BuildBoxStartConstructionPacket(BlockPos buildBoxPos,
                 structure.poiDefinitions()
         );
         BuilderConstructionService.startTask(level, task);
-        CitizenService.applyEmployment(level, citizen.uuid(), CityJobType.BUILDER, workplaceId(packet.buildBoxPos(), "builder"), packet.buildBoxPos(), structure.displayName());
+        CitizenEmploymentService.hire(level, citizen.uuid(), CityJobType.BUILDER, CitizenEmploymentService.workplaceId("build_box", "builder", packet.buildBoxPos()), packet.buildBoxPos(), CitizenWorkStatus.WORKING, structure.displayName());
         citizen.setWorkNeedDetail("build:" + task.taskId());
         citizen.setStatusLabel("建造中: " + structure.displayName());
         CitizenService.save(level, citizen.uuid());
-        CityJobMobilityService.teleportCitizenToWorkplace(level, citizen.uuid(), packet.buildBoxPos(), CityJobType.BUILDER, CitizenWorkStatus.WORKING, structure.displayName());
         InfoToastService.success(player, Component.translatable("message.simukraft.build_box.construction_started", structure.displayName()));
     }
 
-    private static UUID workplaceId(BlockPos pos, String role) {
-        return UUID.nameUUIDFromBytes(("build_box:" + role + "@" + pos.toShortString()).getBytes(java.nio.charset.StandardCharsets.UTF_8));
-    }
 }

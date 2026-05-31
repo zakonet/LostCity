@@ -2,6 +2,7 @@ package client.cn.kafei.simukraft.client.buildbox;
 
 import client.cn.kafei.simukraft.client.freecamera.FreeCameraManager;
 import client.cn.kafei.simukraft.client.freecamera.FreeCameraScreen;
+import client.cn.kafei.simukraft.client.input.SimuKraftKeyMappings;
 import client.cn.kafei.simukraft.client.toast.ClientInfoToast;
 import client.cn.kafei.simukraft.client.ui.SimuKraftUiTheme;
 import common.cn.kafei.simukraft.building.BuildingStructure;
@@ -11,9 +12,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
-import org.lwjgl.glfw.GLFW;
 
-@SuppressWarnings("null")
 public final class BuildingPreviewScreen extends Screen implements FreeCameraScreen {
     private final Screen parent;
     private final BuildingCacheService.BuildingMeta building;
@@ -57,11 +56,20 @@ public final class BuildingPreviewScreen extends Screen implements FreeCameraScr
         int y = 14;
         guiGraphics.drawCenteredString(this.font, Component.translatable("gui.building_preview.title_with_name", building.name()), centerX, y, SimuKraftUiTheme.TEXT_PRIMARY_COLOR);
         y += 15;
-        guiGraphics.drawCenteredString(this.font, Component.translatable("gui.building_preview.hint.preview_move"), centerX, y, SimuKraftUiTheme.TEXT_WARNING_COLOR);
+        guiGraphics.drawCenteredString(this.font, Component.translatable("gui.building_preview.hint.preview_move",
+                SimuKraftKeyMappings.display(SimuKraftKeyMappings.PREVIEW_MOVE_FORWARD),
+                SimuKraftKeyMappings.display(SimuKraftKeyMappings.PREVIEW_MOVE_BACKWARD),
+                SimuKraftKeyMappings.display(SimuKraftKeyMappings.PREVIEW_MOVE_LEFT),
+                SimuKraftKeyMappings.display(SimuKraftKeyMappings.PREVIEW_MOVE_RIGHT),
+                SimuKraftKeyMappings.display(SimuKraftKeyMappings.PREVIEW_MOVE_UP),
+                SimuKraftKeyMappings.display(SimuKraftKeyMappings.PREVIEW_MOVE_DOWN),
+                SimuKraftKeyMappings.display(SimuKraftKeyMappings.PREVIEW_ROTATE)), centerX, y, SimuKraftUiTheme.TEXT_WARNING_COLOR);
         y += 12;
         guiGraphics.drawCenteredString(this.font, Component.translatable("gui.building_preview.hint.camera"), centerX, y, SimuKraftUiTheme.TEXT_INFO_COLOR);
         y += 12;
-        guiGraphics.drawCenteredString(this.font, Component.translatable("gui.building_preview.hint.actions"), centerX, y, SimuKraftUiTheme.TEXT_WARNING_COLOR);
+        guiGraphics.drawCenteredString(this.font, Component.translatable("gui.building_preview.hint.actions",
+                SimuKraftKeyMappings.display(SimuKraftKeyMappings.PREVIEW_CONFIRM),
+                SimuKraftKeyMappings.display(SimuKraftKeyMappings.PREVIEW_CANCEL)), centerX, y, SimuKraftUiTheme.TEXT_WARNING_COLOR);
         y += 12;
         BlockPos origin = BuildingPreviewManager.getPreviewOrigin();
         guiGraphics.drawCenteredString(this.font, Component.translatable("gui.building_preview.origin_info", origin.getX(), origin.getY(), origin.getZ(), BuildingPreviewManager.getRotationDegrees()), centerX, y, SimuKraftUiTheme.TEXT_SUCCESS_COLOR);
@@ -71,57 +79,53 @@ public final class BuildingPreviewScreen extends Screen implements FreeCameraScr
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (SimuKraftKeyMappings.matches(SimuKraftKeyMappings.PREVIEW_CANCEL, keyCode, scanCode)) {
             exitPreview();
             return true;
         }
-        switch (keyCode) {
-            case GLFW.GLFW_KEY_UP -> {
-                BuildingPreviewManager.movePreviewRelativeToCamera(0, 1);
-                return true;
-            }
-            case GLFW.GLFW_KEY_DOWN -> {
-                BuildingPreviewManager.movePreviewRelativeToCamera(0, -1);
-                return true;
-            }
-            case GLFW.GLFW_KEY_LEFT -> {
-                BuildingPreviewManager.movePreviewRelativeToCamera(-1, 0);
-                return true;
-            }
-            case GLFW.GLFW_KEY_RIGHT -> {
-                BuildingPreviewManager.movePreviewRelativeToCamera(1, 0);
-                return true;
-            }
-            case GLFW.GLFW_KEY_KP_ADD, GLFW.GLFW_KEY_EQUAL, GLFW.GLFW_KEY_PAGE_UP -> {
-                BuildingPreviewManager.movePreviewVertical(1);
-                return true;
-            }
-            case GLFW.GLFW_KEY_KP_SUBTRACT, GLFW.GLFW_KEY_MINUS, GLFW.GLFW_KEY_PAGE_DOWN -> {
-                BuildingPreviewManager.movePreviewVertical(-1);
-                return true;
-            }
-            case GLFW.GLFW_KEY_R -> {
-                BuildingPreviewManager.rotatePreview(structure);
-                return true;
-            }
-            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
-                if (!BuildingBoundsRenderer.isEntireBuildingInCityTerritory()) {
-                    if (this.minecraft != null && this.minecraft.player != null) {
-                        ClientInfoToast.show(
-                                Component.translatable("toast.simukraft.title"),
-                                Component.translatable("message.simukraft.construction.outside_city"),
-                                "warning"
-                        );
-                    }
-                    return true;
-                }
-                startConstruction();
-                return true;
-            }
-            default -> {
-                return super.keyPressed(keyCode, scanCode, modifiers);
-            }
+        if (SimuKraftKeyMappings.matches(SimuKraftKeyMappings.PREVIEW_MOVE_FORWARD, keyCode, scanCode)) {
+            BuildingPreviewManager.movePreviewRelativeToCamera(0, 1);
+            return true;
         }
+        if (SimuKraftKeyMappings.matches(SimuKraftKeyMappings.PREVIEW_MOVE_BACKWARD, keyCode, scanCode)) {
+            BuildingPreviewManager.movePreviewRelativeToCamera(0, -1);
+            return true;
+        }
+        if (SimuKraftKeyMappings.matches(SimuKraftKeyMappings.PREVIEW_MOVE_LEFT, keyCode, scanCode)) {
+            BuildingPreviewManager.movePreviewRelativeToCamera(-1, 0);
+            return true;
+        }
+        if (SimuKraftKeyMappings.matches(SimuKraftKeyMappings.PREVIEW_MOVE_RIGHT, keyCode, scanCode)) {
+            BuildingPreviewManager.movePreviewRelativeToCamera(1, 0);
+            return true;
+        }
+        if (SimuKraftKeyMappings.matches(SimuKraftKeyMappings.PREVIEW_MOVE_UP, keyCode, scanCode)) {
+            BuildingPreviewManager.movePreviewVertical(1);
+            return true;
+        }
+        if (SimuKraftKeyMappings.matches(SimuKraftKeyMappings.PREVIEW_MOVE_DOWN, keyCode, scanCode)) {
+            BuildingPreviewManager.movePreviewVertical(-1);
+            return true;
+        }
+        if (SimuKraftKeyMappings.matches(SimuKraftKeyMappings.PREVIEW_ROTATE, keyCode, scanCode)) {
+            BuildingPreviewManager.rotatePreview(structure);
+            return true;
+        }
+        if (SimuKraftKeyMappings.matches(SimuKraftKeyMappings.PREVIEW_CONFIRM, keyCode, scanCode)) {
+            if (!BuildingBoundsRenderer.isEntireBuildingInCityTerritory()) {
+                if (this.minecraft != null && this.minecraft.player != null) {
+                    ClientInfoToast.show(
+                            Component.translatable("toast.simukraft.title"),
+                            Component.translatable("message.simukraft.construction.outside_city"),
+                            "warning"
+                    );
+                }
+                return true;
+            }
+            startConstruction();
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     private void exitPreview() {

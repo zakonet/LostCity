@@ -11,7 +11,6 @@ import net.minecraft.resources.ResourceLocation;
 
 import java.util.List;
 
-@SuppressWarnings("null")
 public final class SimuKraftUiTheme {
     public static final ResourceLocation DEFAULT_STYLESHEET = StylesheetManager.ORE;
     public static final int CITY_CORE_BACKGROUND_COLOR = 0xFF444444;

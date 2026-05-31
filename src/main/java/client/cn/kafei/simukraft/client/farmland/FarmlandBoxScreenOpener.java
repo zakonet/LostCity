@@ -1,6 +1,7 @@
 package client.cn.kafei.simukraft.client.farmland;
 
 import client.cn.kafei.simukraft.client.hire.NpcHireScreen;
+import client.cn.kafei.simukraft.client.selection.TwoPointSelectionScreen;
 import client.cn.kafei.simukraft.client.ui.SimuKraftUiTheme;
 import com.lowdragmc.lowdraglib2.gui.holder.ModularUIScreen;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -23,14 +24,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-@SuppressWarnings("null")
 public final class FarmlandBoxScreenOpener {
     private static final int PANEL_WIDTH = 340;
     private static final int PANEL_HEIGHT = 220;
     private static final int ACTION_WIDTH = 150;
     private static final int ACTION_HEIGHT = 22;
-    private static BlockPos openedBoxPos;
-
     private FarmlandBoxScreenOpener() {
     }
 
@@ -43,7 +41,7 @@ public final class FarmlandBoxScreenOpener {
         if (minecraft == null) {
             return;
         }
-        openedBoxPos = packet.boxPos().immutable();
+        packet.boxPos().immutable();
         minecraft.execute(() -> minecraft.setScreen(new FarmlandBoxScreen(createUi(packet), Component.empty())));
     }
 
@@ -83,7 +81,7 @@ public final class FarmlandBoxScreenOpener {
         boolean editable = !packet.running();
         panel.addChild(actionRow(
                 actionButton(Component.translatable("gui.simukraft.farmland_box.cycle_crop"), () -> FarmlandCropScreen.open(packet), editable),
-                actionButton(Component.translatable("gui.simukraft.farmland_box.set_area"), () -> FarmlandAreaScreen.open(packet), editable)));
+                actionButton(Component.translatable("gui.simukraft.farmland_box.set_area"), () -> TwoPointSelectionScreen.openFarmland(packet), editable)));
         UIElement runRow = new UIElement().layout(layout -> {
             layout.widthPercent(100);
             layout.flexDirection(FlexDirection.ROW);
@@ -222,7 +220,6 @@ public final class FarmlandBoxScreenOpener {
     }
 
     private static void close() {
-        openedBoxPos = null;
         Minecraft.getInstance().setScreen(null);
     }
 
@@ -236,7 +233,6 @@ public final class FarmlandBoxScreenOpener {
             super.removed();
             Minecraft minecraft = Minecraft.getInstance();
             if (!(minecraft.screen instanceof FarmlandBoxScreen)) {
-                openedBoxPos = null;
             }
         }
     }

@@ -23,7 +23,6 @@ import net.minecraft.world.level.block.Blocks;
 
 import java.util.List;
 
-@SuppressWarnings("null")
 public final class BuildingConfirmScreen extends ModularUIScreen {
     private static final int MIN_BUTTON_WIDTH = 80;
     private static final int MIN_BUTTON_HEIGHT = 22;

@@ -17,7 +17,6 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import java.util.HashMap;
 import java.util.Map;
 
-@SuppressWarnings("null")
 final class PathSnapshotBuilder {
     private static final int HORIZONTAL_PADDING = 12;
     private static final int VERTICAL_PADDING = 8;

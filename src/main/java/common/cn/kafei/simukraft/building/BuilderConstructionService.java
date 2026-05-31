@@ -13,7 +13,7 @@ import common.cn.kafei.simukraft.city.poi.CityPoiType;
 import common.cn.kafei.simukraft.config.ServerConfig;
 import common.cn.kafei.simukraft.city.CityManager;
 import common.cn.kafei.simukraft.job.CityJobAssignmentService;
-import common.cn.kafei.simukraft.job.CityJobMobilityService;
+import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.job.CityJobType;
 import common.cn.kafei.simukraft.material.WorkMaterialCache;
 import common.cn.kafei.simukraft.material.WorkMaterialNotificationService;
@@ -43,7 +43,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@SuppressWarnings("null")
 public final class BuilderConstructionService {
     // 建筑结构变换后的方块列表缓存，避免每个 tick 重复解析 NBT/旋转坐标。
     private static final ConcurrentMap<String, CompletableFuture<CachedStructure>> STRUCTURE_CACHE = new ConcurrentHashMap<>();
@@ -153,11 +152,7 @@ public final class BuilderConstructionService {
                 .filter(taskRuntime -> buildBoxPos.equals(taskRuntime.task.buildBoxPos()))
                 .map(taskRuntime -> taskRuntime.task.citizenId())
                 .toList()
-                .forEach(citizenId -> {
-                    interruptTask(level, citizenId, reason);
-                    CitizenService.clearEmployment(level, citizenId);
-                    CityJobMobilityService.resetCitizenAfterFire(level, citizenId);
-                });
+                .forEach(citizenId -> CitizenEmploymentService.fire(level, citizenId, "build_box", "builder", buildBoxPos, reason));
     }
 
     public static void flush(ServerLevel level) {
@@ -194,9 +189,7 @@ public final class BuilderConstructionService {
             return;
         }
         if (!level.getBlockState(task.buildBoxPos()).is(ModBlocks.BUILD_BOX.get())) {
-            interruptTask(level, citizen.uuid(), "build_box_removed");
-            CitizenService.clearEmployment(level, citizen.uuid());
-            CityJobMobilityService.resetCitizenAfterFire(level, citizen.uuid());
+            CitizenEmploymentService.fire(level, citizen.uuid(), "build_box", "builder", task.buildBoxPos(), "build_box_removed");
             return;
         }
         if (shouldRest(level)) {
@@ -283,8 +276,7 @@ public final class BuilderConstructionService {
         flushPendingBuilderXp(level, citizen, taskRuntime);
         runtime.tasksByCitizen.remove(citizen.uuid(), taskRuntime);
         SimuSqliteStorage.deleteBuildingTask(level, citizen.uuid());
-        CitizenService.clearEmployment(level, citizen.uuid());
-        CityJobMobilityService.resetCitizenAfterFire(level, citizen.uuid());
+        CitizenEmploymentService.clearAfterJobFinished(level, citizen.uuid());
         SimuKraft.LOGGER.info("Simukraft: Building completed by {} for {}", citizen.name(), task.displayName());
     }
 
@@ -310,6 +302,7 @@ public final class BuilderConstructionService {
                 TaskRuntime taskRuntime = new TaskRuntime(resumed);
                 TaskRuntime existing = runtime.tasksByCitizen.putIfAbsent(resumed.citizenId(), taskRuntime);
                 primeStructureLoad(resumed);
+                restoreBuilderEmployment(level, resumed);
                 if (existing == null && restoredFromOfflinePause && !shouldRest(level)) {
                     taskRuntime.dirty = true;
                     persistTaskAsync(level, taskRuntime, resumed);
@@ -327,6 +320,14 @@ public final class BuilderConstructionService {
             SimuKraft.LOGGER.error("Simukraft: Failed to hydrate building tasks for {}", level.dimension().location(), exception);
             runtime.loadFuture = null;
         }
+    }
+
+    // restoreBuilderEmployment：任务从 SQLite 恢复时反向校正职业绑定，避免居民表旧数据导致开服后被判定失业。
+    private static void restoreBuilderEmployment(ServerLevel level, BuildingTaskData task) {
+        if (level == null || task == null || task.citizenId() == null) {
+            return;
+        }
+        CitizenEmploymentService.assignForSource(level, task.citizenId(), "build_box", "builder", task.buildBoxPos(), CitizenWorkStatus.WORKING, task.displayName());
     }
 
     private static void flushDirtyTasks(ServerLevel level, LevelRuntime runtime) {

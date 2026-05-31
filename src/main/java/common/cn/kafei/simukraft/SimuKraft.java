@@ -70,6 +70,7 @@ public final class SimuKraft {
         NeoForge.EVENT_BUS.addListener(this::onLivingDeath);
         NeoForge.EVENT_BUS.addListener(this::onBlockBreak);
         NeoForge.EVENT_BUS.addListener(this::onBlockPlace);
+        NeoForge.EVENT_BUS.addListener(this::onFarmlandTrample);
         NeoForge.EVENT_BUS.addListener(this::onServerTick);
         NeoForge.EVENT_BUS.addListener(this::onServerStopping);
         LOGGER.info("Initializing {}", MOD_ID);
@@ -115,6 +116,12 @@ public final class SimuKraft {
     private void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
         if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
             CitizenNavigationService.invalidate(level, event.getPos());
+        }
+    }
+
+    private void onFarmlandTrample(BlockEvent.FarmlandTrampleEvent event) {
+        if (event.getEntity() instanceof common.cn.kafei.simukraft.entity.CitizenEntity) {
+            event.setCanceled(true);
         }
     }
 

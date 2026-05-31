@@ -18,7 +18,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-@SuppressWarnings("null")
 public class BuildBoxScreenOpener {
     private static final int BUTTON_WIDTH = 120;
     private static final int BUTTON_HEIGHT = 24;
@@ -200,7 +199,7 @@ public class BuildBoxScreenOpener {
     }
 
     private static void handlePlanArea(BlockPos pos) {
-        PlanningAreaScreen.open(pos);
+        PlannerOperationScreenOpener.open(pos);
     }
 
     private static void handleBuildingCategory(BlockPos buildBoxPos, String translationKey) {

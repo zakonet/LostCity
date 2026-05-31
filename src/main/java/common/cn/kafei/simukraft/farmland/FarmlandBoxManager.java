@@ -18,7 +18,6 @@ import java.util.concurrent.ConcurrentMap;
  * 写法对齐 {@code CityPoiManager}：get(level) 时从 SQLite 懒加载，增量改动 upsert/delete，
  * 周期性整表 saveToSqlite 由服务端 tick/关服流程调用。
  */
-@SuppressWarnings("null")
 public final class FarmlandBoxManager extends SavedData {
     private static final String DATA_NAME = SimuKraft.MOD_ID + "_farmland_boxes";
     private static final Factory<FarmlandBoxManager> FACTORY = new Factory<>(FarmlandBoxManager::new, FarmlandBoxManager::load, null);

@@ -2,6 +2,10 @@ package common.cn.kafei.simukraft.planner;
 
 import net.minecraft.core.BlockPos;
 
+import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -18,11 +22,42 @@ public record PlanningTaskData(UUID taskId,
                                PlanOperation operation,
                                String fillBlockId,
                                String sourceBlockId,
+                               @Nullable BlockPos materialChestPos,
+                               Map<String, String> replacementMap,
                                int currentIndex,
                                int totalBlocks,
                                String status,
                                long createdAt,
                                long updatedAt) {
+
+    public PlanningTaskData(UUID taskId,
+                            UUID citizenId,
+                            UUID cityId,
+                            String dimensionId,
+                            BlockPos buildBoxPos,
+                            BlockPos minPos,
+                            BlockPos maxPos,
+                            PlanOperation operation,
+                            String fillBlockId,
+                            String sourceBlockId,
+                            int currentIndex,
+                            int totalBlocks,
+                            String status,
+                            long createdAt,
+                            long updatedAt) {
+        this(taskId, citizenId, cityId, dimensionId, buildBoxPos, minPos, maxPos, operation, fillBlockId, sourceBlockId,
+                null, Map.of(), currentIndex, totalBlocks, status, createdAt, updatedAt);
+    }
+
+    public PlanningTaskData {
+        buildBoxPos = buildBoxPos.immutable();
+        minPos = minPos.immutable();
+        maxPos = maxPos.immutable();
+        fillBlockId = fillBlockId == null ? "" : fillBlockId;
+        sourceBlockId = sourceBlockId == null ? "" : sourceBlockId;
+        materialChestPos = materialChestPos != null ? materialChestPos.immutable() : null;
+        replacementMap = immutableReplacementMap(replacementMap);
+    }
 
     public static int volume(BlockPos min, BlockPos max) {
         long dx = (long) (max.getX() - min.getX() + 1);
@@ -57,12 +92,38 @@ public record PlanningTaskData(UUID taskId,
         return new BlockPos(x, y, z);
     }
 
+    public Map<String, String> effectiveReplacementMap() {
+        if (operation != PlanOperation.REPLACE) {
+            return Map.of();
+        }
+        if (!replacementMap.isEmpty()) {
+            return replacementMap;
+        }
+        if (!sourceBlockId.isBlank() && !fillBlockId.isBlank()) {
+            return Map.of(sourceBlockId, fillBlockId);
+        }
+        return Map.of();
+    }
+
     public PlanningTaskData withProgress(int newIndex, String newStatus, long updatedAtMs) {
         return new PlanningTaskData(taskId, citizenId, cityId, dimensionId, buildBoxPos, minPos, maxPos,
-                operation, fillBlockId, sourceBlockId, newIndex, totalBlocks, newStatus, createdAt, updatedAtMs);
+                operation, fillBlockId, sourceBlockId, materialChestPos, replacementMap, newIndex, totalBlocks, newStatus, createdAt, updatedAtMs);
     }
 
     public PlanningTaskData withStatus(String newStatus, long updatedAtMs) {
         return withProgress(currentIndex, newStatus, updatedAtMs);
+    }
+
+    private static Map<String, String> immutableReplacementMap(Map<String, String> map) {
+        if (map == null || map.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> copy = new LinkedHashMap<>();
+        map.forEach((source, target) -> {
+            if (source != null && target != null && !source.isBlank() && !target.isBlank()) {
+                copy.put(source, target);
+            }
+        });
+        return Collections.unmodifiableMap(copy);
     }
 }

@@ -22,7 +22,6 @@ import java.util.function.Predicate;
 /**
  * 通用容器访问：优先支持 NeoForge IItemHandler，回退原版 Container。
  */
-@SuppressWarnings("null")
 public final class GenericContainerAccess {
     private GenericContainerAccess() {
     }

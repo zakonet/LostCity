@@ -13,7 +13,6 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.Optional;
 
-@SuppressWarnings("null")
 public final class CitizenWorkplaceMoveService {
     private static final double ARRIVED_DISTANCE_SQR = 4.0D;
 

@@ -8,6 +8,7 @@ import common.cn.kafei.simukraft.citizen.CitizenSkillSnapshot;
 import common.cn.kafei.simukraft.citizen.CitizenTeleportService;
 import common.cn.kafei.simukraft.citizen.CitizenWorkStatus;
 import common.cn.kafei.simukraft.config.ServerConfig;
+import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.job.CityJobType;
 import common.cn.kafei.simukraft.material.GenericContainerAccess;
 import common.cn.kafei.simukraft.path.CitizenNavigationService;
@@ -30,6 +31,7 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,7 +43,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  * 规划师待在建筑盒处工作，按等级换算速度每 tick 处理少量方块；材料/掉落走紧贴建筑盒六个面的箱子；
  * 金钱在建任务时已一次性预扣。任务进 SQLite，可恢复。
  */
-@SuppressWarnings("null")
 public final class PlannerWorkService {
     private static final ConcurrentMap<String, LevelRuntime> LEVEL_RUNTIMES = new ConcurrentHashMap<>();
     private static final int SAVE_BLOCK_INTERVAL = 16;
@@ -176,7 +177,7 @@ public final class PlannerWorkService {
             return;
         }
 
-        BlockPos chestPos = resolveAdjacentChest(level, boxPos);
+        BlockPos chestPos = resolveTaskChest(level, task);
         int budget = consumeBudget(taskRuntime, citizen);
         int index = Math.max(0, task.currentIndex());
         int total = task.totalBlocks();
@@ -226,7 +227,7 @@ public final class PlannerWorkService {
         return switch (task.operation()) {
             case REMOVE -> applyRemove(level, pos, chestPos, task.buildBoxPos());
             case FILL -> applyFill(level, pos, chestPos, task.fillBlockId());
-            case REPLACE -> applyReplace(level, pos, chestPos, task.sourceBlockId(), task.fillBlockId(), task.buildBoxPos());
+            case REPLACE -> applyReplace(level, pos, chestPos, task.effectiveReplacementMap(), task.buildBoxPos());
         };
     }
 
@@ -256,14 +257,18 @@ public final class PlannerWorkService {
         return CellResult.PROCESSED;
     }
 
-    private static CellResult applyReplace(ServerLevel level, BlockPos pos, BlockPos chestPos, String sourceBlockId, String fillBlockId, BlockPos boxPos) {
-        Block source = resolveBlock(sourceBlockId);
-        Block target = resolveBlock(fillBlockId);
-        if (source == null || target == null) {
+    private static CellResult applyReplace(ServerLevel level, BlockPos pos, BlockPos chestPos, Map<String, String> replacementMap, BlockPos boxPos) {
+        if (replacementMap == null || replacementMap.isEmpty()) {
             return CellResult.SKIPPED;
         }
         BlockState state = level.getBlockState(pos);
-        if (!state.is(source) || isProtected(level, pos, state, boxPos, chestPos)) {
+        String sourceBlockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+        String targetBlockId = replacementMap.get(sourceBlockId);
+        if (targetBlockId == null || isProtected(level, pos, state, boxPos, chestPos)) {
+            return CellResult.SKIPPED;
+        }
+        Block target = resolveBlock(targetBlockId);
+        if (target == null) {
             return CellResult.SKIPPED;
         }
         if (!consumeBlockItem(level, chestPos, target)) {
@@ -301,7 +306,16 @@ public final class PlannerWorkService {
                     ? task.withStatus(PlanningTaskStatus.PLANNING.id(), System.currentTimeMillis())
                     : task;
             runtime.tasks.putIfAbsent(resumed.citizenId(), new TaskRuntime(resumed));
+            restorePlannerEmployment(level, resumed);
         }
+    }
+
+    // restorePlannerEmployment：规划任务恢复时以任务表为准修复规划师职业和建筑盒岗位。
+    private static void restorePlannerEmployment(ServerLevel level, PlanningTaskData task) {
+        if (level == null || task == null || task.citizenId() == null) {
+            return;
+        }
+        CitizenEmploymentService.assignForSource(level, task.citizenId(), "build_box", "planner", task.buildBoxPos(), CitizenWorkStatus.WORKING, "");
     }
 
     private static void setStatus(ServerLevel level, CitizenData citizen, TaskRuntime taskRuntime, String label, CitizenWorkStatus workStatus, PlanningTaskStatus taskStatus) {
@@ -396,6 +410,19 @@ public final class PlannerWorkService {
             }
         }
         return false;
+    }
+
+    private static BlockPos resolveTaskChest(ServerLevel level, PlanningTaskData task) {
+        BlockPos selected = task.materialChestPos();
+        if (selected == null) {
+            return resolveAdjacentChest(level, task.buildBoxPos());
+        }
+        if (!level.isLoaded(selected)) {
+            return selected;
+        }
+        return GenericContainerAccess.isContainer(level, selected)
+                ? GenericContainerAccess.canonicalContainerPos(level, selected)
+                : selected;
     }
 
     private static BlockPos resolveAdjacentChest(ServerLevel level, BlockPos boxPos) {

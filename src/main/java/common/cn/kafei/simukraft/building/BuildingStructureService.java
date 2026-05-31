@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-@SuppressWarnings("null")
 public final class BuildingStructureService {
     private BuildingStructureService() {
     }

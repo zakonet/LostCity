@@ -24,7 +24,6 @@ import java.util.Comparator;
 import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
-@SuppressWarnings("null")
 public final class ClientCityMapTerrainCache {
     private static final ClientCityMapTerrainCache INSTANCE = new ClientCityMapTerrainCache();
     private static final int MAX_CACHED_COLUMNS = 262144;

@@ -29,7 +29,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@SuppressWarnings("null")
 public final class PreviewMeshBuilder {
     private PreviewMeshBuilder() {
     }

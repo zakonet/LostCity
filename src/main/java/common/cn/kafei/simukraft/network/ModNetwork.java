@@ -29,6 +29,8 @@ import common.cn.kafei.simukraft.network.city.member.CityCoreMembersResponsePack
 import common.cn.kafei.simukraft.network.citizen.info.CitizenInfoResponsePacket;
 import common.cn.kafei.simukraft.network.hud.HudSyncPacket;
 import common.cn.kafei.simukraft.network.planner.CreatePlanningTaskPacket;
+import common.cn.kafei.simukraft.network.planner.PlannerMaterialScanRequestPacket;
+import common.cn.kafei.simukraft.network.planner.PlannerMaterialScanResponsePacket;
 import common.cn.kafei.simukraft.network.npc.hire.NpcHireAssignPacket;
 import common.cn.kafei.simukraft.network.npc.hire.NpcHireFirePacket;
 import common.cn.kafei.simukraft.network.npc.hire.NpcHireListRequestPacket;
@@ -43,12 +45,11 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public final class ModNetwork {
-    private static final String NETWORK_VERSION = "8";
+    private static final String NETWORK_VERSION = "9";
 
     private ModNetwork() {
     }
 
-    @SuppressWarnings("null")
     @SubscribeEvent
     public static void onRegisterPayloadHandlers(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar(NETWORK_VERSION);
@@ -72,6 +73,7 @@ public final class ModNetwork {
         registrar.playToServer(FarmlandBoxSetCropPacket.TYPE, FarmlandBoxSetCropPacket.STREAM_CODEC, FarmlandBoxSetCropPacket::handle);
         registrar.playToServer(FarmlandBoxSetAreaPacket.TYPE, FarmlandBoxSetAreaPacket.STREAM_CODEC, FarmlandBoxSetAreaPacket::handle);
         registrar.playToServer(FarmlandBoxBoundsRequestPacket.TYPE, FarmlandBoxBoundsRequestPacket.STREAM_CODEC, FarmlandBoxBoundsRequestPacket::handle);
+        registrar.playToServer(PlannerMaterialScanRequestPacket.TYPE, PlannerMaterialScanRequestPacket.STREAM_CODEC, PlannerMaterialScanRequestPacket::handle);
         registrar.playToServer(CreatePlanningTaskPacket.TYPE, CreatePlanningTaskPacket.STREAM_CODEC, CreatePlanningTaskPacket::handle);
         registrar.playToServer(NpcPathDebugRequestPacket.TYPE, NpcPathDebugRequestPacket.STREAM_CODEC, NpcPathDebugRequestPacket::handle);
         registrar.playToClient(CityCoreOpenResponsePacket.TYPE, CityCoreOpenResponsePacket.STREAM_CODEC, CityCoreOpenResponsePacket::handle);
@@ -88,6 +90,7 @@ public final class ModNetwork {
         registrar.playToClient(ResidentialControlBoxOpenResponsePacket.TYPE, ResidentialControlBoxOpenResponsePacket.STREAM_CODEC, ResidentialControlBoxOpenResponsePacket::handle);
         registrar.playToClient(FarmlandBoxOpenResponsePacket.TYPE, FarmlandBoxOpenResponsePacket.STREAM_CODEC, FarmlandBoxOpenResponsePacket::handle);
         registrar.playToClient(FarmlandBoxBoundsResponsePacket.TYPE, FarmlandBoxBoundsResponsePacket.STREAM_CODEC, FarmlandBoxBoundsResponsePacket::handle);
+        registrar.playToClient(PlannerMaterialScanResponsePacket.TYPE, PlannerMaterialScanResponsePacket.STREAM_CODEC, PlannerMaterialScanResponsePacket::handle);
         registrar.playToClient(NpcPathDebugSyncPacket.TYPE, NpcPathDebugSyncPacket.STREAM_CODEC, NpcPathDebugSyncPacket::handle);
         registrar.playToClient(InfoToastPacket.TYPE, InfoToastPacket.STREAM_CODEC, InfoToastPacket::handle);
     }

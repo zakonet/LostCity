@@ -145,6 +145,13 @@ public final class SimuSqliteStorage {
         }
     }
 
+    public static void clearCitizenEmployment(ServerLevel level, UUID citizenId) {
+        SimuSqliteStorage storage = openSafely(level);
+        if (storage != null && citizenId != null) {
+            storage.citizens.clearEmployment(citizenId);
+        }
+    }
+
     public static void saveBuildingTask(ServerLevel level, common.cn.kafei.simukraft.building.BuildingTaskData task) {
         SimuSqliteStorage storage = openSafely(level);
         if (storage != null && task != null) {

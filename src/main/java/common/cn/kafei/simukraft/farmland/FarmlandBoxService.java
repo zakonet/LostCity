@@ -1,10 +1,8 @@
 package common.cn.kafei.simukraft.farmland;
 
 import common.cn.kafei.simukraft.citizen.CitizenData;
-import common.cn.kafei.simukraft.citizen.CitizenService;
 import common.cn.kafei.simukraft.city.CityChunkManager;
-import common.cn.kafei.simukraft.job.CityJobAssignmentService;
-import common.cn.kafei.simukraft.job.CityJobMobilityService;
+import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.job.CityJobType;
 import common.cn.kafei.simukraft.material.GenericContainerAccess;
 import net.minecraft.core.BlockPos;
@@ -12,14 +10,12 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 
-import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 /**
  * 农田盒服务端入口：城市归属校验、配置修改、视图构建、雇佣绑定。
  * 所有改变世界/数据的操作都在这里集中校验，再由 Manager 持久化、由网络包同步客户端。
  */
-@SuppressWarnings("null")
 public final class FarmlandBoxService {
     public static final String HIRE_SOURCE_TYPE = "farmland_box";
     public static final String HIRE_ROLE = "farmer";
@@ -29,7 +25,7 @@ public final class FarmlandBoxService {
 
     // 与雇佣系统一致的合成 workplaceId：NpcHireAssignPacket 用相同公式绑定农民到农田盒。
     public static UUID hireWorkplaceId(BlockPos boxPos) {
-        return UUID.nameUUIDFromBytes((HIRE_SOURCE_TYPE + ":" + HIRE_ROLE + "@" + boxPos.toShortString()).getBytes(StandardCharsets.UTF_8));
+        return CitizenEmploymentService.workplaceId(HIRE_SOURCE_TYPE, HIRE_ROLE, boxPos);
     }
 
     public static UUID cityIdFor(ServerLevel level, BlockPos boxPos) {
@@ -37,23 +33,24 @@ public final class FarmlandBoxService {
     }
 
     public static CitizenData findAssignedFarmer(ServerLevel level, BlockPos boxPos) {
-        UUID farmerId = CitizenService.findAssignedCitizen(level, hireWorkplaceId(boxPos));
-        if (farmerId == null) {
-            return null;
-        }
-        CitizenData data = CitizenService.findCitizen(level, farmerId).orElse(null);
-        if (data == null || data.dead() || data.jobType() != CityJobType.FARMER) {
+        CitizenData data = findAssignedWorker(level, boxPos);
+        if (data == null || data.jobType() != CityJobType.FARMER) {
             return null;
         }
         return data;
     }
 
+    // findAssignedWorker：只按农田盒岗位绑定查找，用于显示/解雇旧版错误职业数据。
+    public static CitizenData findAssignedWorker(ServerLevel level, BlockPos boxPos) {
+        return CitizenEmploymentService.findAssigned(level, HIRE_SOURCE_TYPE, HIRE_ROLE, boxPos).orElse(null);
+    }
+
     public static FarmlandBoxView buildView(ServerLevel level, BlockPos boxPos) {
         FarmlandBoxData data = FarmlandBoxManager.get(level).get(boxPos);
         boolean hasCity = cityIdFor(level, boxPos) != null;
-        CitizenData farmer = findAssignedFarmer(level, boxPos);
+        CitizenData assignedWorker = findAssignedWorker(level, boxPos);
         if (data == null) {
-            return new FarmlandBoxView(boxPos.immutable(), hasCity, "", false, BlockPos.ZERO, BlockPos.ZERO, false, BlockPos.ZERO, false, farmer != null, farmer != null ? farmer.name() : "");
+            return new FarmlandBoxView(boxPos.immutable(), hasCity, "", false, BlockPos.ZERO, BlockPos.ZERO, false, BlockPos.ZERO, false, assignedWorker != null, assignedWorker != null ? assignedWorker.name() : "");
         }
         FarmlandPlot plot = data.plot();
         BlockPos chest = resolveAdjacentChest(level, boxPos);
@@ -67,8 +64,8 @@ public final class FarmlandBoxService {
                 chest != null,
                 chest != null ? chest : BlockPos.ZERO,
                 data.running(),
-                farmer != null,
-                farmer != null ? farmer.name() : "");
+                assignedWorker != null,
+                assignedWorker != null ? assignedWorker.name() : "");
     }
 
     public static final int MAX_AREA_HALF_EXTENT = 16;
@@ -158,10 +155,9 @@ public final class FarmlandBoxService {
     // 农田盒被移除时清理配置并自动解雇该盒的农民（FARMLAND POI 注销由放置事件处理器负责）。
     public static void onRemoved(ServerLevel level, BlockPos boxPos) {
         FarmlandBoxManager.get(level).remove(boxPos);
-        UUID farmerId = CitizenService.findAssignedCitizen(level, hireWorkplaceId(boxPos));
-        if (farmerId != null) {
-            CityJobAssignmentService.clearAssignment(level, farmerId);
-            CityJobMobilityService.resetCitizenAfterFire(level, farmerId);
+        CitizenData assignedWorker = findAssignedWorker(level, boxPos);
+        if (assignedWorker != null) {
+            CitizenEmploymentService.fire(level, assignedWorker.uuid(), HIRE_SOURCE_TYPE, HIRE_ROLE, boxPos, "farmland_box_removed");
         }
     }
 

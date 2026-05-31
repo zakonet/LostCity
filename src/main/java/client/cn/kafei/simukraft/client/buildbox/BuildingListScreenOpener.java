@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
-@SuppressWarnings("null")
 @EventBusSubscriber(value = Dist.CLIENT)
 public final class BuildingListScreenOpener {
     private static final int CARD_TEXT_COLOR = SimuKraftUiTheme.CARD_TEXT_COLOR;

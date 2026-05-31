@@ -9,7 +9,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-@SuppressWarnings("null")
 public final class CitizenSqliteRepository {
     private final SimuSqliteDatabase database;
 
@@ -64,6 +63,19 @@ public final class CitizenSqliteRepository {
         }
     }
 
+    public synchronized void clearEmployment(java.util.UUID citizenId) {
+        if (citizenId == null) {
+            return;
+        }
+        try (Connection connection = database.openConnection();
+             PreparedStatement statement = connection.prepareStatement("UPDATE citizens SET job_type = 'UNEMPLOYED', job_id = 'UNEMPLOYED', status = 'idle', work_status = 'work_status.idle', work_need_detail = '', status_label = '', is_working = 0, workplace_id = NULL, workplace_pos_long = NULL WHERE uuid = ?")) {
+            statement.setString(1, citizenId.toString());
+            statement.executeUpdate();
+        } catch (SQLException exception) {
+            SimuKraft.LOGGER.error("Failed to clear citizen employment in SQLite", exception);
+        }
+    }
+
     public synchronized CompoundTag loadAll() {
         CompoundTag tag = new CompoundTag();
         ListTag citizens = new ListTag();
@@ -105,7 +117,7 @@ public final class CitizenSqliteRepository {
                 citizens.add(citizen);
             }
             tag.put("Citizens", citizens);
-            return citizens.isEmpty() ? null : tag;
+            return tag;
         } catch (SQLException | IllegalArgumentException exception) {
             SimuKraft.LOGGER.error("Failed to load citizens from SQLite", exception);
             return null;

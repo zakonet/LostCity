@@ -10,7 +10,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
-@SuppressWarnings("null")
 public final class CitizenAvatarFactory {
     private static final int FRAME_BACKGROUND = 0xFF7A8085;
     private static final int FRAME_INNER = 0xFF646A6F;

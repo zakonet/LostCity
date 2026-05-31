@@ -11,7 +11,6 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import java.util.ArrayList;
 import java.util.List;
 
-@SuppressWarnings("null")
 public record ResidentialControlBoxBoundsUpdatePacket(BlockPos controlBoxPos,
                                                       boolean hasBuildingBounds,
                                                       BlockPos boundsMin,

@@ -13,7 +13,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-@SuppressWarnings("null")
 public final class CitizenJobVisualService {
     private static final int SWING_INTERVAL_TICKS = 10;
     private static final CitizenJobVisualRule EMPTY_RULE = new CitizenJobVisualRule(ItemStack.EMPTY, ItemStack.EMPTY, CitizenJobVisualAction.NONE);

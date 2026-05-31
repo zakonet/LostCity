@@ -2,6 +2,7 @@ package common.cn.kafei.simukraft.citizen;
 
 import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.entity.CitizenEntity;
+import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.storage.SimuSqliteStorage;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -19,7 +20,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@SuppressWarnings("null")
 public final class CitizenManager extends SavedData {
     private static final String DATA_NAME = SimuKraft.MOD_ID + "_citizens";
     private static final int AI_BUDGET_PER_TICK = 20;
@@ -35,18 +35,36 @@ public final class CitizenManager extends SavedData {
     private volatile ServerLevel level;
 
     public static CitizenManager get(ServerLevel level) {
-        CitizenManager manager = level.getDataStorage().computeIfAbsent(FACTORY, DATA_NAME);
-        manager.level = level;
-        manager.loadFromSqlite(level);
+        ServerLevel storageLevel = storageLevel(level);
+        CitizenManager manager = storageLevel.getDataStorage().computeIfAbsent(FACTORY, DATA_NAME);
+        manager.level = storageLevel;
+        manager.loadFromSqlite(storageLevel);
         return manager;
     }
 
+    // storageLevel：居民是整存档数据，统一挂主世界，避免不同维度的旧快照互相覆盖 SQLite。
+    private static ServerLevel storageLevel(ServerLevel level) {
+        if (level != null && level.getServer() != null) {
+            return level.getServer().overworld();
+        }
+        return level;
+    }
+
     private static CitizenManager load(CompoundTag tag, HolderLookup.Provider registries) {
-        return new CitizenManager();
+        CitizenManager manager = new CitizenManager();
+        ListTag citizensTag = tag.getList("Citizens", CompoundTag.TAG_COMPOUND);
+        for (int i = 0; i < citizensTag.size(); i++) {
+            CitizenData data = CitizenData.fromTag(citizensTag.getCompound(i));
+            manager.putLoadedCitizen(data);
+        }
+        return manager;
     }
 
     @Override
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+        ListTag citizensTag = new ListTag();
+        citizens.values().forEach(data -> citizensTag.add(data.toTag()));
+        tag.put("Citizens", citizensTag);
         return tag;
     }
 
@@ -54,15 +72,25 @@ public final class CitizenManager extends SavedData {
         if (level == null) {
             return;
         }
+        if (this.level != null && this.level != level) {
+            return;
+        }
+        if (!citizens.isEmpty()) {
+            SimuSqliteStorage.saveCitizens(level, save(new CompoundTag(), level.registryAccess()));
+        }
     }
 
     private synchronized void loadFromSqlite(ServerLevel level) {
         if (sqliteLoaded) {
             return;
         }
-        sqliteLoaded = true;
         CompoundTag sqliteTag = SimuSqliteStorage.loadCitizens(level);
-        if (sqliteTag == null || sqliteTag.isEmpty()) {
+        if (sqliteTag == null) {
+            SimuKraft.LOGGER.warn("Simukraft: Citizen SQLite data was not loaded; delaying entity-to-citizen fallback to avoid overwriting jobs.");
+            return;
+        }
+        sqliteLoaded = true;
+        if (sqliteTag.isEmpty()) {
             return;
         }
         ListTag citizensTag = sqliteTag.getList("Citizens", CompoundTag.TAG_COMPOUND);
@@ -74,10 +102,23 @@ public final class CitizenManager extends SavedData {
         aiQueue.clear();
         for (int i = 0; i < citizensTag.size(); i++) {
             CitizenData data = CitizenData.fromTag(citizensTag.getCompound(i));
-            citizens.put(data.uuid(), data);
-            if (!data.dead()) {
-                aiQueue.offer(data.uuid());
+            boolean repaired = CitizenEmploymentService.repairLoadedEmployment(data);
+            putLoadedCitizen(data);
+            if (repaired) {
+                SimuKraft.LOGGER.info("Simukraft: Repaired citizen {} employment during load", data.uuid());
+                saveCitizenIncremental(data);
             }
+        }
+    }
+
+    // putLoadedCitizen：加载 SQLite/SavedData 时统一恢复居民索引和 AI 队列。
+    private void putLoadedCitizen(CitizenData data) {
+        if (data == null) {
+            return;
+        }
+        citizens.put(data.uuid(), data);
+        if (!data.dead()) {
+            aiQueue.offer(data.uuid());
         }
     }
 
@@ -120,6 +161,17 @@ public final class CitizenManager extends SavedData {
 
     public CitizenData getOrCreate(CitizenEntity entity) {
         CitizenData data = citizens.get(entity.getUUID());
+        if (data == null) {
+            if (!sqliteLoaded) {
+                if (entity.level() instanceof ServerLevel serverLevel) {
+                    loadFromSqlite(serverLevel);
+                    data = citizens.get(entity.getUUID());
+                }
+                if (data == null && !sqliteLoaded) {
+                    return null;
+                }
+            }
+        }
         if (data == null) {
             data = createDefaultFromEntity(entity);
             CitizenData existing = citizens.putIfAbsent(entity.getUUID(), data);
@@ -188,6 +240,9 @@ public final class CitizenManager extends SavedData {
     }
 
     public void tick(ServerLevel level) {
+        if (level == null || this.level != null && this.level != level) {
+            return;
+        }
         int processed = 0;
         // 轮询队列相当于时间片调度，每 tick 最多处理 AI_BUDGET_PER_TICK 个居民。
         while (processed < AI_BUDGET_PER_TICK) {

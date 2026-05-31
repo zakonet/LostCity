@@ -14,7 +14,6 @@ import java.sql.Types;
  * 农田盒配置的 SQLite 仓库。读写格式与 FarmlandBoxData.toTag/fromTag 对齐：
  * 列里的 NULL 表示"未设置"，作物/区域/箱子缺省时不写对应键，保证视图能正确显示"未配置"。
  */
-@SuppressWarnings("null")
 public final class FarmlandBoxSqliteRepository {
     private final SimuSqliteDatabase database;
 

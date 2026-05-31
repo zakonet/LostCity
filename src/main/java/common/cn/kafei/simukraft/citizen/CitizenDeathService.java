@@ -1,6 +1,5 @@
 package common.cn.kafei.simukraft.citizen;
 
-import common.cn.kafei.simukraft.building.BuilderConstructionService;
 import common.cn.kafei.simukraft.building.PlacedBuildingRecord;
 import common.cn.kafei.simukraft.building.PlacedBuildingService;
 import common.cn.kafei.simukraft.building.ResidentialBedPoiService;
@@ -10,6 +9,7 @@ import common.cn.kafei.simukraft.city.poi.CityPoiData;
 import common.cn.kafei.simukraft.city.poi.CityPoiManager;
 import common.cn.kafei.simukraft.entity.CitizenEntity;
 import common.cn.kafei.simukraft.job.CityJobAssignmentService;
+import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.network.building.controlbox.ResidentialControlBoxViewUpdatePacket;
 import common.cn.kafei.simukraft.network.hud.HudSyncService;
 import common.cn.kafei.simukraft.path.CitizenNavigationService;
@@ -19,7 +19,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.UUID;
 
-@SuppressWarnings("null")
 public final class CitizenDeathService {
     private CitizenDeathService() {
     }
@@ -37,7 +36,7 @@ public final class CitizenDeathService {
         }
         UUID oldHomeId = data.homeId();
         UUID cityId = data.cityId();
-        BuilderConstructionService.interruptTask(level, data.uuid(), "citizen_died");
+        CitizenEmploymentService.fire(level, data.uuid(), null, null, data.workplacePos(), "citizen_died");
         CitizenNavigationService.stop(level, data.uuid());
         CitizenManager.get(level).markCitizenDead(data.uuid(), level.getDayTime() / 24000L + 1L);
         if (cityId != null) {

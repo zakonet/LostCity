@@ -16,7 +16,6 @@ import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Optional;
 
-@SuppressWarnings("null")
 public final class BuildingStructureFileLoader {
     private BuildingStructureFileLoader() {
     }

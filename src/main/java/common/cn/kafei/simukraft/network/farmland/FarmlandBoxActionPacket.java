@@ -4,8 +4,7 @@ import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.citizen.CitizenData;
 import common.cn.kafei.simukraft.city.CityService;
 import common.cn.kafei.simukraft.farmland.FarmlandBoxService;
-import common.cn.kafei.simukraft.job.CityJobAssignmentService;
-import common.cn.kafei.simukraft.job.CityJobMobilityService;
+import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import common.cn.kafei.simukraft.registry.ModBlocks;
 import net.minecraft.core.BlockPos;
@@ -21,7 +20,6 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.UUID;
 
-@SuppressWarnings("null")
 public record FarmlandBoxActionPacket(BlockPos pos, Action action) implements CustomPacketPayload {
     public static final Type<FarmlandBoxActionPacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SimuKraft.MOD_ID, "farmland_box_action"));
     public static final StreamCodec<RegistryFriendlyByteBuf, FarmlandBoxActionPacket> STREAM_CODEC = StreamCodec.of(FarmlandBoxActionPacket::encode, FarmlandBoxActionPacket::decode);
@@ -91,22 +89,19 @@ public record FarmlandBoxActionPacket(BlockPos pos, Action action) implements Cu
     }
 
     private static void fireFarmer(ServerLevel level, ServerPlayer player, BlockPos pos) {
-        CitizenData farmer = FarmlandBoxService.findAssignedFarmer(level, pos);
+        CitizenData farmer = FarmlandBoxService.findAssignedWorker(level, pos);
         if (farmer == null) {
             return;
         }
-        CityJobAssignmentService.clearAssignment(level, farmer.uuid());
-        CityJobMobilityService.resetCitizenAfterFire(level, farmer.uuid());
+        CitizenEmploymentService.fire(level, farmer.uuid(), FarmlandBoxService.HIRE_SOURCE_TYPE, FarmlandBoxService.HIRE_ROLE, pos, "farmer_fired");
         // 解雇后停止耕作，避免空转。
-        FarmlandBoxService.toggleRunningOff(level, pos);
         InfoToastService.success(player, Component.translatable("message.simukraft.fire_npc.success", farmer.name()));
     }
 
     private static void demolish(ServerLevel level, BlockPos pos) {
-        CitizenData farmer = FarmlandBoxService.findAssignedFarmer(level, pos);
+        CitizenData farmer = FarmlandBoxService.findAssignedWorker(level, pos);
         if (farmer != null) {
-            CityJobAssignmentService.clearAssignment(level, farmer.uuid());
-            CityJobMobilityService.resetCitizenAfterFire(level, farmer.uuid());
+            CitizenEmploymentService.fire(level, farmer.uuid(), FarmlandBoxService.HIRE_SOURCE_TYPE, FarmlandBoxService.HIRE_ROLE, pos, "farmland_box_demolished");
         }
         // destroyBlock 会触发破坏事件：注销 FARMLAND POI、清理农田盒配置，并掉落方块。
         level.destroyBlock(pos, true);
