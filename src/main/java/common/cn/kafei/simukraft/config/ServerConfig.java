@@ -32,6 +32,9 @@ public final class ServerConfig {
     private static final ModConfigSpec.IntValue PATH_REPATH_COOLDOWN_TICKS;
     private static final ModConfigSpec.IntValue PATH_CACHE_TTL_TICKS;
     private static final ModConfigSpec.BooleanValue PATH_DEBUG;
+    private static final ModConfigSpec.IntValue FARM_AREA_RADIUS;
+    private static final ModConfigSpec.IntValue FARM_WORK_INTERVAL_TICKS;
+    private static final ModConfigSpec.IntValue FARM_ACTIONS_PER_CYCLE;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -174,6 +177,20 @@ public final class ServerConfig {
                 .translation("config.simukraft.npc_pathfinding.debugPathfinding")
                 .define("debugPathfinding", false);
         builder.pop();
+        builder.push("farming");
+        FARM_AREA_RADIUS = builder
+                .comment("Half-size of the square farmland box work area. Radius 3 means a 7x7 field around the box.")
+                .translation("config.simukraft.farming.areaRadius")
+                .defineInRange("areaRadius", 3, 1, 16);
+        FARM_WORK_INTERVAL_TICKS = builder
+                .comment("Ticks between farmer work cycles for one farmland box. Higher values are lighter on the server.")
+                .translation("config.simukraft.farming.workIntervalTicks")
+                .defineInRange("workIntervalTicks", 20, 1, 1200);
+        FARM_ACTIONS_PER_CYCLE = builder
+                .comment("Maximum till/plant/harvest actions one farmland box performs per work cycle.")
+                .translation("config.simukraft.farming.actionsPerCycle")
+                .defineInRange("actionsPerCycle", 4, 1, 64);
+        builder.pop();
         SPEC = builder.build();
     }
 
@@ -282,6 +299,18 @@ public final class ServerConfig {
 
     public static boolean pathDebugEnabled() {
         return PATH_DEBUG.get();
+    }
+
+    public static int farmAreaRadius() {
+        return FARM_AREA_RADIUS.get();
+    }
+
+    public static int farmWorkIntervalTicks() {
+        return FARM_WORK_INTERVAL_TICKS.get();
+    }
+
+    public static int farmActionsPerCycle() {
+        return FARM_ACTIONS_PER_CYCLE.get();
     }
 
     private static boolean isStringEntry(Object value) {

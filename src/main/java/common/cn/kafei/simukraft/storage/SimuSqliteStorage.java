@@ -16,6 +16,7 @@ public final class SimuSqliteStorage {
     private final CityPoiSqliteRepository cityPois;
     private final CitizenSqliteRepository citizens;
     private final BuildingTaskSqliteRepository buildingTasks;
+    private final FarmlandBoxSqliteRepository farmlandBoxes;
 
     private SimuSqliteStorage(SimuSqliteDatabase database) {
         this.database = database;
@@ -24,6 +25,7 @@ public final class SimuSqliteStorage {
         this.cityPois = new CityPoiSqliteRepository(database);
         this.citizens = new CitizenSqliteRepository(database);
         this.buildingTasks = new BuildingTaskSqliteRepository(database);
+        this.farmlandBoxes = new FarmlandBoxSqliteRepository(database);
     }
 
     public static SimuSqliteStorage open(MinecraftServer server) {
@@ -165,6 +167,31 @@ public final class SimuSqliteStorage {
         SimuSqliteStorage storage = openSafely(level);
         if (storage != null && citizenId != null) {
             storage.buildingTasks.deleteByCitizen(citizenId);
+        }
+    }
+
+    public static CompoundTag loadFarmlandBoxes(ServerLevel level) {
+        SimuSqliteStorage storage = openSafely(level);
+        return storage != null ? storage.farmlandBoxes.loadAll() : null;
+    }
+
+    public static void saveFarmlandBoxes(ServerLevel level, CompoundTag tag) {
+        if (level != null && level.getServer() != null && tag != null) {
+            open(level.getServer()).farmlandBoxes.saveAll(tag);
+        }
+    }
+
+    public static void saveFarmlandBox(ServerLevel level, CompoundTag boxTag) {
+        SimuSqliteStorage storage = openSafely(level);
+        if (storage != null && boxTag != null) {
+            storage.farmlandBoxes.upsert(boxTag);
+        }
+    }
+
+    public static void deleteFarmlandBox(ServerLevel level, long boxPosLong) {
+        SimuSqliteStorage storage = openSafely(level);
+        if (storage != null) {
+            storage.farmlandBoxes.delete(boxPosLong);
         }
     }
 

@@ -87,6 +87,63 @@ public final class GenericContainerAccess {
         }
     }
 
+    /**
+     * 向容器插入物品，优先 IItemHandler，回退原版 Container。返回未能放入的剩余物（调用方负责掉落兜底）。
+     */
+    public static ItemStack insert(ServerLevel level, BlockPos pos, ItemStack stack) {
+        if (level == null || pos == null || stack == null || stack.isEmpty() || !level.isLoaded(pos)) {
+            return stack == null ? ItemStack.EMPTY : stack;
+        }
+        try {
+            ItemHandlerAccess handlerAccess = resolveItemHandler(level, pos);
+            if (handlerAccess != null) {
+                return net.neoforged.neoforge.items.ItemHandlerHelper.insertItem(handlerAccess.handler(), stack.copy(), false);
+            }
+            Container container = resolveContainer(level, pos);
+            if (container != null) {
+                return insertIntoContainer(level, pos, container, stack.copy());
+            }
+        } catch (RuntimeException exception) {
+            SimuKraft.LOGGER.warn("Simukraft: Failed to insert item into container at {}", pos, exception);
+        }
+        return stack;
+    }
+
+    private static ItemStack insertIntoContainer(ServerLevel level, BlockPos pos, Container container, ItemStack stack) {
+        ItemStack remaining = stack;
+        int size = container.getContainerSize();
+        // 先并入同物品的已有槽位，再放入空槽，最大限度复用堆叠空间。
+        for (int slot = 0; slot < size && !remaining.isEmpty(); slot++) {
+            ItemStack existing = container.getItem(slot);
+            if (existing.isEmpty() || !ItemStack.isSameItemSameComponents(existing, remaining)) {
+                continue;
+            }
+            int maxStack = Math.min(container.getMaxStackSize(), existing.getMaxStackSize());
+            int movable = Math.min(remaining.getCount(), maxStack - existing.getCount());
+            if (movable > 0) {
+                existing.grow(movable);
+                remaining.shrink(movable);
+            }
+        }
+        for (int slot = 0; slot < size && !remaining.isEmpty(); slot++) {
+            if (!container.getItem(slot).isEmpty()) {
+                continue;
+            }
+            int maxStack = Math.min(container.getMaxStackSize(), remaining.getMaxStackSize());
+            ItemStack placed = remaining.copy();
+            int amount = Math.min(remaining.getCount(), maxStack);
+            placed.setCount(amount);
+            container.setItem(slot, placed);
+            remaining.shrink(amount);
+        }
+        container.setChanged();
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (blockEntity != null) {
+            blockEntity.setChanged();
+        }
+        return remaining;
+    }
+
     public static BlockPos canonicalContainerPos(ServerLevel level, BlockPos pos) {
         if (level == null || pos == null || !level.isLoaded(pos)) {
             return pos;

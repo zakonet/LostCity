@@ -1,7 +1,7 @@
 package client.cn.kafei.simukraft.mixin;
 
-import client.cn.kafei.simukraft.client.buildbox.BuildingPreviewScreen;
 import client.cn.kafei.simukraft.client.freecamera.FreeCameraManager;
+import client.cn.kafei.simukraft.client.freecamera.FreeCameraScreen;
 import client.cn.kafei.simukraft.client.path.NpcPathDebugRenderer;
 import net.minecraft.client.KeyboardHandler;
 import net.minecraft.client.Minecraft;
@@ -23,7 +23,7 @@ public final class MixinKeyboardHandler {
             return;
         }
         Minecraft minecraft = Minecraft.getInstance();
-        if (!(minecraft.screen instanceof BuildingPreviewScreen) && minecraft.screen != null) {
+        if (!(minecraft.screen instanceof FreeCameraScreen) && minecraft.screen != null) {
             return;
         }
         boolean pressed = action == GLFW.GLFW_PRESS;

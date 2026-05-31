@@ -8,6 +8,13 @@ import common.cn.kafei.simukraft.network.building.controlbox.ResidentialControlB
 import common.cn.kafei.simukraft.network.building.controlbox.ResidentialControlBoxOpenRequestPacket;
 import common.cn.kafei.simukraft.network.building.controlbox.ResidentialControlBoxOpenResponsePacket;
 import common.cn.kafei.simukraft.network.building.controlbox.ResidentialControlBoxViewUpdatePacket;
+import common.cn.kafei.simukraft.network.farmland.FarmlandBoxActionPacket;
+import common.cn.kafei.simukraft.network.farmland.FarmlandBoxBoundsRequestPacket;
+import common.cn.kafei.simukraft.network.farmland.FarmlandBoxBoundsResponsePacket;
+import common.cn.kafei.simukraft.network.farmland.FarmlandBoxOpenRequestPacket;
+import common.cn.kafei.simukraft.network.farmland.FarmlandBoxOpenResponsePacket;
+import common.cn.kafei.simukraft.network.farmland.FarmlandBoxSetAreaPacket;
+import common.cn.kafei.simukraft.network.farmland.FarmlandBoxSetCropPacket;
 import common.cn.kafei.simukraft.network.city.chunk.CityChunkPurchasePacket;
 import common.cn.kafei.simukraft.network.city.chunk.CityChunkSyncPacket;
 import common.cn.kafei.simukraft.network.city.core.CityCoreCreateCityPacket;
@@ -35,7 +42,7 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public final class ModNetwork {
-    private static final String NETWORK_VERSION = "4";
+    private static final String NETWORK_VERSION = "7";
 
     private ModNetwork() {
     }
@@ -59,6 +66,11 @@ public final class ModNetwork {
         registrar.playToServer(ResidentialControlBoxOpenRequestPacket.TYPE, ResidentialControlBoxOpenRequestPacket.STREAM_CODEC, ResidentialControlBoxOpenRequestPacket::handle);
         registrar.playToServer(ResidentialControlBoxDemolishPacket.TYPE, ResidentialControlBoxDemolishPacket.STREAM_CODEC, ResidentialControlBoxDemolishPacket::handle);
         registrar.playToServer(ResidentialControlBoxOccupancyPacket.TYPE, ResidentialControlBoxOccupancyPacket.STREAM_CODEC, ResidentialControlBoxOccupancyPacket::handle);
+        registrar.playToServer(FarmlandBoxOpenRequestPacket.TYPE, FarmlandBoxOpenRequestPacket.STREAM_CODEC, FarmlandBoxOpenRequestPacket::handle);
+        registrar.playToServer(FarmlandBoxActionPacket.TYPE, FarmlandBoxActionPacket.STREAM_CODEC, FarmlandBoxActionPacket::handle);
+        registrar.playToServer(FarmlandBoxSetCropPacket.TYPE, FarmlandBoxSetCropPacket.STREAM_CODEC, FarmlandBoxSetCropPacket::handle);
+        registrar.playToServer(FarmlandBoxSetAreaPacket.TYPE, FarmlandBoxSetAreaPacket.STREAM_CODEC, FarmlandBoxSetAreaPacket::handle);
+        registrar.playToServer(FarmlandBoxBoundsRequestPacket.TYPE, FarmlandBoxBoundsRequestPacket.STREAM_CODEC, FarmlandBoxBoundsRequestPacket::handle);
         registrar.playToServer(NpcPathDebugRequestPacket.TYPE, NpcPathDebugRequestPacket.STREAM_CODEC, NpcPathDebugRequestPacket::handle);
         registrar.playToClient(CityCoreOpenResponsePacket.TYPE, CityCoreOpenResponsePacket.STREAM_CODEC, CityCoreOpenResponsePacket::handle);
         registrar.playToClient(CityCoreMembersResponsePacket.TYPE, CityCoreMembersResponsePacket.STREAM_CODEC, CityCoreMembersResponsePacket::handle);
@@ -72,6 +84,8 @@ public final class ModNetwork {
         registrar.playToClient(ResidentialControlBoxBoundsUpdatePacket.TYPE, ResidentialControlBoxBoundsUpdatePacket.STREAM_CODEC, ResidentialControlBoxBoundsUpdatePacket::handle);
         registrar.playToClient(ResidentialControlBoxViewUpdatePacket.TYPE, ResidentialControlBoxViewUpdatePacket.STREAM_CODEC, ResidentialControlBoxViewUpdatePacket::handle);
         registrar.playToClient(ResidentialControlBoxOpenResponsePacket.TYPE, ResidentialControlBoxOpenResponsePacket.STREAM_CODEC, ResidentialControlBoxOpenResponsePacket::handle);
+        registrar.playToClient(FarmlandBoxOpenResponsePacket.TYPE, FarmlandBoxOpenResponsePacket.STREAM_CODEC, FarmlandBoxOpenResponsePacket::handle);
+        registrar.playToClient(FarmlandBoxBoundsResponsePacket.TYPE, FarmlandBoxBoundsResponsePacket.STREAM_CODEC, FarmlandBoxBoundsResponsePacket::handle);
         registrar.playToClient(NpcPathDebugSyncPacket.TYPE, NpcPathDebugSyncPacket.STREAM_CODEC, NpcPathDebugSyncPacket::handle);
         registrar.playToClient(InfoToastPacket.TYPE, InfoToastPacket.STREAM_CODEC, InfoToastPacket::handle);
     }

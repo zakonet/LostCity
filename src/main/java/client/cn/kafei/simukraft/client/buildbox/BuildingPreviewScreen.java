@@ -1,6 +1,7 @@
 package client.cn.kafei.simukraft.client.buildbox;
 
 import client.cn.kafei.simukraft.client.freecamera.FreeCameraManager;
+import client.cn.kafei.simukraft.client.freecamera.FreeCameraScreen;
 import client.cn.kafei.simukraft.client.toast.ClientInfoToast;
 import client.cn.kafei.simukraft.client.ui.SimuKraftUiTheme;
 import common.cn.kafei.simukraft.building.BuildingStructure;
@@ -13,7 +14,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import org.lwjgl.glfw.GLFW;
 
 @SuppressWarnings("null")
-public final class BuildingPreviewScreen extends Screen {
+public final class BuildingPreviewScreen extends Screen implements FreeCameraScreen {
     private final Screen parent;
     private final BuildingCacheService.BuildingMeta building;
     private final BlockPos buildBoxPos;

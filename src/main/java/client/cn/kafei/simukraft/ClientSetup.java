@@ -54,6 +54,7 @@ public final class ClientSetup {
         SimuMapManager.shutdownIfPresent();
         FreeCameraManager.deactivate();
         NpcPathDebugRenderer.clear();
+        client.cn.kafei.simukraft.client.farmland.FarmlandHoverPreview.clear();
     }
 
     private static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {

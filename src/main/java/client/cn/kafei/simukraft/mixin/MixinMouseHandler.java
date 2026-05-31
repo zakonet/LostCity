@@ -1,7 +1,7 @@
 package client.cn.kafei.simukraft.mixin;
 
-import client.cn.kafei.simukraft.client.buildbox.BuildingPreviewScreen;
 import client.cn.kafei.simukraft.client.freecamera.FreeCameraManager;
+import client.cn.kafei.simukraft.client.freecamera.FreeCameraScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.MouseHandler;
 import net.minecraft.client.gui.screens.Screen;
@@ -29,7 +29,7 @@ public final class MixinMouseHandler {
         }
         Minecraft minecraft = Minecraft.getInstance();
         Screen screen = minecraft.screen;
-        if (!(screen instanceof BuildingPreviewScreen) && screen != null) {
+        if (!(screen instanceof FreeCameraScreen) && screen != null) {
             return;
         }
         if (Double.isNaN(simukraft$lastX)) {
@@ -56,7 +56,7 @@ public final class MixinMouseHandler {
     private void simukraft$turnPlayer(CallbackInfo callbackInfo) {
         if (FreeCameraManager.isActive()) {
             Minecraft minecraft = Minecraft.getInstance();
-            if (minecraft.screen == null || minecraft.screen instanceof BuildingPreviewScreen) {
+            if (minecraft.screen == null || minecraft.screen instanceof FreeCameraScreen) {
                 callbackInfo.cancel();
                 accumulatedDX = 0.0D;
                 accumulatedDY = 0.0D;
