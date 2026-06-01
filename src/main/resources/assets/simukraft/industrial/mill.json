@@ -1,0 +1,50 @@
+{
+  "id": "simukraft:mill",
+  "name": "磨坊",
+  "jobType": "miller",
+  "jobName": "磨坊工人",
+  "heldItem": "minecraft:wheat",
+  "points": {
+    "stand": {
+      "type": "structure_pos",
+      "positions": [[4, 1, 5], [5, 1, 5]],
+      "select": "nearest"
+    },
+    "machine": {
+      "type": "structure_pos",
+      "pos": [4, 1, 6]
+    }
+  },
+  "containers": {
+    "input": {
+      "type": "structure_pos",
+      "positions": [[2, 1, 4], [3, 1, 4]]
+    },
+    "output": {
+      "type": "structure_pos",
+      "positions": [[6, 1, 4], [7, 1, 4]]
+    }
+  },
+  "recipes": [
+    {
+      "id": "wheat2cookie",
+      "name": "曲奇生产",
+      "inputs": [
+        { "item": "minecraft:wheat", "count": 3 },
+        { "item": "minecraft:sugar", "count": 1 }
+      ],
+      "outputs": [
+        { "item": "minecraft:cookie", "baseAmount": 1, "randomRange": 2, "probability": 1.0 }
+      ],
+      "steps": [
+        { "type": "require_inputs", "container": "input" },
+        { "type": "require_output_space", "container": "output" },
+        { "type": "set_held_item", "item": "minecraft:wheat" },
+        { "type": "move_to", "point": "stand", "range": 1.2 },
+        { "type": "look_at", "point": "machine" },
+        { "type": "use_item", "ticks": 80, "swing": true },
+        { "type": "craft_recipe", "input": "input", "output": "output" }
+      ]
+    }
+  ]
+}

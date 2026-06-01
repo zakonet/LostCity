@@ -17,6 +17,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+@SuppressWarnings("null")
 public final class CityManager extends SavedData {
     private static final String DATA_NAME = SimuKraft.MOD_ID + "_cities";
     private static final Factory<CityManager> FACTORY = new Factory<>(CityManager::new, CityManager::load, null);

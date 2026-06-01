@@ -15,6 +15,7 @@ import net.minecraft.world.item.ItemStack;
 import java.util.List;
 import java.util.Locale;
 
+@SuppressWarnings("null")
 public final class ClientInfoToast implements Toast {
     private static final ResourceLocation LOGO_TEXTURE = ResourceLocation.fromNamespaceAndPath(SimuKraft.MOD_ID, "textures/gui/logo.png");
     private static final int WIDTH = 184;

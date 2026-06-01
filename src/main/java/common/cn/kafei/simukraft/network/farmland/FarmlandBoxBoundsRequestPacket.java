@@ -19,6 +19,8 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
  * 悬停查询农田盒已保存作业区域：客户端视线对准农田盒超过 1 秒时发起，服务端回包供客户端渲染线框。
  * 仅展示用途，不改任何数据。
  */
+
+@SuppressWarnings("null")
 public record FarmlandBoxBoundsRequestPacket(BlockPos pos) implements CustomPacketPayload {
     public static final Type<FarmlandBoxBoundsRequestPacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SimuKraft.MOD_ID, "farmland_box_bounds_request"));
     public static final StreamCodec<RegistryFriendlyByteBuf, FarmlandBoxBoundsRequestPacket> STREAM_CODEC = StreamCodec.of(FarmlandBoxBoundsRequestPacket::encode, FarmlandBoxBoundsRequestPacket::decode);

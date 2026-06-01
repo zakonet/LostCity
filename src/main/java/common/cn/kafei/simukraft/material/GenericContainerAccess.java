@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 
+@SuppressWarnings("null")
 /**
  * 通用容器访问：优先支持 NeoForge IItemHandler，回退原版 Container。
  */
@@ -106,6 +107,48 @@ public final class GenericContainerAccess {
             SimuKraft.LOGGER.warn("Simukraft: Failed to insert item into container at {}", pos, exception);
         }
         return stack;
+    }
+
+    public static int countInsertable(ServerLevel level, BlockPos pos, ItemStack stack) {
+        if (level == null || pos == null || stack == null || stack.isEmpty() || !level.isLoaded(pos)) {
+            return 0;
+        }
+        try {
+            ItemHandlerAccess handlerAccess = resolveItemHandler(level, pos);
+            if (handlerAccess != null) {
+                ItemStack remaining = net.neoforged.neoforge.items.ItemHandlerHelper.insertItem(handlerAccess.handler(), stack.copy(), true);
+                return stack.getCount() - remaining.getCount();
+            }
+            Container container = resolveContainer(level, pos);
+            if (container != null) {
+                return countInsertableInContainer(container, stack.copy());
+            }
+        } catch (RuntimeException exception) {
+            SimuKraft.LOGGER.warn("Simukraft: Failed to simulate item insertion into container at {}", pos, exception);
+        }
+        return 0;
+    }
+
+    private static int countInsertableInContainer(Container container, ItemStack stack) {
+        int remaining = stack.getCount();
+        int size = container.getContainerSize();
+        for (int slot = 0; slot < size && remaining > 0; slot++) {
+            ItemStack existing = container.getItem(slot);
+            if (existing.isEmpty() || !ItemStack.isSameItemSameComponents(existing, stack)) {
+                continue;
+            }
+            int maxStack = Math.min(container.getMaxStackSize(), existing.getMaxStackSize());
+            remaining -= Math.max(0, Math.min(remaining, maxStack - existing.getCount()));
+        }
+        for (int slot = 0; slot < size && remaining > 0; slot++) {
+            ItemStack existing = container.getItem(slot);
+            if (!existing.isEmpty()) {
+                continue;
+            }
+            int maxStack = Math.min(container.getMaxStackSize(), stack.getMaxStackSize());
+            remaining -= Math.max(0, Math.min(remaining, maxStack));
+        }
+        return stack.getCount() - remaining;
     }
 
     private static ItemStack insertIntoContainer(ServerLevel level, BlockPos pos, Container container, ItemStack stack) {

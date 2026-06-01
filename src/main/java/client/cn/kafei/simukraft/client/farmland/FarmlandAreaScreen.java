@@ -23,6 +23,8 @@ import org.lwjgl.glfw.GLFW;
  * - 长 = 沿朝向纵深；宽 = 横向；离盒距离 = 近边离农田盒多少格（默认 1，即盒外一格为底线）；左右 = 横向平移。
  * - 因为自由视角锁定了鼠标，界面用键盘操作，不画暗色背景，世界里的线框预览（复用 BuildingBoundsRenderer）始终可见。
  */
+
+@SuppressWarnings("null")
 public final class FarmlandAreaScreen extends Screen implements FreeCameraScreen {
     private static final int MAX_LENGTH = 33;
     private static final int MAX_HALF_WIDTH = 16;

@@ -19,12 +19,14 @@ import common.cn.kafei.simukraft.network.citizen.info.CitizenInfoResponsePacket;
 import dev.vfyjxf.taffy.style.AlignItems;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@SuppressWarnings("null")
 public final class CitizenScreenOpener {
     private CitizenScreenOpener() {
     }
@@ -91,7 +93,7 @@ public final class CitizenScreenOpener {
         panel.addChild(line(Component.translatable("screen.simukraft.citizen_info.menu.work")));
         panel.addChild(contentSpacerSmall());
         panel.addChild(line(Component.translatable("screen.simukraft.citizen_info.work_status", workStatusText(packet))));
-        panel.addChild(line(Component.translatable("screen.simukraft.citizen_info.work_detail", blankFallback(packet.statusLabel()))));
+        panel.addChild(line(Component.translatable("screen.simukraft.citizen_info.work_detail", localizedOrLiteral(packet.statusLabel()))));
         panel.addChild(line(Component.translatable("screen.simukraft.citizen_info.job", jobText(packet))));
         panel.addChild(line(Component.translatable("screen.simukraft.citizen_info.skill_level", skillText(packet))));
         return panel;
@@ -145,11 +147,19 @@ public final class CitizenScreenOpener {
     }
 
     private static String workStatusText(CitizenInfoResponsePacket packet) {
-        return Component.translatable(packet.workStatus()).getString();
+        return localizedOrLiteral(packet.workStatus());
     }
 
     private static String jobText(CitizenInfoResponsePacket packet) {
-        return Component.translatable(common.cn.kafei.simukraft.job.CityJobType.fromName(packet.jobType()).translationKey()).getString();
+        if (packet.jobName() != null && !packet.jobName().isBlank()) {
+            return packet.jobName();
+        }
+        String jobId = packet.jobId();
+        CityJobType packetJobType = CityJobType.fromName(packet.jobType());
+        if (packetJobType == CityJobType.INDUSTRIAL_WORKER && jobId != null && !jobId.isBlank() && CityJobType.fromName(jobId) != CityJobType.INDUSTRIAL_WORKER) {
+            return jobId;
+        }
+        return Component.translatable(packetJobType.translationKey()).getString();
     }
 
     private static String skillText(CitizenInfoResponsePacket packet) {
@@ -177,6 +187,13 @@ public final class CitizenScreenOpener {
             key = "gui.npc.hunger.level.full";
         }
         return String.format(Locale.ROOT, "%.1f/20.0 %s", hunger, Component.translatable(key).getString());
+    }
+
+    private static String localizedOrLiteral(String value) {
+        if (value == null || value.isBlank()) {
+            return Component.translatable("screen.simukraft.citizen_info.none").getString();
+        }
+        return I18n.exists(value) ? Component.translatable(value).getString() : value;
     }
 
     private static void close() {

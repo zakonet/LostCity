@@ -15,6 +15,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
 
+@SuppressWarnings("null")
 public final class TwoPointSelectionRenderer {
     private static final int COLOR_POINT_1 = 0xD8FF3333;
     private static final int COLOR_POINT_2 = 0xD8FFE066;

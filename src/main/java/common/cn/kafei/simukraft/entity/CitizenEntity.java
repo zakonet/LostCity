@@ -23,6 +23,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 
+@SuppressWarnings("null")
 public class CitizenEntity extends PathfinderMob {
     // SynchedEntityData 会自动同步到客户端，用于渲染名字、职业、状态和皮肤。
     private static final EntityDataAccessor<String> DATA_CITIZEN_NAME = SynchedEntityData.defineId(CitizenEntity.class, EntityDataSerializers.STRING);

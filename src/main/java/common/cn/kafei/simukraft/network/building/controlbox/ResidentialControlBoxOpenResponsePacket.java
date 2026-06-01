@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+@SuppressWarnings("null")
 public record ResidentialControlBoxOpenResponsePacket(BlockPos controlBoxPos,
                                                       String buildingName,
                                                       String buildingTypeKey,

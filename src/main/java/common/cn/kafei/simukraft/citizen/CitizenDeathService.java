@@ -19,6 +19,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.UUID;
 
+@SuppressWarnings("null")
 public final class CitizenDeathService {
     private CitizenDeathService() {
     }

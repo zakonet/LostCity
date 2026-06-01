@@ -16,6 +16,8 @@ import java.util.UUID;
  * 农田盒服务端入口：城市归属校验、配置修改、视图构建、雇佣绑定。
  * 所有改变世界/数据的操作都在这里集中校验，再由 Manager 持久化、由网络包同步客户端。
  */
+
+@SuppressWarnings("null")
 public final class FarmlandBoxService {
     public static final String HIRE_SOURCE_TYPE = "farmland_box";
     public static final String HIRE_ROLE = "farmer";

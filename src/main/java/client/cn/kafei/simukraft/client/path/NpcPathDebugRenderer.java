@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+@SuppressWarnings("null")
 public final class NpcPathDebugRenderer {
     private static final Map<UUID, DebugPath> PATHS = new ConcurrentHashMap<>();
     private static final double MARKER_RADIUS = 0.12D;

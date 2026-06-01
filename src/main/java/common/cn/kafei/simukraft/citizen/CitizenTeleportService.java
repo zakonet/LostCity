@@ -13,6 +13,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+@SuppressWarnings("null")
 public final class CitizenTeleportService {
     private CitizenTeleportService() {
     }

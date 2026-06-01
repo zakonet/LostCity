@@ -27,6 +27,7 @@ import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
 
+@SuppressWarnings("null")
 @EventBusSubscriber(modid = SimuKraft.MOD_ID)
 public final class ClientSetup {
     private ClientSetup() {

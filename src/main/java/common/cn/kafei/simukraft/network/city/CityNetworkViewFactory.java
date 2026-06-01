@@ -22,6 +22,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+@SuppressWarnings("null")
 public final class CityNetworkViewFactory {
     private CityNetworkViewFactory() {
     }

@@ -9,6 +9,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+@SuppressWarnings("null")
 public final class CitizenData {
     private final UUID uuid;
     private String name;
@@ -253,6 +254,10 @@ public final class CitizenData {
 
     public void setJobId(String jobId) {
         setJobType(CityJobType.fromName(jobId));
+    }
+
+    public void setJobIdRaw(String jobId) {
+        this.jobId = jobId != null && !jobId.isBlank() ? jobId : this.jobType.name();
     }
 
     public String status() {

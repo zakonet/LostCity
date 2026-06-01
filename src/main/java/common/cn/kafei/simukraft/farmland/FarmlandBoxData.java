@@ -8,6 +8,8 @@ import net.minecraft.nbt.CompoundTag;
  * 仓储箱不再手动绑定，由 {@link FarmlandBoxService} 在运行时自动检测紧贴六个面的容器。
  * 城市归属、FARMLAND POI、农民雇佣由既有系统(放置事件 / POI / 雇佣)负责，这里不重复存。
  */
+
+@SuppressWarnings("null")
 public final class FarmlandBoxData {
     private final BlockPos boxPos;
     private FarmCrop crop;

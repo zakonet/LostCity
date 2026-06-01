@@ -33,6 +33,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+@SuppressWarnings("null")
 public final class ResidentialRentService {
     private static final long TICKS_PER_RENT_DAY = 24_000L;
     private static final long MONEY_COLLECT_DELAY_TICKS = 60L;

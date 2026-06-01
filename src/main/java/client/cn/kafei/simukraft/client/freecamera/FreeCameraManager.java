@@ -9,6 +9,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 
+@SuppressWarnings("null")
 @EventBusSubscriber(value = Dist.CLIENT)
 public final class FreeCameraManager {
     private static boolean active;

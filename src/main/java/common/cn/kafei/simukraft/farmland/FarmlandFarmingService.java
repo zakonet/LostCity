@@ -33,6 +33,8 @@ import java.util.concurrent.ConcurrentMap;
  * 农田盒耕作服务：按“挖水槽 -> 耕地 -> 播种 -> 收割”的阶段逐格推进。
  * NPC 必须先移动到目标格旁边，再由服务端提交对应方块变化，避免瞬间批量改田。
  */
+
+@SuppressWarnings("null")
 public final class FarmlandFarmingService {
     private static final ConcurrentMap<String, LevelRuntime> RUNTIMES = new ConcurrentHashMap<>();
     private static final long IDLE_INTERVAL_TICKS = 40L;

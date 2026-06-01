@@ -3,6 +3,7 @@ package common.cn.kafei.simukraft.registry;
 import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.block.CityCoreBlock;
 import common.cn.kafei.simukraft.block.FarmlandBoxBlock;
+import common.cn.kafei.simukraft.block.IndustrialControlBoxBlock;
 import common.cn.kafei.simukraft.block.ResidentialControlBoxBlock;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -15,6 +16,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 import java.util.function.Supplier;
 
+@SuppressWarnings("null")
 public final class ModBlocks {
     public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(SimuKraft.MOD_ID);
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(SimuKraft.MOD_ID);
@@ -25,7 +27,7 @@ public final class ModBlocks {
     public static final DeferredBlock<Block> CITY_CORE = registerBlock("city_core", CityCoreBlock::new);
     public static final DeferredBlock<Block> COMMERCIAL_CONTROL_BOX = registerBlock("commercial_control_box", ModBlocks::controlBox);
     public static final DeferredBlock<Block> GREEN_LIGHT_BLOCK = registerBlock("green_light_block", ModBlocks::lightBlock);
-    public static final DeferredBlock<Block> INDUSTRIAL_CONTROL_BOX = registerBlock("industrial_control_box", ModBlocks::controlBox);
+    public static final DeferredBlock<Block> INDUSTRIAL_CONTROL_BOX = registerBlock("industrial_control_box", IndustrialControlBoxBlock::new);
     public static final DeferredBlock<Block> LOGISTICS_CLIENT_BOX = registerBlock("logistics_client_box", ModBlocks::controlBox);
     public static final DeferredBlock<Block> LOGISTICS_SERVER_BOX = registerBlock("logistics_server_box", ModBlocks::controlBox);
     public static final DeferredBlock<Block> NSUK_FARMLAND_BOX = registerBlock("nsuk_farmland_box", FarmlandBoxBlock::new);

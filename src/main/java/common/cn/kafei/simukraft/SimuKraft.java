@@ -16,6 +16,8 @@ import common.cn.kafei.simukraft.config.ServerConfig;
 import common.cn.kafei.simukraft.economy.ResidentialRentService;
 import common.cn.kafei.simukraft.farmland.FarmlandBoxManager;
 import common.cn.kafei.simukraft.farmland.FarmlandFarmingService;
+import common.cn.kafei.simukraft.industrial.IndustrialBoxManager;
+import common.cn.kafei.simukraft.industrial.IndustrialWorkService;
 import common.cn.kafei.simukraft.planner.PlannerWorkService;
 import common.cn.kafei.simukraft.event.CityPlacementRestrictionHandler;
 import common.cn.kafei.simukraft.network.ModNetwork;
@@ -134,6 +136,7 @@ public final class SimuKraft {
             CitizenHomeRestService.tick(level);
             BuilderConstructionService.tick(level);
             PlannerWorkService.tick(level);
+            IndustrialWorkService.tick(level);
             PopulationGrowthService.tick(level);
             ResidentialRentService.tick(level);
             FarmlandFarmingService.tick(level);
@@ -144,6 +147,7 @@ public final class SimuKraft {
                 CityPoiManager.get(level).saveToSqlite(level);
                 CitizenManager.get(level).saveToSqlite(level);
                 FarmlandBoxManager.get(level).saveToSqlite(level);
+                IndustrialBoxManager.get(level).saveToSqlite(level);
             }
         });
     }
@@ -152,14 +156,17 @@ public final class SimuKraft {
         event.getServer().getAllLevels().forEach(level -> {
             BuilderConstructionService.flush(level);
             PlannerWorkService.flush(level);
+            IndustrialWorkService.flush(level);
             CityManager.get(level).saveToSqlite(level);
             CityChunkManager.get(level).saveToSqlite(level);
             CityPoiManager.get(level).saveToSqlite(level);
             CitizenManager.get(level).saveToSqlite(level);
             FarmlandBoxManager.get(level).saveToSqlite(level);
+            IndustrialBoxManager.get(level).saveToSqlite(level);
         });
         BuilderConstructionService.clearServerCaches(event.getServer());
         PlannerWorkService.clearServerCaches(event.getServer());
+        IndustrialWorkService.clearServerCaches(event.getServer());
         FarmlandFarmingService.clearServerCaches(event.getServer());
         PlacedBuildingService.clearServerCaches(event.getServer());
         ResidentialBedPoiService.clearServerCaches(event.getServer());

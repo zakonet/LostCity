@@ -23,6 +23,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 import javax.annotation.Nullable;
 
+@SuppressWarnings("null")
 public final class TwoPointSelectionScreen extends Screen implements FreeCameraScreen {
     private static final double REACH_DISTANCE = 128.0D;
 

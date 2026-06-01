@@ -20,6 +20,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@SuppressWarnings("null")
 public final class CitizenManager extends SavedData {
     private static final String DATA_NAME = SimuKraft.MOD_ID + "_citizens";
     private static final int AI_BUDGET_PER_TICK = 20;
@@ -102,7 +103,7 @@ public final class CitizenManager extends SavedData {
         aiQueue.clear();
         for (int i = 0; i < citizensTag.size(); i++) {
             CitizenData data = CitizenData.fromTag(citizensTag.getCompound(i));
-            boolean repaired = CitizenEmploymentService.repairLoadedEmployment(data);
+            boolean repaired = CitizenEmploymentService.repairLoadedEmployment(level, data);
             putLoadedCitizen(data);
             if (repaired) {
                 SimuKraft.LOGGER.info("Simukraft: Repaired citizen {} employment during load", data.uuid());

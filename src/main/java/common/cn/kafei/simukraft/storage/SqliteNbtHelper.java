@@ -6,6 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+@SuppressWarnings("null")
 final class SqliteNbtHelper {
     private SqliteNbtHelper() {
     }

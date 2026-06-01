@@ -9,6 +9,10 @@ import common.cn.kafei.simukraft.city.CityManager;
 import common.cn.kafei.simukraft.city.poi.CityPoiData;
 import common.cn.kafei.simukraft.city.poi.CityPoiManager;
 import common.cn.kafei.simukraft.entity.CitizenEntity;
+import common.cn.kafei.simukraft.industrial.IndustrialControlBoxService;
+import common.cn.kafei.simukraft.industrial.IndustrialDefinition;
+import common.cn.kafei.simukraft.industrial.IndustrialDefinitionLoader;
+import common.cn.kafei.simukraft.job.CityJobType;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -18,9 +22,10 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.UUID;
 
+@SuppressWarnings("null")
 public record CitizenInfoResponsePacket(UUID citizenId, String name, String gender, int age, int lifespan,
                                         double health, double hunger, boolean sick, boolean child,
-                                        String workStatus, String statusLabel, String jobType, String cityName, String homeName,
+                                        String workStatus, String statusLabel, String jobType, String jobId, String jobName, String cityName, String homeName,
                                         String workplaceName, int skillLevel, int skillXp, int skillMaxLevel) implements CustomPacketPayload {
     public static final Type<CitizenInfoResponsePacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SimuKraft.MOD_ID, "citizen_info_response"));
     public static final StreamCodec<RegistryFriendlyByteBuf, CitizenInfoResponsePacket> STREAM_CODEC = StreamCodec.of(CitizenInfoResponsePacket::encode, CitizenInfoResponsePacket::decode);
@@ -44,6 +49,8 @@ public record CitizenInfoResponsePacket(UUID citizenId, String name, String gend
                 data.workStatus(),
                 data.statusLabel(),
                 data.jobType().name(),
+                data.jobId(),
+                displayJobName(level, data),
                 cityName,
                 homeName,
                 workplaceName,
@@ -71,6 +78,8 @@ public record CitizenInfoResponsePacket(UUID citizenId, String name, String gend
         buffer.writeUtf(packet.workStatus(), 32);
         buffer.writeUtf(packet.statusLabel(), 128);
         buffer.writeUtf(packet.jobType(), 32);
+        buffer.writeUtf(packet.jobId(), 64);
+        buffer.writeUtf(packet.jobName(), 128);
         buffer.writeUtf(packet.cityName(), 64);
         buffer.writeUtf(packet.homeName(), 96);
         buffer.writeUtf(packet.workplaceName(), 96);
@@ -94,6 +103,8 @@ public record CitizenInfoResponsePacket(UUID citizenId, String name, String gend
                 buffer.readUtf(128),
                 buffer.readUtf(32),
                 buffer.readUtf(64),
+                buffer.readUtf(128),
+                buffer.readUtf(64),
                 buffer.readUtf(96),
                 buffer.readUtf(96),
                 buffer.readVarInt(),
@@ -116,5 +127,13 @@ public record CitizenInfoResponsePacket(UUID citizenId, String name, String gend
 
     private static String formatPoiName(CityPoiData poi) {
         return poi.type().name() + " @ " + poi.pos().getX() + ", " + poi.pos().getY() + ", " + poi.pos().getZ();
+    }
+
+    private static String displayJobName(ServerLevel level, CitizenData data) {
+        if (level == null || data == null || data.jobType() != CityJobType.INDUSTRIAL_WORKER || data.workplacePos() == null) {
+            return "";
+        }
+        IndustrialDefinition definition = IndustrialDefinitionLoader.loadForBuilding(IndustrialControlBoxService.resolveBuilding(level, data.workplacePos())).definition();
+        return definition != null ? definition.jobName() : "";
     }
 }

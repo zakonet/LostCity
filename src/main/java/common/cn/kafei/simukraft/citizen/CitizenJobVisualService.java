@@ -13,10 +13,12 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+@SuppressWarnings("null")
 public final class CitizenJobVisualService {
     private static final int SWING_INTERVAL_TICKS = 10;
     private static final CitizenJobVisualRule EMPTY_RULE = new CitizenJobVisualRule(ItemStack.EMPTY, ItemStack.EMPTY, CitizenJobVisualAction.NONE);
     private static final ConcurrentMap<CityJobType, CitizenJobVisualRule> RULES = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<UUID, ItemStack> MAIN_HAND_OVERRIDES = new ConcurrentHashMap<>();
 
     static {
         define(CityJobType.BUILDER, new CitizenJobVisualRule(new ItemStack(Items.COBBLESTONE), ItemStack.EMPTY, CitizenJobVisualAction.SWING_RIGHT_HAND_WHEN_BUILDING));
@@ -38,9 +40,28 @@ public final class CitizenJobVisualService {
             return;
         }
         CitizenJobVisualRule rule = RULES.getOrDefault(data.jobType(), EMPTY_RULE);
-        applySlot(entity, EquipmentSlot.MAINHAND, rule.rightHand());
+        ItemStack rightHand = MAIN_HAND_OVERRIDES.getOrDefault(data.uuid(), rule.rightHand());
+        applySlot(entity, EquipmentSlot.MAINHAND, rightHand);
         applySlot(entity, EquipmentSlot.OFFHAND, rule.leftHand());
         applyAction(level, entity, data, rule.action());
+    }
+
+    public static void setMainHandOverride(UUID citizenId, ItemStack stack) {
+        if (citizenId == null) {
+            return;
+        }
+        ItemStack normalized = normalizeVisualStack(stack);
+        if (normalized.isEmpty()) {
+            MAIN_HAND_OVERRIDES.remove(citizenId);
+            return;
+        }
+        MAIN_HAND_OVERRIDES.put(citizenId, normalized);
+    }
+
+    public static void clearMainHandOverride(UUID citizenId) {
+        if (citizenId != null) {
+            MAIN_HAND_OVERRIDES.remove(citizenId);
+        }
     }
 
     private static void applySlot(CitizenEntity entity, EquipmentSlot slot, ItemStack desired) {

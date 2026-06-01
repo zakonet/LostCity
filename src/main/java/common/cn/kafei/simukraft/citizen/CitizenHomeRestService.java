@@ -30,6 +30,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+@SuppressWarnings("null")
 public final class CitizenHomeRestService {
     private static final String HOME_REST_MARKER = "home_rest";
     private static final int HOME_TARGET_SEARCH_RADIUS = 4;

@@ -11,6 +11,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
+@SuppressWarnings("null")
 public record WorkMaterialResult(boolean available, ItemStack requested, List<Item> acceptedItems) {
     public WorkMaterialResult {
         requested = requested != null ? requested.copy() : ItemStack.EMPTY;

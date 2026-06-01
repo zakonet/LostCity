@@ -26,6 +26,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.stream.Collectors;
 
+@SuppressWarnings("null")
 public final class ResidentialControlBoxScreenOpener {
     private static final int PANEL_WIDTH = 320;
     private static final int PANEL_HEIGHT = 184;

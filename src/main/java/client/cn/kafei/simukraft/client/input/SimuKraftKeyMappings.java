@@ -6,6 +6,7 @@ import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import org.lwjgl.glfw.GLFW;
 
+@SuppressWarnings("null")
 public final class SimuKraftKeyMappings {
     private static final String CATEGORY = "key.categories.simukraft";
 

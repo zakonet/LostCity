@@ -11,6 +11,7 @@ import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
+@SuppressWarnings("null")
 public final class SimuKraftFlexLayout {
     private static final int MIN_SCREEN_WIDTH = 320;
     private static final int MIN_SCREEN_HEIGHT = 240;

@@ -28,6 +28,11 @@ import common.cn.kafei.simukraft.network.city.member.CityCoreMembersRequestPacke
 import common.cn.kafei.simukraft.network.city.member.CityCoreMembersResponsePacket;
 import common.cn.kafei.simukraft.network.citizen.info.CitizenInfoResponsePacket;
 import common.cn.kafei.simukraft.network.hud.HudSyncPacket;
+import common.cn.kafei.simukraft.network.industrial.IndustrialControlBoxActionPacket;
+import common.cn.kafei.simukraft.network.industrial.IndustrialControlBoxDemolishPacket;
+import common.cn.kafei.simukraft.network.industrial.IndustrialControlBoxOpenRequestPacket;
+import common.cn.kafei.simukraft.network.industrial.IndustrialControlBoxOpenResponsePacket;
+import common.cn.kafei.simukraft.network.industrial.IndustrialControlBoxViewUpdatePacket;
 import common.cn.kafei.simukraft.network.planner.CreatePlanningTaskPacket;
 import common.cn.kafei.simukraft.network.planner.PlannerMaterialScanRequestPacket;
 import common.cn.kafei.simukraft.network.planner.PlannerMaterialScanResponsePacket;
@@ -44,8 +49,9 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
+@SuppressWarnings("null")
 public final class ModNetwork {
-    private static final String NETWORK_VERSION = "9";
+    private static final String NETWORK_VERSION = "13";
 
     private ModNetwork() {
     }
@@ -73,6 +79,9 @@ public final class ModNetwork {
         registrar.playToServer(FarmlandBoxSetCropPacket.TYPE, FarmlandBoxSetCropPacket.STREAM_CODEC, FarmlandBoxSetCropPacket::handle);
         registrar.playToServer(FarmlandBoxSetAreaPacket.TYPE, FarmlandBoxSetAreaPacket.STREAM_CODEC, FarmlandBoxSetAreaPacket::handle);
         registrar.playToServer(FarmlandBoxBoundsRequestPacket.TYPE, FarmlandBoxBoundsRequestPacket.STREAM_CODEC, FarmlandBoxBoundsRequestPacket::handle);
+        registrar.playToServer(IndustrialControlBoxOpenRequestPacket.TYPE, IndustrialControlBoxOpenRequestPacket.STREAM_CODEC, IndustrialControlBoxOpenRequestPacket::handle);
+        registrar.playToServer(IndustrialControlBoxActionPacket.TYPE, IndustrialControlBoxActionPacket.STREAM_CODEC, IndustrialControlBoxActionPacket::handle);
+        registrar.playToServer(IndustrialControlBoxDemolishPacket.TYPE, IndustrialControlBoxDemolishPacket.STREAM_CODEC, IndustrialControlBoxDemolishPacket::handle);
         registrar.playToServer(PlannerMaterialScanRequestPacket.TYPE, PlannerMaterialScanRequestPacket.STREAM_CODEC, PlannerMaterialScanRequestPacket::handle);
         registrar.playToServer(CreatePlanningTaskPacket.TYPE, CreatePlanningTaskPacket.STREAM_CODEC, CreatePlanningTaskPacket::handle);
         registrar.playToServer(NpcPathDebugRequestPacket.TYPE, NpcPathDebugRequestPacket.STREAM_CODEC, NpcPathDebugRequestPacket::handle);
@@ -90,6 +99,8 @@ public final class ModNetwork {
         registrar.playToClient(ResidentialControlBoxOpenResponsePacket.TYPE, ResidentialControlBoxOpenResponsePacket.STREAM_CODEC, ResidentialControlBoxOpenResponsePacket::handle);
         registrar.playToClient(FarmlandBoxOpenResponsePacket.TYPE, FarmlandBoxOpenResponsePacket.STREAM_CODEC, FarmlandBoxOpenResponsePacket::handle);
         registrar.playToClient(FarmlandBoxBoundsResponsePacket.TYPE, FarmlandBoxBoundsResponsePacket.STREAM_CODEC, FarmlandBoxBoundsResponsePacket::handle);
+        registrar.playToClient(IndustrialControlBoxOpenResponsePacket.TYPE, IndustrialControlBoxOpenResponsePacket.STREAM_CODEC, IndustrialControlBoxOpenResponsePacket::handle);
+        registrar.playToClient(IndustrialControlBoxViewUpdatePacket.TYPE, IndustrialControlBoxViewUpdatePacket.STREAM_CODEC, IndustrialControlBoxViewUpdatePacket::handle);
         registrar.playToClient(PlannerMaterialScanResponsePacket.TYPE, PlannerMaterialScanResponsePacket.STREAM_CODEC, PlannerMaterialScanResponsePacket::handle);
         registrar.playToClient(NpcPathDebugSyncPacket.TYPE, NpcPathDebugSyncPacket.STREAM_CODEC, NpcPathDebugSyncPacket::handle);
         registrar.playToClient(InfoToastPacket.TYPE, InfoToastPacket.STREAM_CODEC, InfoToastPacket::handle);

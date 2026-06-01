@@ -5,6 +5,11 @@ import common.cn.kafei.simukraft.citizen.CitizenData;
 import common.cn.kafei.simukraft.citizen.CitizenService;
 import common.cn.kafei.simukraft.citizen.CitizenWorkStatus;
 import common.cn.kafei.simukraft.farmland.FarmlandBoxService;
+import common.cn.kafei.simukraft.industrial.IndustrialConstants;
+import common.cn.kafei.simukraft.industrial.IndustrialControlBoxService;
+import common.cn.kafei.simukraft.industrial.IndustrialDefinition;
+import common.cn.kafei.simukraft.industrial.IndustrialDefinitionLoader;
+import common.cn.kafei.simukraft.industrial.IndustrialWorkService;
 import common.cn.kafei.simukraft.planner.PlannerWorkService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -143,6 +148,11 @@ public final class CitizenEmploymentService {
         return true;
     }
 
+    public static boolean repairLoadedEmployment(ServerLevel level, CitizenData citizen) {
+        boolean changed = repairLoadedEmployment(citizen);
+        return repairIndustrialJobKey(level, citizen) || changed;
+    }
+
     // expectedStableWorkplaceJob：识别建筑盒/农田盒这类非 POI 岗位的稳定 UUID。
     public static CityJobType expectedStableWorkplaceJob(UUID workplaceId, BlockPos workplacePos) {
         if (workplaceId == null || workplacePos == null) {
@@ -156,6 +166,9 @@ public final class CitizenEmploymentService {
         }
         if (workplaceId(FarmlandBoxService.HIRE_SOURCE_TYPE, FarmlandBoxService.HIRE_ROLE, workplacePos).equals(workplaceId)) {
             return CityJobType.FARMER;
+        }
+        if (workplaceId(IndustrialConstants.HIRE_SOURCE_TYPE, IndustrialConstants.HIRE_ROLE, workplacePos).equals(workplaceId)) {
+            return CityJobType.INDUSTRIAL_WORKER;
         }
         return null;
     }
@@ -177,6 +190,25 @@ public final class CitizenEmploymentService {
                 FarmlandBoxService.toggleRunningOff(level, boxPos);
             }
         }
+        if (jobType == CityJobType.INDUSTRIAL_WORKER || "industrial".equals(normalizedRole) || IndustrialConstants.HIRE_SOURCE_TYPE.equals(normalizedSource)) {
+            IndustrialWorkService.clearServerCaches(level.getServer());
+            common.cn.kafei.simukraft.industrial.IndustrialControlBoxService.interrupt(level, citizen.uuid(), safeReason);
+        }
+    }
+
+    private static boolean repairIndustrialJobKey(ServerLevel level, CitizenData citizen) {
+        if (level == null || citizen == null || citizen.dead() || citizen.jobType() != CityJobType.INDUSTRIAL_WORKER || citizen.workplacePos() == null) {
+            return false;
+        }
+        if (!workplaceId(IndustrialConstants.HIRE_SOURCE_TYPE, IndustrialConstants.HIRE_ROLE, citizen.workplacePos()).equals(citizen.workplaceId())) {
+            return false;
+        }
+        IndustrialDefinition definition = IndustrialDefinitionLoader.loadForBuilding(IndustrialControlBoxService.resolveBuilding(level, citizen.workplacePos())).definition();
+        if (definition == null || definition.jobType() == null || definition.jobType().isBlank() || definition.jobType().equals(citizen.jobId())) {
+            return false;
+        }
+        citizen.setJobIdRaw(definition.jobType().trim());
+        return true;
     }
 
     private static String normalizeKey(@Nullable String value) {

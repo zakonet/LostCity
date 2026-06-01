@@ -7,6 +7,7 @@ import net.minecraft.world.level.storage.LevelResource;
 
 import java.nio.file.Path;
 
+@SuppressWarnings("null")
 public final class SaveScopedCacheKey {
     private SaveScopedCacheKey() {
     }

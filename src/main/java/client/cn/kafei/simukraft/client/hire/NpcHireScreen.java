@@ -1,6 +1,7 @@
 package client.cn.kafei.simukraft.client.hire;
 
 import client.cn.kafei.simukraft.client.buildbox.BuildBoxScreenOpener;
+import client.cn.kafei.simukraft.client.industrial.IndustrialControlBoxScreenOpener;
 import client.cn.kafei.simukraft.client.ui.SimuKraftFlexLayout;
 import client.cn.kafei.simukraft.client.citizen.CitizenAvatarFactory;
 import client.cn.kafei.simukraft.client.ui.SimuKraftUiTheme;
@@ -13,6 +14,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.ProgressBar;
 import common.cn.kafei.simukraft.citizen.CitizenLevelService;
 import common.cn.kafei.simukraft.citizen.CitizenSkillSnapshot;
 import common.cn.kafei.simukraft.job.CityJobType;
+import common.cn.kafei.simukraft.industrial.IndustrialConstants;
 import common.cn.kafei.simukraft.network.npc.hire.NpcHireAssignPacket;
 import common.cn.kafei.simukraft.network.npc.hire.NpcHireListRequestPacket;
 import common.cn.kafei.simukraft.network.npc.hire.NpcHireListResponsePacket;
@@ -30,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+@SuppressWarnings("null")
 public final class NpcHireScreen {
     private static final int CARD_TEXT_COLOR = SimuKraftUiTheme.CARD_TEXT_COLOR;
     private static final int MAX_NPC_PER_PAGE = 12;
@@ -445,6 +448,10 @@ public final class NpcHireScreen {
             BuildBoxScreenOpener.open(sourcePos);
             return;
         }
+        if (IndustrialConstants.HIRE_SOURCE_TYPE.equalsIgnoreCase(sourceType)) {
+            IndustrialControlBoxScreenOpener.request(sourcePos);
+            return;
+        }
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft != null) {
             minecraft.setScreen(null);
@@ -452,7 +459,13 @@ public final class NpcHireScreen {
     }
 
     private static String titleKey(String role) {
-        return "planner".equalsIgnoreCase(role) ? "gui.hire_planner.title" : "gui.hire_builder.title";
+        if ("planner".equalsIgnoreCase(role)) {
+            return "gui.hire_planner.title";
+        }
+        if (IndustrialConstants.HIRE_ROLE.equalsIgnoreCase(role)) {
+            return "gui.simukraft.industrial.hire_title";
+        }
+        return "gui.hire_builder.title";
     }
 
     private static int totalPages(List<NpcHireListResponsePacket.HireCandidate> candidates, int perPage) {

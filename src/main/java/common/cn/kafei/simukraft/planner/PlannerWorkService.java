@@ -44,6 +44,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * 规划师待在建筑盒处工作，按等级换算速度每 tick 处理少量方块；材料/掉落走紧贴建筑盒六个面的箱子；
  * 金钱在建任务时已一次性预扣。任务进 SQLite，可恢复。
  */
+
+@SuppressWarnings("null")
 public final class PlannerWorkService {
     private static final ConcurrentMap<String, LevelRuntime> LEVEL_RUNTIMES = new ConcurrentHashMap<>();
     private static final int SAVE_BLOCK_INTERVAL = 16;

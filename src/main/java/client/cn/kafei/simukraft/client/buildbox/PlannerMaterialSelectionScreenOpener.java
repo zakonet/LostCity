@@ -41,6 +41,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+@SuppressWarnings("null")
 public final class PlannerMaterialSelectionScreenOpener {
     private static final int MAX_CONTENT_WIDTH = 760;
     private static final int MIN_CONTENT_WIDTH = 300;

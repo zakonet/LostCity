@@ -18,6 +18,7 @@ public final class SimuSqliteStorage {
     private final BuildingTaskSqliteRepository buildingTasks;
     private final FarmlandBoxSqliteRepository farmlandBoxes;
     private final PlanningTaskSqliteRepository planningTasks;
+    private final IndustrialBoxSqliteRepository industrialBoxes;
 
     private SimuSqliteStorage(SimuSqliteDatabase database) {
         this.database = database;
@@ -28,6 +29,7 @@ public final class SimuSqliteStorage {
         this.buildingTasks = new BuildingTaskSqliteRepository(database);
         this.farmlandBoxes = new FarmlandBoxSqliteRepository(database);
         this.planningTasks = new PlanningTaskSqliteRepository(database);
+        this.industrialBoxes = new IndustrialBoxSqliteRepository(database);
     }
 
     public static SimuSqliteStorage open(MinecraftServer server) {
@@ -201,6 +203,31 @@ public final class SimuSqliteStorage {
         SimuSqliteStorage storage = openSafely(level);
         if (storage != null) {
             storage.farmlandBoxes.delete(boxPosLong);
+        }
+    }
+
+    public static CompoundTag loadIndustrialBoxes(ServerLevel level) {
+        SimuSqliteStorage storage = openSafely(level);
+        return storage != null ? storage.industrialBoxes.loadAll() : null;
+    }
+
+    public static void saveIndustrialBoxes(ServerLevel level, CompoundTag tag) {
+        if (level != null && level.getServer() != null && tag != null) {
+            open(level.getServer()).industrialBoxes.saveAll(tag);
+        }
+    }
+
+    public static void saveIndustrialBox(ServerLevel level, CompoundTag boxTag) {
+        SimuSqliteStorage storage = openSafely(level);
+        if (storage != null && boxTag != null) {
+            storage.industrialBoxes.upsert(boxTag);
+        }
+    }
+
+    public static void deleteIndustrialBox(ServerLevel level, long boxPosLong) {
+        SimuSqliteStorage storage = openSafely(level);
+        if (storage != null) {
+            storage.industrialBoxes.delete(boxPosLong);
         }
     }
 

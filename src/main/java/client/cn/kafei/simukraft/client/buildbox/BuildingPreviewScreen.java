@@ -13,6 +13,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
+@SuppressWarnings("null")
 public final class BuildingPreviewScreen extends Screen implements FreeCameraScreen {
     private final Screen parent;
     private final BuildingCacheService.BuildingMeta building;

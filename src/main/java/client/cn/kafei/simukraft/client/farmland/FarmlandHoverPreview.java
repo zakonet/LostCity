@@ -19,6 +19,8 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * 农田盒悬停预览：玩家视线对准农田盒持续超过 1 秒时，向服务端请求其已保存的作业区域并显示线框。
  * 复用 BuildingBoundsRenderer 渲染；离开视线或打开界面时清除。设置界面期间(有屏幕)不参与，避免和候选区域冲突。
  */
+
+@SuppressWarnings("null")
 @EventBusSubscriber(value = Dist.CLIENT)
 public final class FarmlandHoverPreview {
     private static final double SHOW_AFTER_TICKS = 20.0D; // 1 秒

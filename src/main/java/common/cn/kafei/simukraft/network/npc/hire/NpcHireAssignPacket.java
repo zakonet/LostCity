@@ -3,6 +3,8 @@ package common.cn.kafei.simukraft.network.npc.hire;
 import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.citizen.CitizenData;
 import common.cn.kafei.simukraft.citizen.CitizenService;
+import common.cn.kafei.simukraft.industrial.IndustrialConstants;
+import common.cn.kafei.simukraft.industrial.IndustrialControlBoxService;
 import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import net.minecraft.core.BlockPos;
@@ -18,6 +20,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import java.util.Optional;
 import java.util.UUID;
 
+@SuppressWarnings("null")
 public record NpcHireAssignPacket(BlockPos sourcePos, String sourceType, String role, UUID citizenId) implements CustomPacketPayload {
     public static final Type<NpcHireAssignPacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SimuKraft.MOD_ID, "npc_hire_assign"));
     public static final StreamCodec<RegistryFriendlyByteBuf, NpcHireAssignPacket> STREAM_CODEC = StreamCodec.of(NpcHireAssignPacket::encode, NpcHireAssignPacket::decode);
@@ -55,6 +58,9 @@ public record NpcHireAssignPacket(BlockPos sourcePos, String sourceType, String 
                 return;
             }
             CitizenEmploymentService.hireForSource(level, citizen.uuid(), packet.sourceType(), packet.role(), packet.sourcePos(), "");
+            if (IndustrialConstants.HIRE_SOURCE_TYPE.equals(packet.sourceType())) {
+                IndustrialControlBoxService.synchronizeAssignedWorkerMetadata(level, packet.sourcePos());
+            }
             SimuKraft.LOGGER.info("Simukraft: Hired citizen {} ({}) as {} for {} at {}", citizen.name(), citizen.uuid(), packet.role(), packet.sourceType(), packet.sourcePos());
             InfoToastService.success(player, Component.translatable("message.simukraft.hire_npc.success", citizen.name()));
         }

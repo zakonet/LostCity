@@ -26,16 +26,21 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+@SuppressWarnings("null")
 public final class BuildingBoundsRenderer {
     private static final int COLOR_CITY_BORDER = 0x553C66FF;
     private static final int COLOR_INTRUSION_AIR = 0x60FFFF00;
     private static final int COLOR_INTRUSION_BLOCK = 0x60FF0000;
     private static final int COLOR_SELECTED_BUILDING = 0xAAFFFFFF;
     private static final int COLOR_RESIDENTIAL_POI = 0xAA00FF66;
+    private static final int COLOR_INDUSTRIAL_WORK_POINT = 0xAA33CCFF;
+    private static final int COLOR_INDUSTRIAL_MACHINE_POINT = 0xAAFFFF33;
+    private static final int COLOR_INDUSTRIAL_INPUT_CONTAINER = 0xAA00FF66;
+    private static final int COLOR_INDUSTRIAL_OUTPUT_CONTAINER = 0xAAFF9900;
     private static final double BUILDING_CONTACT_EPSILON = 0.001D;
     private static final double SELECTED_BOUNDS_INFLATE = 0.03D;
-    private static final double RESIDENTIAL_POI_MARKER_RADIUS = 0.18D;
-    private static final double RESIDENTIAL_POI_MARKER_Y_OFFSET = 0.56D;
+    private static final double POINT_MARKER_RADIUS = 0.18D;
+    private static final double POINT_MARKER_Y_OFFSET = 0.56D;
     // 住宅控制盒手动打开的建筑边界，按控制盒位置索引以便再次点击时关闭。
     private static final Map<BlockPos, DisplayedBuildingBounds> DISPLAYED_BUILDING_BOUNDS = new ConcurrentHashMap<>();
     private static UUID previewPlayerId;
@@ -68,15 +73,28 @@ public final class BuildingBoundsRenderer {
     }
 
     public static void setBuildingBoundsVisible(BlockPos controlBoxPos, AABB bounds, List<BlockPos> residentialPoiPositions, boolean visible) {
+        List<DisplayMarker> markers = residentialPoiPositions == null
+                ? List.of()
+                : residentialPoiPositions.stream()
+                .map(pos -> new DisplayMarker(pos.immutable(), COLOR_RESIDENTIAL_POI))
+                .toList();
+        setBuildingBoundsVisibleWithMarkers(controlBoxPos, bounds, markers, visible);
+    }
+
+    public static void setBuildingBoundsVisibleWithMarkers(BlockPos controlBoxPos, AABB bounds, List<DisplayMarker> markers, boolean visible) {
         if (controlBoxPos == null) {
             return;
         }
         BlockPos key = controlBoxPos.immutable();
         if (visible && bounds != null) {
-            List<BlockPos> poiPositions = residentialPoiPositions == null
+            List<DisplayMarker> markerList = markers == null
                     ? List.of()
-                    : residentialPoiPositions.stream().map(BlockPos::immutable).distinct().toList();
-            DISPLAYED_BUILDING_BOUNDS.put(key, new DisplayedBuildingBounds(bounds, poiPositions));
+                    : markers.stream()
+                    .filter(marker -> marker != null && marker.pos() != null)
+                    .map(marker -> new DisplayMarker(marker.pos().immutable(), marker.color()))
+                    .distinct()
+                    .toList();
+            DISPLAYED_BUILDING_BOUNDS.put(key, new DisplayedBuildingBounds(bounds, markerList));
         } else {
             DISPLAYED_BUILDING_BOUNDS.remove(key);
         }
@@ -192,25 +210,37 @@ public final class BuildingBoundsRenderer {
         }
         DISPLAYED_BUILDING_BOUNDS.values().forEach(bounds -> {
             renderWireBox(poseStack, cameraPos, bounds.bounds().inflate(SELECTED_BOUNDS_INFLATE), COLOR_SELECTED_BUILDING, true);
-            bounds.residentialPoiPositions().forEach(pos -> {
-                AABB poiBox = residentialPoiMarker(pos);
-                renderWireBox(poseStack, cameraPos, poiBox, COLOR_RESIDENTIAL_POI, true);
+            bounds.markers().forEach(marker -> {
+                AABB markerBox = pointMarker(marker);
+                renderWireBox(poseStack, cameraPos, markerBox, marker.color(), true);
             });
         });
     }
 
-    private static AABB residentialPoiMarker(BlockPos pos) {
+    private static AABB pointMarker(DisplayMarker marker) {
+        BlockPos pos = marker.pos();
+        double radius = markerRadius(marker.color());
         double centerX = pos.getX() + 0.5D;
-        double centerY = pos.getY() + RESIDENTIAL_POI_MARKER_Y_OFFSET;
+        double centerY = pos.getY() + POINT_MARKER_Y_OFFSET;
         double centerZ = pos.getZ() + 0.5D;
         return new AABB(
-                centerX - RESIDENTIAL_POI_MARKER_RADIUS,
-                centerY - RESIDENTIAL_POI_MARKER_RADIUS,
-                centerZ - RESIDENTIAL_POI_MARKER_RADIUS,
-                centerX + RESIDENTIAL_POI_MARKER_RADIUS,
-                centerY + RESIDENTIAL_POI_MARKER_RADIUS,
-                centerZ + RESIDENTIAL_POI_MARKER_RADIUS
+                centerX - radius,
+                centerY - radius,
+                centerZ - radius,
+                centerX + radius,
+                centerY + radius,
+                centerZ + radius
         );
+    }
+
+    private static double markerRadius(int color) {
+        return switch (color) {
+            case COLOR_INDUSTRIAL_WORK_POINT -> 0.14D;
+            case COLOR_INDUSTRIAL_MACHINE_POINT -> 0.22D;
+            case COLOR_INDUSTRIAL_OUTPUT_CONTAINER -> 0.26D;
+            case COLOR_INDUSTRIAL_INPUT_CONTAINER -> POINT_MARKER_RADIUS;
+            default -> POINT_MARKER_RADIUS;
+        };
     }
 
     private static AABB previewBounds(List<PreviewBlockData> blocks) {
@@ -403,7 +433,10 @@ public final class BuildingBoundsRenderer {
         buffer.addVertex(matrix, (float) x2, (float) y2, (float) z2).setColor(red, green, blue, alpha);
     }
 
-    private record DisplayedBuildingBounds(AABB bounds, List<BlockPos> residentialPoiPositions) {
+    public record DisplayMarker(BlockPos pos, int color) {
+    }
+
+    private record DisplayedBuildingBounds(AABB bounds, List<DisplayMarker> markers) {
     }
 
     private record PreviewIntrusion(BlockPos pos, int color) {
