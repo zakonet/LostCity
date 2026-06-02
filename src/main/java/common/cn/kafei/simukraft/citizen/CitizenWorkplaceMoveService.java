@@ -68,29 +68,6 @@ public final class CitizenWorkplaceMoveService {
         if (level == null || pos == null) {
             return Optional.empty();
         }
-        BlockPos best = null;
-        double bestDistance = Double.MAX_VALUE;
-        for (int radius = 1; radius <= 2; radius++) {
-            for (int xOffset = -radius; xOffset <= radius; xOffset++) {
-                for (int zOffset = -radius; zOffset <= radius; zOffset++) {
-                    if (Math.max(Math.abs(xOffset), Math.abs(zOffset)) != radius) {
-                        continue;
-                    }
-                    BlockPos candidate = pos.offset(xOffset, 0, zOffset);
-                    if (!CitizenTeleportService.isSafeLandingPosition(level, candidate)) {
-                        continue;
-                    }
-                    double distance = candidate.distSqr(pos);
-                    if (best == null || distance < bestDistance) {
-                        best = candidate.immutable();
-                        bestDistance = distance;
-                    }
-                }
-            }
-            if (best != null) {
-                break;
-            }
-        }
-        return best != null ? Optional.of(Vec3.atBottomCenterOf(best)) : Optional.empty();
+        return Optional.of(Vec3.atBottomCenterOf(pos.above()));
     }
 }

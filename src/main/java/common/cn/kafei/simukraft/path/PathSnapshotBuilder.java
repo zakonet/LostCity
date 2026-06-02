@@ -7,6 +7,7 @@ import net.minecraft.tags.FluidTags;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CarpetBlock;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
@@ -81,6 +82,12 @@ final class PathSnapshotBuilder {
             }
         }
         if (!isBodyPassable(level, pos, foot) || !isBodyPassable(level, pos.above(), head)) {
+            if (isLowStandableSurface(foot) && isBodyPassable(level, pos.above(), head)) {
+                double standY = supportTop(level, pos, foot);
+                if (!Double.isNaN(standY) && hasNpcClearance(level, pos, standY, null, null)) {
+                    return new PathCell(pos.immutable(), pos.getX(), pos.getY(), pos.getZ(), standY, false, false, false, 1.05D);
+                }
+            }
             return null;
         }
         double standY = supportTop(level, pos.below(), below);
@@ -188,6 +195,10 @@ final class PathSnapshotBuilder {
 
     private static boolean isClimbable(BlockState state) {
         return state.is(BlockTags.CLIMBABLE) || state.is(Blocks.SCAFFOLDING);
+    }
+
+    private static boolean isLowStandableSurface(BlockState state) {
+        return state.getBlock() instanceof CarpetBlock;
     }
 
     private static boolean isDangerous(BlockState state) {

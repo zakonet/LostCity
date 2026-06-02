@@ -189,10 +189,6 @@ public final class IndustrialWorkService {
             setStatus(IndustrialBoxManager.get(level), data, "gui.simukraft.industrial.status.missing_point", step.point());
             return StepResult.WAITING_RETRY;
         }
-        if (!canStandAt(level, target)) {
-            setStatus(IndustrialBoxManager.get(level), data, "gui.simukraft.industrial.status.invalid_point", step.point());
-            return StepResult.WAITING_RETRY;
-        }
         double range = Math.max(0.2D, step.range());
         Vec3 targetCenter = Vec3.atBottomCenterOf(target);
         if (entity.position().distanceToSqr(targetCenter) <= range * range) {
@@ -222,18 +218,12 @@ public final class IndustrialWorkService {
             setStatus(IndustrialBoxManager.get(level), data, "gui.simukraft.industrial.status.missing_container", containerId);
             return StepResult.WAITING_RETRY;
         }
-        ContainerApproach approach = selectContainerApproach(level, building, containers, entity.position());
-        if (approach == null) {
-            setStatus(IndustrialBoxManager.get(level), data, "gui.simukraft.industrial.status.invalid_point", containerId);
-            return StepResult.WAITING_RETRY;
-        }
-        BlockPos target = approach.target();
         double range = Math.max(0.2D, step.range());
-        Vec3 targetCenter = Vec3.atBottomCenterOf(target);
-        if (entity.position().distanceToSqr(targetCenter) <= range * range) {
+        if (isNearContainer(entity.position(), containers, range)) {
             CitizenNavigationService.stop(level, worker.uuid());
             return StepResult.PROGRESSED;
         }
+        Vec3 targetCenter = containerMoveTarget(level, containers, entity.position());
         setStatus(IndustrialBoxManager.get(level), data, "gui.simukraft.industrial.status.moving", containerId);
         CitizenNavigationService.requestMove(level, worker.uuid(), targetCenter, MovementIntent.WORK);
         boxRuntime.resetStep(data.currentStep());
@@ -470,45 +460,68 @@ public final class IndustrialWorkService {
     }
 
     /**
-     * containerApproachPosition: 从容器四周挑选最近的可站立格，避免寻路走进箱子方块。
+     * isNearContainer: 判断 NPC 是否已经处于任意目标容器的交互距离内。
      */
-    /**
-     * selectContainerApproach: 从容器数组中选择当前 NPC 最容易抵达的容器落脚点。
-     */
-    private static ContainerApproach selectContainerApproach(ServerLevel level, PlacedBuildingRecord building, List<BlockPos> containers, Vec3 origin) {
-        ContainerApproach best = null;
-        double bestDistance = Double.MAX_VALUE;
+    private static boolean isNearContainer(Vec3 position, List<BlockPos> containers, double range) {
+        if (position == null || containers == null || containers.isEmpty()) {
+            return false;
+        }
+        double maxDistanceSqr = range * range;
         for (BlockPos container : containers) {
-            BlockPos target = containerApproachPosition(level, building, container, origin);
-            if (target == null) {
-                continue;
-            }
-            double distance = origin != null ? Vec3.atBottomCenterOf(target).distanceToSqr(origin) : 0.0D;
-            if (best == null || distance < bestDistance) {
-                best = new ContainerApproach(container, target);
-                bestDistance = distance;
+            if (distanceToBlockBoxSqr(position, container) <= maxDistanceSqr) {
+                return true;
             }
         }
-        return best;
+        return false;
     }
 
-    private static BlockPos containerApproachPosition(ServerLevel level, PlacedBuildingRecord building, BlockPos container, Vec3 origin) {
+    /**
+     * containerMoveTarget: 优先让 NPC 走到容器旁可站点，找不到时回退到最近容器中心。
+     */
+    private static Vec3 containerMoveTarget(ServerLevel level, List<BlockPos> containers, Vec3 origin) {
+        BlockPos bestStand = null;
+        double bestStandDistance = Double.MAX_VALUE;
+        BlockPos bestContainer = null;
+        double bestContainerDistance = Double.MAX_VALUE;
+        for (BlockPos container : containers) {
+            double containerDistance = origin != null ? distanceToBlockBoxSqr(origin, container) : 0.0D;
+            if (bestContainer == null || containerDistance < bestContainerDistance) {
+                bestContainer = container;
+                bestContainerDistance = containerDistance;
+            }
+            BlockPos stand = containerStandTarget(level, container, origin);
+            if (stand == null) {
+                continue;
+            }
+            double standDistance = origin != null ? Vec3.atBottomCenterOf(stand).distanceToSqr(origin) : 0.0D;
+            if (bestStand == null || standDistance < bestStandDistance) {
+                bestStand = stand;
+                bestStandDistance = standDistance;
+            }
+        }
+        return bestStand != null ? Vec3.atBottomCenterOf(bestStand) : Vec3.atBottomCenterOf(bestContainer);
+    }
+
+    /**
+     * containerStandTarget: 从容器周围向下查找可站立格，不向上搜索屋顶。
+     */
+    private static BlockPos containerStandTarget(ServerLevel level, BlockPos container, Vec3 origin) {
         BlockPos best = null;
         double bestDistance = Double.MAX_VALUE;
         for (int radius = 1; radius <= 2; radius++) {
             for (int yOffset = 0; yOffset >= -3; yOffset--) {
                 for (int xOffset = -radius; xOffset <= radius; xOffset++) {
                     for (int zOffset = -radius; zOffset <= radius; zOffset++) {
-                        if (Math.abs(xOffset) != radius && Math.abs(zOffset) != radius) {
+                        if (Math.max(Math.abs(xOffset), Math.abs(zOffset)) != radius) {
                             continue;
                         }
                         BlockPos candidate = container.offset(xOffset, yOffset, zOffset);
-                        if (!canStandAt(level, candidate)) {
+                        if (!CitizenTeleportService.isSafeLandingPosition(level, candidate)) {
                             continue;
                         }
                         double distance = origin != null ? Vec3.atBottomCenterOf(candidate).distanceToSqr(origin) : 0.0D;
                         if (best == null || distance < bestDistance) {
-                            best = candidate;
+                            best = candidate.immutable();
                             bestDistance = distance;
                         }
                     }
@@ -518,14 +531,33 @@ public final class IndustrialWorkService {
                 return best;
             }
         }
-        return best;
+        return null;
     }
 
     /**
-     * canStandAt: 判断 NPC 是否能在目标格站立。
+     * distanceToBlockBoxSqr: 计算实体位置到方块包围盒的最近距离平方。
      */
-    private static boolean canStandAt(ServerLevel level, BlockPos pos) {
-        return CitizenTeleportService.isSafeLandingPosition(level, pos);
+    private static double distanceToBlockBoxSqr(Vec3 position, BlockPos blockPos) {
+        if (position == null || blockPos == null) {
+            return Double.MAX_VALUE;
+        }
+        double dx = axisDistance(position.x, blockPos.getX(), blockPos.getX() + 1.0D);
+        double dy = axisDistance(position.y, blockPos.getY(), blockPos.getY() + 1.0D);
+        double dz = axisDistance(position.z, blockPos.getZ(), blockPos.getZ() + 1.0D);
+        return dx * dx + dy * dy + dz * dz;
+    }
+
+    /**
+     * axisDistance: 计算一个坐标轴上点到区间的最近距离。
+     */
+    private static double axisDistance(double value, double min, double max) {
+        if (value < min) {
+            return min - value;
+        }
+        if (value > max) {
+            return value - max;
+        }
+        return 0.0D;
     }
 
     private static int boxRuntimeStepKey(CitizenEntity entity, IndustrialDefinition.StepDefinition step) {
@@ -566,6 +598,4 @@ public final class IndustrialWorkService {
         }
     }
 
-    private record ContainerApproach(BlockPos container, BlockPos target) {
-    }
 }
