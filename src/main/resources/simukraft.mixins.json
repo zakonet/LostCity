@@ -8,7 +8,9 @@
     "MixinKeyboardHandler",
     "MixinMouseHandler"
   ],
-  "mixins": [],
+  "mixins": [
+    "MixinMilkBucketItem"
+  ],
   "injectors": {
     "defaultRequire": 1
   },

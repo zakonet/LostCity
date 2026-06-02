@@ -22,7 +22,7 @@ import java.util.Optional;
 public final class IndustrialDefinitionLoader {
     private static final int MAX_POSITIONS = 64;
     private static final int MAX_RECIPES = 64;
-    private static final int MAX_STEPS = 128;
+    private static final int MAX_STEPS = 256;
 
     private IndustrialDefinitionLoader() {
     }
@@ -238,25 +238,93 @@ public final class IndustrialDefinitionLoader {
                 errors.add("invalid_step:" + recipeId + ":" + i);
                 continue;
             }
-            steps.add(new IndustrialDefinition.StepDefinition(
-                    string(object, "type", ""),
-                    string(object, "point", ""),
-                    string(object, "container", ""),
-                    string(object, "input", ""),
-                    string(object, "output", ""),
-                    string(object, "item", ""),
-                    Math.max(1, integer(object, "ticks", 1)),
-                    bool(object, "swing", false),
-                    Math.max(0.1D, decimal(object, "range", 1.5D)),
-                    string(object, "statusKey", ""),
-                    string(object, "statusText", ""),
-                    stringAny(object, "", "entityType", "entity"),
-                    Math.max(0, integer(object, "count", 0)),
-                    Math.max(0.5D, decimal(object, "radius", 6.0D)),
-                    bool(object, "requireFood", bool(object, "requiresFood", true))
-            ));
+            appendStepDefinitions(steps, object, errors, recipeId, i);
+            if (steps.size() >= MAX_STEPS) {
+                errors.add("steps_truncated:" + recipeId);
+                break;
+            }
         }
         return List.copyOf(steps);
+    }
+
+    private static void appendStepDefinitions(List<IndustrialDefinition.StepDefinition> steps,
+                                              JsonObject object,
+                                              List<String> errors,
+                                              String recipeId,
+                                              int index) {
+        String type = string(object, "type", "");
+        if ("repeat".equalsIgnoreCase(type) || "loop".equalsIgnoreCase(type)) {
+            appendRepeatedSteps(steps, object, errors, recipeId, index);
+            return;
+        }
+        steps.add(parseStepDefinition(object));
+    }
+
+    private static void appendRepeatedSteps(List<IndustrialDefinition.StepDefinition> steps,
+                                            JsonObject object,
+                                            List<String> errors,
+                                            String recipeId,
+                                            int index) {
+        JsonArray nestedSteps = object.getAsJsonArray("steps");
+        if (nestedSteps == null || nestedSteps.isEmpty()) {
+            errors.add("missing_repeat_steps:" + recipeId + ":" + index);
+            return;
+        }
+        List<BlockPos> positions = parseOptionalPositions(object);
+        int repetitions = !positions.isEmpty() ? positions.size() : Math.max(0, integer(object, "count", 0));
+        if (repetitions <= 0) {
+            errors.add("missing_repeat_count:" + recipeId + ":" + index);
+            return;
+        }
+        for (int repeatIndex = 0; repeatIndex < repetitions && steps.size() < MAX_STEPS; repeatIndex++) {
+            BlockPos position = positions.isEmpty() ? null : positions.get(repeatIndex);
+            for (int nestedIndex = 0; nestedIndex < nestedSteps.size() && steps.size() < MAX_STEPS; nestedIndex++) {
+                JsonObject nestedObject = asObject(nestedSteps.get(nestedIndex));
+                if (nestedObject == null) {
+                    errors.add("invalid_repeat_step:" + recipeId + ":" + index + ":" + nestedIndex);
+                    continue;
+                }
+                JsonObject expanded = nestedObject.deepCopy();
+                if (position != null && !expanded.has("pos") && !expanded.has("positions")) {
+                    expanded.add("pos", positionArray(position));
+                }
+                appendStepDefinitions(steps, expanded, errors, recipeId, nestedIndex);
+            }
+        }
+    }
+
+    private static IndustrialDefinition.StepDefinition parseStepDefinition(JsonObject object) {
+        return new IndustrialDefinition.StepDefinition(
+                string(object, "type", ""),
+                string(object, "point", ""),
+                string(object, "container", ""),
+                string(object, "input", ""),
+                string(object, "output", ""),
+                string(object, "item", ""),
+                Math.max(1, integer(object, "ticks", 1)),
+                bool(object, "swing", false),
+                Math.max(0.1D, decimal(object, "range", 1.5D)),
+                string(object, "statusKey", ""),
+                string(object, "statusText", ""),
+                stringAny(object, "", "entityType", "entity"),
+                Math.max(0, integer(object, "count", 0)),
+                Math.max(0.5D, decimal(object, "radius", 6.0D)),
+                bool(object, "requireFood", bool(object, "requiresFood", true)),
+                parseOptionalPositions(object),
+                string(object, "block", ""),
+                stringAny(object, "", "fluid", "liquid"),
+                bool(object, "consume", false),
+                bool(object, "replace", false),
+                bool(object, "dropItems", bool(object, "drop", false))
+        );
+    }
+
+    private static JsonArray positionArray(BlockPos pos) {
+        JsonArray array = new JsonArray();
+        array.add(pos.getX());
+        array.add(pos.getY());
+        array.add(pos.getZ());
+        return array;
     }
 
     private static IndustrialDefinition.SpawnEntityDefinition parseSpawnEntity(JsonObject object) {
@@ -289,6 +357,30 @@ public final class IndustrialDefinitionLoader {
         }
         if (positions.isEmpty()) {
             errors.add("missing_positions:" + context);
+        }
+        return List.copyOf(positions);
+    }
+
+    private static List<BlockPos> parseOptionalPositions(JsonObject object) {
+        if (object == null) {
+            return List.of();
+        }
+        List<BlockPos> positions = new ArrayList<>();
+        if (object.has("pos")) {
+            BlockPos pos = parsePositionArray(object.get("pos"));
+            if (pos != null) {
+                positions.add(pos);
+            }
+        }
+        if (object.has("positions") && object.get("positions").isJsonArray()) {
+            JsonArray array = object.getAsJsonArray("positions");
+            int limit = Math.min(array.size(), MAX_POSITIONS);
+            for (int i = 0; i < limit; i++) {
+                BlockPos pos = parsePositionArray(array.get(i));
+                if (pos != null) {
+                    positions.add(pos);
+                }
+            }
         }
         return List.copyOf(positions);
     }

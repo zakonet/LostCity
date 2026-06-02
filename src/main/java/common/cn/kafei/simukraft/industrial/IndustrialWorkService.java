@@ -163,6 +163,18 @@ public final class IndustrialWorkService {
             case "collect_drops" -> entityAction(manager, data,
                     IndustrialEntityActionService.collectDrops(level, building, definition, step, entity),
                     "gui.simukraft.industrial.status.collecting_drops");
+            case "place_block", "set_block" -> blockAction(manager, data,
+                    IndustrialBlockActionService.placeBlock(level, building, definition, step, entity),
+                    "gui.simukraft.industrial.status.placing_block", step);
+            case "place_fluid", "place_liquid" -> blockAction(manager, data,
+                    IndustrialBlockActionService.placeFluid(level, building, definition, step, entity),
+                    "gui.simukraft.industrial.status.placing_fluid", step);
+            case "destroy_block", "break_block", "remove_block" -> blockAction(manager, data,
+                    IndustrialBlockActionService.destroyBlock(level, building, definition, step, entity),
+                    "gui.simukraft.industrial.status.destroying_block", step);
+            case "require_block", "wait_for_block", "find_block", "check_block" -> requireBlock(manager, data,
+                    IndustrialBlockActionService.requireBlock(level, building, definition, step), step);
+            case "insert_item", "store_item", "put_item" -> insertItem(level, manager, data, boxRuntime, building, definition, step, gameTime);
             case "set_status" -> {
                 setStatus(manager, data,
                         !step.statusKey().isBlank() ? step.statusKey() : "gui.simukraft.industrial.status.running",
@@ -171,6 +183,106 @@ public final class IndustrialWorkService {
             }
             default -> {
                 setStatus(manager, data, "gui.simukraft.industrial.status.invalid_step", type);
+                yield StepResult.WAITING_RETRY;
+            }
+        };
+    }
+
+    private static StepResult requireBlock(IndustrialBoxManager manager,
+                                           IndustrialBoxData data,
+                                           IndustrialBlockActionService.ActionResult result,
+                                           IndustrialDefinition.StepDefinition step) {
+        return switch (result) {
+            case SUCCESS -> {
+                setStatus(manager, data, "gui.simukraft.industrial.status.running", "");
+                yield StepResult.PROGRESSED;
+            }
+            case MISSING_TARGET -> {
+                setStatus(manager, data, "gui.simukraft.industrial.status.missing_point", step.point());
+                yield StepResult.WAITING_RETRY;
+            }
+            case INVALID_BLOCK, INVALID_FLUID -> {
+                setStatus(manager, data, "gui.simukraft.industrial.status.invalid_step", step.type());
+                yield StepResult.WAITING_RETRY;
+            }
+            case MISSING_INPUTS -> {
+                setStatus(manager, data, "gui.simukraft.industrial.status.missing_inputs", "");
+                yield StepResult.WAITING_RETRY;
+            }
+            case BLOCKED -> {
+                String detail = !step.statusText().isBlank() ? step.statusText() : step.block();
+                setStatus(manager, data, "gui.simukraft.industrial.status.waiting_block", detail);
+                yield StepResult.WAITING_RETRY;
+            }
+        };
+    }
+
+    private static StepResult insertItem(ServerLevel level,
+                                         IndustrialBoxManager manager,
+                                         IndustrialBoxData data,
+                                         BoxRuntime boxRuntime,
+                                         PlacedBuildingRecord building,
+                                         IndustrialDefinition definition,
+                                         IndustrialDefinition.StepDefinition step,
+                                         long gameTime) {
+        String containerId = containerName(step.container(), step.output(), "output");
+        List<BlockPos> containers = IndustrialControlBoxService.resolveContainerPositions(building, definition, containerId);
+        ItemStack stack = IndustrialInventoryService.stackForItem(step.item(), Math.max(1, step.count()));
+        if (containers.isEmpty()) {
+            setStatus(manager, data, "gui.simukraft.industrial.status.missing_container", containerId);
+            return StepResult.WAITING_RETRY;
+        }
+        if (stack.isEmpty()) {
+            setStatus(manager, data, "gui.simukraft.industrial.status.invalid_step", step.type());
+            return StepResult.WAITING_RETRY;
+        }
+        int stepKey = Objects.hash(data.currentStep(), step.type(), containerId, step.item(), step.count());
+        if (boxRuntime.activeStep != stepKey) {
+            boxRuntime.activeStep = stepKey;
+            boxRuntime.stepStartedAt = gameTime;
+            setContainersOpen(level, containers, true);
+            setStatus(manager, data, "gui.simukraft.industrial.status.inspecting_container", "");
+            return StepResult.WAITING;
+        }
+        int openTicks = step.ticks() > 1 ? step.ticks() : 12;
+        if (gameTime - boxRuntime.stepStartedAt < openTicks) {
+            return StepResult.WAITING;
+        }
+        if (!IndustrialInventoryService.hasOutputSpace(level, containers, List.of(stack.copy()))
+                || !IndustrialInventoryService.insertItem(level, containers, stack)) {
+            setContainersOpen(level, containers, false);
+            setStatus(manager, data, "gui.simukraft.industrial.status.output_full", "");
+            return StepResult.WAITING_RETRY;
+        }
+        setContainersOpen(level, containers, false);
+        setStatus(manager, data, "gui.simukraft.industrial.status.running", "");
+        return StepResult.PROGRESSED;
+    }
+
+    private static StepResult blockAction(IndustrialBoxManager manager,
+                                          IndustrialBoxData data,
+                                          IndustrialBlockActionService.ActionResult result,
+                                          String successStatusKey,
+                                          IndustrialDefinition.StepDefinition step) {
+        return switch (result) {
+            case SUCCESS -> {
+                setStatus(manager, data, successStatusKey, "");
+                yield StepResult.PROGRESSED;
+            }
+            case MISSING_TARGET -> {
+                setStatus(manager, data, "gui.simukraft.industrial.status.missing_point", step.point());
+                yield StepResult.WAITING_RETRY;
+            }
+            case INVALID_BLOCK, INVALID_FLUID -> {
+                setStatus(manager, data, "gui.simukraft.industrial.status.invalid_step", step.type());
+                yield StepResult.WAITING_RETRY;
+            }
+            case MISSING_INPUTS -> {
+                setStatus(manager, data, "gui.simukraft.industrial.status.missing_inputs", "");
+                yield StepResult.WAITING_RETRY;
+            }
+            case BLOCKED -> {
+                setStatus(manager, data, "gui.simukraft.industrial.status.block_action_blocked", step.type());
                 yield StepResult.WAITING_RETRY;
             }
         };
@@ -219,13 +331,15 @@ public final class IndustrialWorkService {
             return StepResult.WAITING_RETRY;
         }
         double range = Math.max(0.2D, step.range());
-        if (isNearContainer(entity.position(), containers, range)) {
+        ContainerMoveTarget target = containerMoveTarget(level, containers, entity.position());
+        double arrivalRange = target.hasStandTarget() ? Math.min(range, 0.65D) : range;
+        if (entity.position().distanceToSqr(target.position()) <= arrivalRange * arrivalRange
+                || (!target.hasStandTarget() && isNearContainer(entity.position(), containers, range))) {
             CitizenNavigationService.stop(level, worker.uuid());
             return StepResult.PROGRESSED;
         }
-        Vec3 targetCenter = containerMoveTarget(level, containers, entity.position());
         setStatus(IndustrialBoxManager.get(level), data, "gui.simukraft.industrial.status.moving", containerId);
-        CitizenNavigationService.requestMove(level, worker.uuid(), targetCenter, MovementIntent.WORK);
+        CitizenNavigationService.requestMove(level, worker.uuid(), target.position(), MovementIntent.WORK);
         boxRuntime.resetStep(data.currentStep());
         return StepResult.WAITING_MOVE;
     }
@@ -478,7 +592,7 @@ public final class IndustrialWorkService {
     /**
      * containerMoveTarget: 优先让 NPC 走到容器旁可站点，找不到时回退到最近容器中心。
      */
-    private static Vec3 containerMoveTarget(ServerLevel level, List<BlockPos> containers, Vec3 origin) {
+    private static ContainerMoveTarget containerMoveTarget(ServerLevel level, List<BlockPos> containers, Vec3 origin) {
         BlockPos bestStand = null;
         double bestStandDistance = Double.MAX_VALUE;
         BlockPos bestContainer = null;
@@ -499,7 +613,10 @@ public final class IndustrialWorkService {
                 bestStandDistance = standDistance;
             }
         }
-        return bestStand != null ? Vec3.atBottomCenterOf(bestStand) : Vec3.atBottomCenterOf(bestContainer);
+        if (bestStand != null) {
+            return new ContainerMoveTarget(Vec3.atBottomCenterOf(bestStand), true);
+        }
+        return new ContainerMoveTarget(Vec3.atBottomCenterOf(bestContainer), false);
     }
 
     /**
@@ -596,6 +713,9 @@ public final class IndustrialWorkService {
                 reset();
             }
         }
+    }
+
+    private record ContainerMoveTarget(Vec3 position, boolean hasStandTarget) {
     }
 
 }

@@ -93,6 +93,21 @@ public final class IndustrialInventoryService {
         return IndustrialItemStackSpec.of(itemId, potionId).stack(count);
     }
 
+    public static boolean consumeInput(ServerLevel level, List<BlockPos> containers, String itemId, String potionId, int count) {
+        if (count <= 0) {
+            return true;
+        }
+        IndustrialDefinition.ItemRequirement request = new IndustrialDefinition.ItemRequirement(itemId, count, true, potionId != null ? potionId : "");
+        return hasInputs(level, containers, List.of(request)) && consumeItem(level, request, containers, count);
+    }
+
+    public static boolean insertItem(ServerLevel level, List<BlockPos> containers, ItemStack stack) {
+        if (level == null || containers == null || containers.isEmpty() || stack == null || stack.isEmpty()) {
+            return false;
+        }
+        return insertOutputs(level, containers, List.of(stack.copy()));
+    }
+
     private static int countItem(ServerLevel level, List<BlockPos> containers, IndustrialDefinition.ItemRequirement input) {
         IndustrialItemStackSpec spec = IndustrialItemStackSpec.of(input.itemId(), input.potionId());
         int count = 0;

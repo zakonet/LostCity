@@ -9,6 +9,7 @@ import client.cn.kafei.simukraft.client.city.ClientCityChunkCache;
 import client.cn.kafei.simukraft.client.city.ClientCityMapTerrainCache;
 import client.cn.kafei.simukraft.client.city.map.SimuMapManager;
 import client.cn.kafei.simukraft.client.freecamera.FreeCameraManager;
+import client.cn.kafei.simukraft.client.fluid.ClientFluidExtensions;
 import client.cn.kafei.simukraft.client.input.SimuKraftKeyMappings;
 import client.cn.kafei.simukraft.client.path.NpcPathDebugRenderer;
 import client.cn.kafei.simukraft.client.renderer.CitizenRenderer;
@@ -35,6 +36,7 @@ public final class ClientSetup {
 
     public static void registerModBusEvents(IEventBus modEventBus) {
         modEventBus.addListener(ClientSetup::onRegisterRenderers);
+        modEventBus.addListener(ClientFluidExtensions::register);
         modEventBus.addListener(SimuKraftKeyMappings::register);
         NeoForge.EVENT_BUS.addListener(BuildingBoundsRenderer::onRender);
         NeoForge.EVENT_BUS.addListener(TwoPointSelectionRenderer::onRender);

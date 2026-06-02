@@ -4,10 +4,13 @@ import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.block.CityCoreBlock;
 import common.cn.kafei.simukraft.block.FarmlandBoxBlock;
 import common.cn.kafei.simukraft.block.IndustrialControlBoxBlock;
+import common.cn.kafei.simukraft.block.MilkLiquidBlock;
 import common.cn.kafei.simukraft.block.ResidentialControlBoxBlock;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.neoforged.bus.api.IEventBus;
@@ -30,6 +33,7 @@ public final class ModBlocks {
     public static final DeferredBlock<Block> INDUSTRIAL_CONTROL_BOX = registerBlock("industrial_control_box", IndustrialControlBoxBlock::new);
     public static final DeferredBlock<Block> LOGISTICS_CLIENT_BOX = registerBlock("logistics_client_box", ModBlocks::controlBox);
     public static final DeferredBlock<Block> LOGISTICS_SERVER_BOX = registerBlock("logistics_server_box", ModBlocks::controlBox);
+    public static final DeferredBlock<LiquidBlock> MILK_BLOCK = BLOCKS.register("milk_fluid", ModBlocks::milkBlock);
     public static final DeferredBlock<Block> NSUK_FARMLAND_BOX = registerBlock("nsuk_farmland_box", FarmlandBoxBlock::new);
     public static final DeferredBlock<Block> ORANGE_LIGHT_BLOCK = registerBlock("orange_light_block", ModBlocks::lightBlock);
     public static final DeferredBlock<Block> OTHER_CONTROL_BOX = registerBlock("other_control_box", ModBlocks::controlBox);
@@ -65,6 +69,10 @@ public final class ModBlocks {
 
     private static Block cheeseBlock() {
         return new Block(BlockBehaviour.Properties.of().strength(0.5F).sound(SoundType.SLIME_BLOCK));
+    }
+
+    private static LiquidBlock milkBlock() {
+        return new MilkLiquidBlock(ModFluids.SOURCE_MILK.get(), BlockBehaviour.Properties.ofFullCopy(Blocks.WATER).noLootTable().randomTicks());
     }
 
     private static Block woodenFenceBlock() {

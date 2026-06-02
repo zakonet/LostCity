@@ -71,7 +71,13 @@ public record IndustrialDefinition(String id,
                                  String entityType,
                                  int count,
                                  double radius,
-                                 boolean requireFood) {
+                                 boolean requireFood,
+                                 List<BlockPos> positions,
+                                 String block,
+                                 String fluid,
+                                 boolean consume,
+                                 boolean replace,
+                                 boolean dropItems) {
     }
 
     public enum SelectionMode {
