@@ -9,7 +9,6 @@ import net.minecraft.world.item.ItemStack;
 import java.util.ArrayList;
 import java.util.List;
 
-@SuppressWarnings("null")
 public final class IndustrialInventoryService {
     private IndustrialInventoryService() {
     }

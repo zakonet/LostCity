@@ -1,5 +1,6 @@
 package common.cn.kafei.simukraft.economy;
 
+import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.city.CityData;
 import common.cn.kafei.simukraft.city.CityManager;
 import common.cn.kafei.simukraft.city.CityService;
@@ -49,5 +50,32 @@ public final class EconomyService {
             return 0.0D;
         }
         return BigDecimal.valueOf(Math.max(0.0D, amount)).setScale(2, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    public static double parseAmount(String value) {
+        return parseAmount(value, "economy");
+    }
+
+    public static double parseAmount(String value, String source) {
+        if (value == null || value.isBlank()) {
+            return 0.0D;
+        }
+        String normalized = value.trim().replace(',', '.');
+        StringBuilder numeric = new StringBuilder();
+        for (int i = 0; i < normalized.length(); i++) {
+            char c = normalized.charAt(i);
+            if ((c >= '0' && c <= '9') || c == '.') {
+                numeric.append(c);
+            }
+        }
+        if (numeric.isEmpty()) {
+            return 0.0D;
+        }
+        try {
+            return normalizeAmount(Double.parseDouble(numeric.toString()));
+        } catch (NumberFormatException exception) {
+            SimuKraft.LOGGER.warn("Simukraft: Invalid {} amount '{}'", source != null ? source : "economy", value);
+            return 0.0D;
+        }
     }
 }

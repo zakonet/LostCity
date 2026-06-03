@@ -2,12 +2,15 @@ package common.cn.kafei.simukraft.item;
 
 import common.cn.kafei.simukraft.building.BuildingStructure;
 import common.cn.kafei.simukraft.building.BuildingStructureService;
+import common.cn.kafei.simukraft.building.BuildingBlockData;
 import common.cn.kafei.simukraft.building.BuildingTaskData;
 import common.cn.kafei.simukraft.job.CitizenEmploymentService;
+import common.cn.kafei.simukraft.material.GenericContainerAccess;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import common.cn.kafei.simukraft.registry.ModBlocks;
 import common.cn.kafei.simukraft.storage.SimuSqliteStorage;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
@@ -24,6 +27,7 @@ import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -34,15 +38,18 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @SuppressWarnings("null")
 public final class ManifestItem extends Item {
     private static final String TAG_MATERIALS = "Materials";
     private static final String TAG_CHECKED = "Checked";
+    private static final String TAG_AVAILABLE = "Available";
     private static final String TAG_BUILDING_NAME = "BuildingName";
     private static final String TAG_BUILD_BOX_POS = "BuildBoxPos";
     private static final String TAG_SOURCE_TYPE = "SourceType";
@@ -114,8 +121,11 @@ public final class ManifestItem extends Item {
         }
 
         BuildingStructure structure = structureOptional.get();
-        Map<String, Integer> materials = countMaterials(structure);
-        if (materials.isEmpty()) {
+        List<BuildingBlockData> placedBlocks = sortedPlacedBlocks(structure, task);
+        int currentIndex = clamp(task.currentBlockIndex(), 0, placedBlocks.size());
+        Map<String, Integer> chestMaterials = countAdjacentContainerItems(level, buildBoxPos);
+        ManifestMaterialAvailability.Snapshot materialSnapshot = ManifestMaterialAvailability.calculate(placedBlocks, currentIndex, chestMaterials);
+        if (materialSnapshot.required().isEmpty()) {
             InfoToastService.warning(player, Component.translatable("message.simukraft.manifest.no_building"));
             return;
         }
@@ -124,42 +134,59 @@ public final class ManifestItem extends Item {
         tag.putString(TAG_BUILDING_NAME, structure.displayName());
         tag.putString(TAG_SOURCE_TYPE, "build");
         tag.putLong(TAG_BUILD_BOX_POS, buildBoxPos.asLong());
-        tag.putInt(TAG_PROGRESS_CURRENT, Math.max(0, task.currentBlockIndex()));
+        tag.putInt(TAG_PROGRESS_CURRENT, currentIndex);
         tag.putInt(TAG_PROGRESS_TOTAL, Math.max(0, task.totalBlocks()));
-        writeMaterials(tag, materials);
+        writeMaterials(tag, materialSnapshot.required(), materialSnapshot.available());
         applyCustomTag(stack, tag);
         InfoToastService.success(player, Component.translatable("message.simukraft.manifest.filled"));
     }
 
-    private static Map<String, Integer> countMaterials(BuildingStructure structure) {
-        Map<String, Integer> materials = new LinkedHashMap<>();
-        for (var block : structure.blocks()) {
-            if (block == null || block.state() == null || block.state().isAir()) {
-                continue;
-            }
-            Item item = block.state().getBlock().asItem();
-            if (item == net.minecraft.world.item.Items.AIR) {
-                continue;
-            }
-            String itemId = BuiltInRegistries.ITEM.getKey(item).toString();
-            materials.merge(itemId, 1, Integer::sum);
-        }
-        List<Map.Entry<String, Integer>> entries = new ArrayList<>(materials.entrySet());
-        entries.sort(Comparator.comparing(Map.Entry::getKey));
-        Map<String, Integer> sorted = new LinkedHashMap<>();
-        entries.forEach(entry -> sorted.put(entry.getKey(), entry.getValue()));
-        return sorted;
+    private static List<BuildingBlockData> sortedPlacedBlocks(BuildingStructure structure, BuildingTaskData task) {
+        return BuildingStructureService.resolvePlacedBlocks(structure, task.origin(), task.rotationDegrees()).stream()
+                .sorted(Comparator.comparingInt((BuildingBlockData block) -> block.relativePos().getY())
+                        .thenComparingInt(block -> block.relativePos().getX())
+                        .thenComparingInt(block -> block.relativePos().getZ()))
+                .toList();
     }
 
-    private static void writeMaterials(@Nonnull CompoundTag tag, @Nonnull Map<String, Integer> materials) {
+    private static Map<String, Integer> countAdjacentContainerItems(ServerLevel level, BlockPos buildBoxPos) {
+        Map<String, Integer> items = new LinkedHashMap<>();
+        for (BlockPos containerPos : adjacentContainers(level, buildBoxPos)) {
+            for (GenericContainerAccess.SlotSnapshot snapshot : GenericContainerAccess.snapshotSlots(level, containerPos)) {
+                ItemStack stack = snapshot.stack();
+                if (stack.isEmpty() || stack.getItem() == Items.AIR) {
+                    continue;
+                }
+                String itemId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+                items.merge(itemId, stack.getCount(), Integer::sum);
+            }
+        }
+        return items;
+    }
+
+    private static Set<BlockPos> adjacentContainers(ServerLevel level, BlockPos buildBoxPos) {
+        Set<BlockPos> positions = new LinkedHashSet<>();
+        for (Direction direction : Direction.values()) {
+            BlockPos adjacentPos = buildBoxPos.relative(direction);
+            if (!GenericContainerAccess.isContainer(level, adjacentPos)) {
+                continue;
+            }
+            positions.add(GenericContainerAccess.canonicalContainerPos(level, adjacentPos));
+        }
+        return positions;
+    }
+
+    private static void writeMaterials(@Nonnull CompoundTag tag, @Nonnull Map<String, Integer> materials, @Nonnull Map<String, Integer> availableMaterials) {
         ListTag materialsList = new ListTag();
         ListTag checkedList = new ListTag();
         materials.forEach((itemId, count) -> {
+            int available = Math.min(count, Math.max(0, availableMaterials.getOrDefault(itemId, 0)));
             CompoundTag materialTag = new CompoundTag();
             materialTag.putString("Item", itemId);
             materialTag.putInt("Count", count);
+            materialTag.putInt(TAG_AVAILABLE, available);
             materialsList.add(materialTag);
-            checkedList.add(StringTag.valueOf("false"));
+            checkedList.add(StringTag.valueOf(Boolean.toString(available >= count)));
         });
         tag.put(TAG_MATERIALS, materialsList);
         tag.put(TAG_CHECKED, checkedList);
@@ -183,7 +210,8 @@ public final class ManifestItem extends Item {
             String itemId = materialTag.getString("Item");
             int count = materialTag.getInt("Count");
             boolean checked = i < checkedList.size() && Boolean.parseBoolean(checkedList.getString(i));
-            result.add(new MaterialEntry(itemId, count, checked, i));
+            int available = materialTag.contains(TAG_AVAILABLE) ? materialTag.getInt(TAG_AVAILABLE) : (checked ? count : 0);
+            result.add(new MaterialEntry(itemId, count, Math.min(count, Math.max(0, available)), checked, i));
         }
         return result;
     }
@@ -262,6 +290,10 @@ public final class ManifestItem extends Item {
         }
     }
 
-    public record MaterialEntry(@Nonnull String itemId, int count, boolean checked, int index) {
+    private static int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    public record MaterialEntry(@Nonnull String itemId, int count, int available, boolean checked, int index) {
     }
 }

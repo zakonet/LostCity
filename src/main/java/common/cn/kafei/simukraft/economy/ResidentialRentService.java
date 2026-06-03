@@ -22,8 +22,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
@@ -205,39 +203,14 @@ public final class ResidentialRentService {
     }
 
     private static double rentAmount(PlacedBuildingRecord building) {
-        double storedAmount = parseAmount(building.amount());
+        double storedAmount = EconomyService.parseAmount(building.amount(), "residential_rent");
         if (storedAmount > 0.0D) {
             return storedAmount;
         }
         return BuildingCatalog.findBuilding(building.category(), building.buildingFileName())
                 .map(BuildingCatalog.BuildingDefinition::amount)
-                .map(ResidentialRentService::parseAmount)
+                .map(amount -> EconomyService.parseAmount(amount, "residential_rent"))
                 .orElse(0.0D);
-    }
-
-    private static double parseAmount(String value) {
-        if (value == null || value.isBlank()) {
-            return 0.0D;
-        }
-        String normalized = value.trim().replace(',', '.');
-        StringBuilder numeric = new StringBuilder();
-        for (int i = 0; i < normalized.length(); i++) {
-            char c = normalized.charAt(i);
-            if ((c >= '0' && c <= '9') || c == '.') {
-                numeric.append(c);
-            }
-        }
-        if (numeric.isEmpty()) {
-            return 0.0D;
-        }
-        try {
-            return BigDecimal.valueOf(Double.parseDouble(numeric.toString()))
-                    .setScale(2, RoundingMode.HALF_UP)
-                    .doubleValue();
-        } catch (NumberFormatException exception) {
-            SimuKraft.LOGGER.warn("Simukraft: Invalid residential rent amount '{}'", value);
-            return 0.0D;
-        }
     }
 
     private record PendingIncomeNotice(UUID playerId, long triggerTick, double rentAmount, double taxAmount) {

@@ -23,12 +23,14 @@ import java.util.List;
 @SuppressWarnings("null")
 public final class ManifestScreen extends Screen {
     private static final int MIN_PAGE_WIDTH = 145;
-    private static final int MAX_PAGE_WIDTH = 220;
+    private static final int MAX_PAGE_WIDTH = 260;
     private static final int MIN_PAGE_HEIGHT = 190;
-    private static final int MAX_PAGE_HEIGHT = 310;
+    private static final int MAX_PAGE_HEIGHT = 350;
     private static final int PAGE_BUTTON_WIDTH = 23;
     private static final int PAGE_BUTTON_HEIGHT = 13;
     private static final int ITEM_ICON_SIZE = 16;
+    private static final int CHECKBOX_SIZE = 9;
+    private static final int CHECKBOX_GAP = 4;
     private static final int ROW_HEIGHT = 18;
     private static final int BOARD_COLOR = 0xFF594233;
     private static final int BOARD_BORDER_COLOR = 0xFF251810;
@@ -183,20 +185,41 @@ public final class ManifestScreen extends Screen {
     }
 
     private void renderMaterialRow(GuiGraphics guiGraphics, PageLayout layout, ManifestItem.MaterialEntry entry, int y) {
+        int checkboxX = layout.contentX();
+        int checkboxY = y + (ROW_HEIGHT - CHECKBOX_SIZE) / 2;
+        int color = entry.checked() ? CHECKED_TEXT_COLOR : TEXT_COLOR;
+        renderCheckbox(guiGraphics, checkboxX, checkboxY, entry.checked(), color);
+        int iconX = checkboxX + CHECKBOX_SIZE + CHECKBOX_GAP;
         int iconY = y + (ROW_HEIGHT - ITEM_ICON_SIZE) / 2;
-        guiGraphics.renderItem(materialStack(entry.itemId()), layout.contentX(), iconY);
-        int textX = layout.contentX() + ITEM_ICON_SIZE + 5;
-        int countWidth = font.width(countText(entry));
+        guiGraphics.renderItem(materialStack(entry.itemId()), iconX, iconY);
+        int textX = iconX + ITEM_ICON_SIZE + 5;
+        String countText = fitText(countText(entry), Math.max(1, layout.contentRight() - textX - 8));
+        int countWidth = font.width(countText);
         int countX = layout.contentRight() - countWidth;
         int nameWidth = Math.max(1, countX - textX - 8);
-        int color = entry.checked() ? CHECKED_TEXT_COLOR : TEXT_COLOR;
         guiGraphics.drawString(font, fitText(materialName(entry.itemId()).getString(), nameWidth), textX, y + 5, color, false);
-        guiGraphics.drawString(font, countText(entry), countX, y + 5, color, false);
+        guiGraphics.drawString(font, countText, countX, y + 5, color, false);
         if (entry.checked()) {
             int lineY = y + 10;
             guiGraphics.fill(textX, lineY, layout.contentRight(), lineY + 1, CHECKED_TEXT_COLOR);
         }
         rowBounds.add(new RowBounds(entry.index(), layout.contentX(), y, layout.contentWidth(), ROW_HEIGHT));
+    }
+
+    private void renderCheckbox(GuiGraphics guiGraphics, int x, int y, boolean checked, int color) {
+        guiGraphics.hLine(x, x + CHECKBOX_SIZE - 1, y, color);
+        guiGraphics.hLine(x, x + CHECKBOX_SIZE - 1, y + CHECKBOX_SIZE - 1, color);
+        guiGraphics.vLine(x, y, y + CHECKBOX_SIZE - 1, color);
+        guiGraphics.vLine(x + CHECKBOX_SIZE - 1, y, y + CHECKBOX_SIZE - 1, color);
+        if (!checked) {
+            return;
+        }
+        guiGraphics.hLine(x + 2, x + 3, y + 5, color);
+        guiGraphics.hLine(x + 3, x + 4, y + 6, color);
+        guiGraphics.hLine(x + 4, x + 5, y + 7, color);
+        guiGraphics.hLine(x + 5, x + 6, y + 6, color);
+        guiGraphics.hLine(x + 6, x + 7, y + 5, color);
+        guiGraphics.hLine(x + 7, x + 8, y + 4, color);
     }
 
     private void toggleMaterial(int materialIndex) {
@@ -252,9 +275,9 @@ public final class ManifestScreen extends Screen {
 
     private PageLayout pageLayout() {
         int maxPageHeight = Math.max(MIN_PAGE_HEIGHT, height - 44);
-        int pageHeight = clamp(Math.round(height * 0.82F), MIN_PAGE_HEIGHT, Math.min(MAX_PAGE_HEIGHT, maxPageHeight));
+        int pageHeight = clamp(Math.round(height * 0.86F), MIN_PAGE_HEIGHT, Math.min(MAX_PAGE_HEIGHT, maxPageHeight));
         int maxPageWidth = Math.max(MIN_PAGE_WIDTH, width - 44);
-        int pageWidth = clamp(Math.round(pageHeight * 0.68F), MIN_PAGE_WIDTH, Math.min(MAX_PAGE_WIDTH, maxPageWidth));
+        int pageWidth = clamp(Math.round(pageHeight * 0.72F), MIN_PAGE_WIDTH, Math.min(MAX_PAGE_WIDTH, maxPageWidth));
         if (pageHeight <= pageWidth) {
             pageHeight = Math.min(maxPageHeight, pageWidth + 42);
         }
@@ -298,7 +321,7 @@ public final class ManifestScreen extends Screen {
     }
 
     private String countText(ManifestItem.MaterialEntry entry) {
-        return "x" + entry.count();
+        return Component.translatable("screen.simukraft.manifest.count_progress", entry.available(), entry.count()).getString();
     }
 
     private String fitText(String text, int maxWidth) {
@@ -307,6 +330,9 @@ public final class ManifestScreen extends Screen {
         }
         String ellipsis = "...";
         int ellipsisWidth = font.width(ellipsis);
+        if (maxWidth <= ellipsisWidth) {
+            return font.plainSubstrByWidth(text, Math.max(1, maxWidth));
+        }
         return font.plainSubstrByWidth(text, Math.max(1, maxWidth - ellipsisWidth)) + ellipsis;
     }
 

@@ -9,8 +9,13 @@ import common.cn.kafei.simukraft.building.BuildingTaskData;
 import common.cn.kafei.simukraft.citizen.CitizenData;
 import common.cn.kafei.simukraft.citizen.CitizenService;
 import common.cn.kafei.simukraft.citizen.CitizenWorkStatus;
+import common.cn.kafei.simukraft.city.CityService;
+import common.cn.kafei.simukraft.city.FinanceTransactionData;
+import common.cn.kafei.simukraft.economy.EconomyService;
+import common.cn.kafei.simukraft.economy.FinanceLedgerService;
 import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.job.CityJobType;
+import common.cn.kafei.simukraft.network.hud.HudSyncService;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -74,13 +79,23 @@ public record BuildBoxStartConstructionPacket(BlockPos buildBoxPos,
             InfoToastService.warning(player, Component.translatable("message.simukraft.hire_npc.not_found"));
             return;
         }
-        BuilderConstructionService.cancelTask(level, citizen.uuid());
         Optional<BuildingStructure> structureOptional = BuildingStructureService.loadStructure(packet.category(), packet.buildingFileName());
         if (structureOptional.isEmpty()) {
             InfoToastService.error(player, Component.translatable("message.simukraft.build_box.structure_not_found"));
             return;
         }
         BuildingStructure structure = structureOptional.get();
+        UUID cityId = citizen.cityId();
+        double constructionCost = EconomyService.parseAmount(structure.amount(), "construction");
+        if (constructionCost > 0.0D) {
+            if (!EconomyService.canAfford(level, cityId, constructionCost) || !CityService.withdrawFunds(level, cityId, constructionCost)) {
+                InfoToastService.warning(player, Component.translatable("message.simukraft.build_box.not_enough_funds", constructionCost));
+                return;
+            }
+            FinanceLedgerService.record(level, cityId, player, -constructionCost, EconomyService.getCityBalance(level, cityId), FinanceTransactionData.Type.EXPENSE, "construction");
+            HudSyncService.syncToPlayer(player, true);
+        }
+        BuilderConstructionService.cancelTask(level, citizen.uuid());
         long now = System.currentTimeMillis();
         BuildingTaskData task = new BuildingTaskData(
                 UUID.randomUUID(),
