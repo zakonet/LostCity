@@ -107,6 +107,25 @@ public final class CityManager extends SavedData {
         return cityId != null ? getCity(cityId) : Optional.empty();
     }
 
+    // 查找玩家可管理的城市，用于便携式城市核心等远程管理入口。
+    public Optional<CityData> getManagedPlayerCity(UUID playerId) {
+        if (playerId == null) {
+            return Optional.empty();
+        }
+        Optional<CityData> indexedCity = getPlayerCity(playerId)
+                .filter(city -> city.hasPermission(playerId, CityPermissionLevel.OFFICIAL));
+        if (indexedCity.isPresent()) {
+            return indexedCity;
+        }
+        for (CityData city : cities.values()) {
+            if (city.hasPermission(playerId, CityPermissionLevel.OFFICIAL)) {
+                playerCityIndex.put(playerId, city.cityId());
+                return Optional.of(city);
+            }
+        }
+        return Optional.empty();
+    }
+
     public Optional<CityData> getCityByCorePos(BlockPos cityCorePos) {
         if (cityCorePos == null) {
             return Optional.empty();

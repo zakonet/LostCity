@@ -52,8 +52,7 @@ public record CityCoreManageCityPacket(BlockPos pos, Action action, String value
     }
 
     private static void handleAction(ServerLevel level, ServerPlayer player, CityCoreManageCityPacket packet) {
-        if (!player.blockPosition().closerThan(packet.pos(), 8.0D)) {
-            InfoToastService.warning(player, Component.translatable("message.simukraft.city_core.too_far"));
+        if (!CityCoreAccessValidator.requireAccess(level, player, packet.pos())) {
             return;
         }
         Optional<CityData> city = CityService.findCityByCorePosForPlayer(level, packet.pos(), player.getUUID());

@@ -47,6 +47,14 @@ public final class CityService {
         return CityManager.get(level).getPlayerCity(playerId);
     }
 
+    // 查找玩家拥有官员以上权限的城市，对齐旧版便携式城市核心的市长/官员限制。
+    public static Optional<CityData> findManagedPlayerCity(ServerLevel level, UUID playerId) {
+        if (level == null || playerId == null) {
+            return Optional.empty();
+        }
+        return CityManager.get(level).getManagedPlayerCity(playerId);
+    }
+
     public static Optional<CityData> findCityByCorePos(ServerLevel level, BlockPos cityCorePos) {
         if (level == null || cityCorePos == null) {
             return Optional.empty();

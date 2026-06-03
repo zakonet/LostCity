@@ -2,11 +2,9 @@ package common.cn.kafei.simukraft.network.city.core;
 
 import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.network.city.CityNetworkViewFactory;
-import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -39,8 +37,7 @@ public record CityCoreOpenRequestPacket(BlockPos pos) implements CustomPacketPay
     }
 
     public static void openFor(ServerLevel level, ServerPlayer player, BlockPos pos) {
-        if (!player.blockPosition().closerThan(pos, 8.0D)) {
-            InfoToastService.warning(player, Component.translatable("message.simukraft.city_core.too_far"));
+        if (!CityCoreAccessValidator.requireAccess(level, player, pos)) {
             return;
         }
         PacketDistributor.sendToPlayer(player, CityNetworkViewFactory.buildOpenResponse(level, pos, player.getUUID()));

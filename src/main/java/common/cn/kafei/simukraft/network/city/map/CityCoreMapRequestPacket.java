@@ -2,6 +2,7 @@ package common.cn.kafei.simukraft.network.city.map;
 
 import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.network.city.CityNetworkViewFactory;
+import common.cn.kafei.simukraft.network.city.core.CityCoreAccessValidator;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -39,8 +40,7 @@ public record CityCoreMapRequestPacket(BlockPos pos) implements CustomPacketPayl
     }
 
     public static void sendMap(ServerLevel level, ServerPlayer player, BlockPos pos) {
-        if (!player.blockPosition().closerThan(pos, 8.0D)) {
-            InfoToastService.warning(player, Component.translatable("message.simukraft.city_core.too_far"));
+        if (!CityCoreAccessValidator.requireAccess(level, player, pos)) {
             return;
         }
         CityCoreMapResponsePacket response = CityNetworkViewFactory.buildMapResponse(level, pos, player.getUUID());

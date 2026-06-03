@@ -42,7 +42,6 @@ public final class ModBlocks {
     public static final DeferredBlock<Block> RED_LIGHT_BLOCK = registerBlock("red_light_block", ModBlocks::lightBlock);
     public static final DeferredBlock<Block> RESIDENTIAL_CONTROL_BOX = registerBlock("residential_control_box", ResidentialControlBoxBlock::new);
     public static final DeferredBlock<Block> WHITE_LIGHT_BLOCK = registerBlock("white_light_block", ModBlocks::lightBlock);
-    public static final DeferredBlock<Block> WOODEN_FENCE = registerBlock("wooden_fence", ModBlocks::woodenFenceBlock);
     public static final DeferredBlock<Block> YELLOW_LIGHT_BLOCK = registerBlock("yellow_light_block", ModBlocks::lightBlock);
 
     private ModBlocks() {
@@ -73,9 +72,5 @@ public final class ModBlocks {
 
     private static LiquidBlock milkBlock() {
         return new MilkLiquidBlock(ModFluids.SOURCE_MILK.get(), BlockBehaviour.Properties.ofFullCopy(Blocks.WATER).noLootTable().randomTicks());
-    }
-
-    private static Block woodenFenceBlock() {
-        return new Block(BlockBehaviour.Properties.of().strength(2.0F, 3.0F).sound(SoundType.WOOD));
     }
 }

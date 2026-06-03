@@ -29,6 +29,12 @@ public class SimuChunkScanner {
         ChunkAccess chunk = getLoadedChunk(level, chunkX, chunkZ);
         if (chunk == null) return false;
 
+        return scanChunk(level, chunk, chunkX, chunkZ, region);
+    }
+
+    public static boolean scanChunk(Level level, ChunkAccess chunk, int chunkX, int chunkZ, SimuMapRegion region) {
+        if (level == null || chunk == null) return false;
+
         SimuMapRegionData data = region.getOrCreateData();
         SimuBlockColors colors = SimuBlockColors.getInstance();
 

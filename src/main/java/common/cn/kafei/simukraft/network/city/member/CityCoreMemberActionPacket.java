@@ -4,6 +4,7 @@ import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.city.CityData;
 import common.cn.kafei.simukraft.city.CityPermissionLevel;
 import common.cn.kafei.simukraft.city.CityService;
+import common.cn.kafei.simukraft.network.city.core.CityCoreAccessValidator;
 import common.cn.kafei.simukraft.network.city.core.CityCoreOpenRequestPacket;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import net.minecraft.core.BlockPos;
@@ -49,8 +50,7 @@ public record CityCoreMemberActionPacket(BlockPos pos, Action action, UUID targe
     }
 
     private static void handleAction(ServerLevel level, ServerPlayer player, CityCoreMemberActionPacket packet) {
-        if (!player.blockPosition().closerThan(packet.pos(), 8.0D)) {
-            InfoToastService.warning(player, Component.translatable("message.simukraft.city_core.too_far"));
+        if (!CityCoreAccessValidator.requireAccess(level, player, packet.pos())) {
             return;
         }
         Optional<CityData> city = CityService.findCityByCorePosForPlayer(level, packet.pos(), player.getUUID());

@@ -626,6 +626,7 @@ public final class CityCoreScreenOpener {
         private int contextMenuWidth;
         private int contextMenuHeight;
         private boolean contextMenuVisible;
+        private boolean mapConsumerReleased;
 
         private CityChunkMapElement(CityCoreMapResponsePacket packet) {
             this.packet = packet;
@@ -642,6 +643,12 @@ public final class CityCoreScreenOpener {
             addEventListener(UIEvents.MOUSE_WHEEL, this::onMouseWheel);
             addEventListener(UIEvents.MOUSE_DOWN, this::onMouseDown);
             addEventListener(UIEvents.DRAG_SOURCE_UPDATE, this::onDragUpdate);
+        }
+
+        @Override
+        protected void onRemoved() {
+            releaseMapConsumer();
+            super.onRemoved();
         }
 
         @Override
@@ -739,8 +746,16 @@ public final class CityCoreScreenOpener {
             }
             int chunkX = minecraft.player.chunkPosition().x;
             int chunkZ = minecraft.player.chunkPosition().z;
-            mapManager.forceScanArea(chunkX, chunkZ, 8);
+            mapManager.forceScanArea(chunkX, chunkZ, Math.min(12, mapManager.getEffectiveScanRadius()));
             mapManager.forceRenderAll();
+        }
+
+        private void releaseMapConsumer() {
+            if (mapConsumerReleased) {
+                return;
+            }
+            mapConsumerReleased = true;
+            mapManager.releaseConsumer();
         }
 
         private void renderGridOverlay(GUIContext guiContext, int startX, int startY, int width, int height, double centerX, double centerY, double chunkSize, int startChunkX, int startChunkZ) {

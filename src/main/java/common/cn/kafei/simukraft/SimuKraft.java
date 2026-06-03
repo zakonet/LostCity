@@ -34,6 +34,8 @@ import common.cn.kafei.simukraft.registry.ModEntities;
 import common.cn.kafei.simukraft.registry.ModEntityAttributes;
 import common.cn.kafei.simukraft.registry.ModFluidTypes;
 import common.cn.kafei.simukraft.registry.ModFluids;
+import common.cn.kafei.simukraft.registry.ModItems;
+import common.cn.kafei.simukraft.registry.ModRecipeSerializers;
 import common.cn.kafei.simukraft.registry.ModSoundEvents;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -59,7 +61,9 @@ public final class SimuKraft {
     public SimuKraft(IEventBus modEventBus, ModContainer modContainer) {
         ModFluidTypes.register(modEventBus);
         ModFluids.register(modEventBus);
+        ModItems.register(modEventBus);
         ModBlocks.register(modEventBus);
+        ModRecipeSerializers.register(modEventBus);
         ModCreativeModeTabs.register(modEventBus);
         ModEntities.register(modEventBus);
         ModEntityAttributes.register(modEventBus);

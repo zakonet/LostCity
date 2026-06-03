@@ -28,6 +28,7 @@ import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.level.ChunkEvent;
 
 @SuppressWarnings("null")
 @EventBusSubscriber(modid = SimuKraft.MOD_ID)
@@ -78,6 +79,14 @@ public final class ClientSetup {
         if (SimuMapManager.isAvailable()) {
             SimuMapManager.getInstance().tick();
         }
+    }
+
+    @SubscribeEvent
+    public static void onClientChunkLoad(ChunkEvent.Load event) {
+        if (!SimuMapManager.isAvailable() || !event.getLevel().isClientSide()) {
+            return;
+        }
+        SimuMapManager.getInstance().onClientChunkLoaded((net.minecraft.world.level.Level) event.getLevel(), event.getChunk());
     }
 
     private static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
