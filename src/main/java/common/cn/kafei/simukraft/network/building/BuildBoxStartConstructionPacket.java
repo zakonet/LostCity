@@ -4,6 +4,7 @@ import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.building.BuildingBlockData;
 import common.cn.kafei.simukraft.building.BuildingStructure;
 import common.cn.kafei.simukraft.building.BuildingTaskStatus;
+import common.cn.kafei.simukraft.building.BuilderConstructionMobilityService;
 import common.cn.kafei.simukraft.building.BuilderConstructionService;
 import common.cn.kafei.simukraft.building.BuildingStructureService;
 import common.cn.kafei.simukraft.building.BuildingTerritoryValidator;
@@ -126,7 +127,8 @@ public record BuildBoxStartConstructionPacket(BlockPos buildBoxPos,
                 structure.poiDefinitions()
         );
         BuilderConstructionService.startTask(level, task);
-        CitizenEmploymentService.hire(level, citizen.uuid(), CityJobType.BUILDER, CitizenEmploymentService.workplaceId("build_box", "builder", packet.buildBoxPos()), packet.buildBoxPos(), CitizenWorkStatus.WORKING, structure.displayName());
+        CitizenEmploymentService.assign(level, citizen.uuid(), CityJobType.BUILDER, CitizenEmploymentService.workplaceId("build_box", "builder", packet.buildBoxPos()), packet.buildBoxPos(), CitizenWorkStatus.WORKING, structure.displayName());
+        BuilderConstructionMobilityService.prepareForConstruction(level, citizen.uuid(), packet.buildBoxPos());
         citizen.setWorkNeedDetail("build:" + task.taskId());
         citizen.setStatusLabel("建造中: " + structure.displayName());
         CitizenService.save(level, citizen.uuid());
