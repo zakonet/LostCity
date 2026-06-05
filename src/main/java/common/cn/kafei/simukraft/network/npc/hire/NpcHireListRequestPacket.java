@@ -7,12 +7,10 @@ import common.cn.kafei.simukraft.citizen.CitizenSkillSnapshot;
 import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.job.CityJobMobilityService;
 import common.cn.kafei.simukraft.job.CityJobType;
-import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -44,14 +42,15 @@ public record NpcHireListRequestPacket(BlockPos sourcePos, String sourceType, St
 
     public static void handle(NpcHireListRequestPacket packet, IPayloadContext context) {
         if (context.player() instanceof ServerPlayer player && player.level() instanceof ServerLevel level) {
-            if (!player.blockPosition().closerThan(packet.sourcePos(), 16.0D)) {
-                InfoToastService.warning(player, Component.translatable("message.simukraft.build_box.too_far"));
+            NpcHireAccessValidator.SourceContext access = NpcHireAccessValidator.validateSource(player, level, packet.sourcePos(), packet.sourceType(), packet.role());
+            if (access == null) {
                 return;
             }
-            UUID workplaceId = CitizenEmploymentService.workplaceId(packet.sourceType(), packet.role(), packet.sourcePos());
+            UUID workplaceId = CitizenEmploymentService.workplaceId(access.sourceType(), access.role(), access.sourcePos());
             UUID assignedCitizenId = CitizenService.findAssignedCitizen(level, workplaceId);
-            CityJobType requestedJobType = CityJobMobilityService.resolveHireRole(packet.role());
+            CityJobType requestedJobType = CityJobMobilityService.resolveHireRole(access.role());
             List<NpcHireListResponsePacket.HireCandidate> candidates = CitizenService.listHireableCitizens(level).stream()
+                    .filter(data -> NpcHireAccessValidator.isHireCandidateForSource(data, access))
                     .map(data -> {
                         CitizenSkillSnapshot skill = CitizenLevelService.snapshot(data, requestedJobType);
                         return new NpcHireListResponsePacket.HireCandidate(
@@ -70,7 +69,7 @@ public record NpcHireListRequestPacket(BlockPos sourcePos, String sourceType, St
                         );
                     })
                     .toList();
-            PacketDistributor.sendToPlayer(player, new NpcHireListResponsePacket(packet.sourcePos(), packet.sourceType(), packet.role(), assignedCitizenId, candidates));
+            PacketDistributor.sendToPlayer(player, new NpcHireListResponsePacket(access.sourcePos(), access.sourceType(), access.role(), assignedCitizenId, candidates));
         }
     }
 }

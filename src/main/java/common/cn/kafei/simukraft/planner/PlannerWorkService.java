@@ -145,7 +145,7 @@ public final class PlannerWorkService {
     }
 
     public static void clearServerCaches(MinecraftServer server) {
-        String serverKey = SaveScopedCacheKey.serverKey(server);
+        String serverKey = SaveScopedCacheKey.serverKey(server).toLowerCase(Locale.ROOT);
         LEVEL_RUNTIMES.keySet().removeIf(key -> key.startsWith(serverKey + "|"));
     }
 

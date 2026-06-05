@@ -45,8 +45,8 @@ public record NpcHireFirePacket(BlockPos sourcePos, String sourceType, String ro
 
     public static void handle(NpcHireFirePacket packet, IPayloadContext context) {
         if (context.player() instanceof ServerPlayer player && player.level() instanceof ServerLevel level) {
-            if (!player.blockPosition().closerThan(packet.sourcePos(), 16.0D)) {
-                InfoToastService.warning(player, Component.translatable("message.simukraft.build_box.too_far"));
+            NpcHireAccessValidator.SourceContext access = NpcHireAccessValidator.validateSource(player, level, packet.sourcePos(), packet.sourceType(), packet.role());
+            if (access == null) {
                 return;
             }
             Optional<CitizenData> citizenOptional = CitizenService.findCitizen(level, packet.citizenId());
@@ -55,18 +55,13 @@ public record NpcHireFirePacket(BlockPos sourcePos, String sourceType, String ro
                 return;
             }
             CitizenData citizen = citizenOptional.get();
-            if (citizen.dead()) {
-                InfoToastService.warning(player, Component.translatable("message.simukraft.fire_npc.unavailable", citizen.name()));
+            if (!NpcHireAccessValidator.canFireCitizen(player, access, citizen)) {
                 return;
             }
-            if (citizen.child()) {
-                InfoToastService.warning(player, Component.translatable("message.simukraft.fire_npc.unavailable", citizen.name()));
-                return;
-            }
-            CitizenEmploymentService.fire(level, citizen.uuid(), packet.sourceType(), packet.role(), packet.sourcePos(), packet.role() + "_fired");
-            if (CommercialConstants.HIRE_SOURCE_TYPE.equals(packet.sourceType())) {
-                CommercialControlBoxService.fireWorker(level, packet.sourcePos());
-                PacketDistributor.sendToPlayer(player, CommercialControlBoxOpenResponsePacket.from(CommercialControlBoxService.buildView(level, packet.sourcePos())));
+            CitizenEmploymentService.fire(level, citizen.uuid(), access.sourceType(), access.role(), access.sourcePos(), access.role() + "_fired");
+            if (CommercialConstants.HIRE_SOURCE_TYPE.equals(access.sourceType())) {
+                CommercialControlBoxService.fireWorker(level, access.sourcePos());
+                PacketDistributor.sendToPlayer(player, CommercialControlBoxOpenResponsePacket.from(CommercialControlBoxService.buildView(level, access.sourcePos())));
             }
             InfoToastService.success(player, Component.translatable("message.simukraft.fire_npc.success", citizen.name()));
         }

@@ -45,8 +45,8 @@ public record NpcHireAssignPacket(BlockPos sourcePos, String sourceType, String 
 
     public static void handle(NpcHireAssignPacket packet, IPayloadContext context) {
         if (context.player() instanceof ServerPlayer player && player.level() instanceof ServerLevel level) {
-            if (!player.blockPosition().closerThan(packet.sourcePos(), 16.0D)) {
-                InfoToastService.warning(player, Component.translatable("message.simukraft.build_box.too_far"));
+            NpcHireAccessValidator.SourceContext access = NpcHireAccessValidator.validateSource(player, level, packet.sourcePos(), packet.sourceType(), packet.role());
+            if (access == null) {
                 return;
             }
             Optional<CitizenData> citizenOptional = CitizenService.findCitizen(level, packet.citizenId());
@@ -55,18 +55,17 @@ public record NpcHireAssignPacket(BlockPos sourcePos, String sourceType, String 
                 return;
             }
             CitizenData citizen = citizenOptional.get();
-            if (!CitizenService.isHireable(citizen)) {
-                InfoToastService.warning(player, Component.translatable("message.simukraft.hire_npc.unavailable", citizen.name()));
+            if (!NpcHireAccessValidator.canAssignCitizen(player, level, access, citizen)) {
                 return;
             }
-            CitizenEmploymentService.hireForSource(level, citizen.uuid(), packet.sourceType(), packet.role(), packet.sourcePos(), "");
-            if (IndustrialConstants.HIRE_SOURCE_TYPE.equals(packet.sourceType())) {
-                IndustrialControlBoxService.synchronizeAssignedWorkerMetadata(level, packet.sourcePos());
+            CitizenEmploymentService.hireForSource(level, citizen.uuid(), access.sourceType(), access.role(), access.sourcePos(), "");
+            if (IndustrialConstants.HIRE_SOURCE_TYPE.equals(access.sourceType())) {
+                IndustrialControlBoxService.synchronizeAssignedWorkerMetadata(level, access.sourcePos());
             }
-            if (CommercialConstants.HIRE_SOURCE_TYPE.equals(packet.sourceType())) {
-                CommercialControlBoxService.synchronizeAssignedWorkerMetadata(level, packet.sourcePos());
+            if (CommercialConstants.HIRE_SOURCE_TYPE.equals(access.sourceType())) {
+                CommercialControlBoxService.synchronizeAssignedWorkerMetadata(level, access.sourcePos());
             }
-            SimuKraft.LOGGER.info("Simukraft: Hired citizen {} ({}) as {} for {} at {}", citizen.name(), citizen.uuid(), packet.role(), packet.sourceType(), packet.sourcePos());
+            SimuKraft.LOGGER.info("Simukraft: Hired citizen {} ({}) as {} for {} at {}", citizen.name(), citizen.uuid(), access.role(), access.sourceType(), access.sourcePos());
             InfoToastService.success(player, Component.translatable("message.simukraft.hire_npc.success", citizen.name()));
         }
     }

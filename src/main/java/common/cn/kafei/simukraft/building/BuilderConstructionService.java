@@ -178,7 +178,7 @@ public final class BuilderConstructionService {
 
     // 清理指定存档的施工运行时缓存，结构变换缓存不跨存档保留。
     public static void clearServerCaches(MinecraftServer server) {
-        String serverKey = SaveScopedCacheKey.serverKey(server);
+        String serverKey = SaveScopedCacheKey.serverKey(server).toLowerCase(Locale.ROOT);
         LEVEL_RUNTIMES.keySet().removeIf(key -> key.startsWith(serverKey + "|"));
         STRUCTURE_CACHE.clear();
     }
