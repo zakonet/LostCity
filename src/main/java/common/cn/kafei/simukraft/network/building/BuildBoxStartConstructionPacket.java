@@ -14,6 +14,7 @@ import common.cn.kafei.simukraft.citizen.CitizenService;
 import common.cn.kafei.simukraft.citizen.CitizenWorkStatus;
 import common.cn.kafei.simukraft.city.CityService;
 import common.cn.kafei.simukraft.city.FinanceTransactionData;
+import common.cn.kafei.simukraft.city.group.CityGroupMessageService;
 import common.cn.kafei.simukraft.economy.EconomyService;
 import common.cn.kafei.simukraft.economy.FinanceLedgerService;
 import common.cn.kafei.simukraft.job.CitizenEmploymentService;
@@ -102,7 +103,7 @@ public record BuildBoxStartConstructionPacket(BlockPos buildBoxPos,
                 return;
             }
             FinanceLedgerService.record(level, cityId, player, -constructionCost, EconomyService.getCityBalance(level, cityId), FinanceTransactionData.Type.EXPENSE, "construction");
-            HudSyncService.syncToPlayer(player, true);
+            HudSyncService.syncToCityGroup(level, cityId, true);
         }
         BuilderConstructionService.cancelTask(level, citizen.uuid());
         long now = System.currentTimeMillis();
@@ -132,7 +133,7 @@ public record BuildBoxStartConstructionPacket(BlockPos buildBoxPos,
         citizen.setWorkNeedDetail("build:" + task.taskId());
         citizen.setStatusLabel("建造中: " + structure.displayName());
         CitizenService.save(level, citizen.uuid());
-        InfoToastService.success(player, Component.translatable("message.simukraft.build_box.construction_started", structure.displayName()));
+        CityGroupMessageService.successToCity(level, cityId, Component.translatable("message.simukraft.build_box.construction_started", structure.displayName()));
     }
 
 }

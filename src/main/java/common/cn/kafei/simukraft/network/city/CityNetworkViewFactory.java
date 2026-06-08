@@ -59,17 +59,28 @@ public final class CityNetworkViewFactory {
 
     public static CityCoreMembersResponsePacket buildMembersResponse(ServerLevel level, BlockPos pos, UUID viewerId) {
         return CityService.findCityByCorePosForPlayer(level, pos, viewerId)
-                .map(city -> buildMembersResponse(pos, city, viewerId))
+                .map(city -> buildMembersResponse(level, pos, city, viewerId))
                 .orElse(null);
     }
 
     public static CityCoreMembersResponsePacket buildMembersResponse(BlockPos pos, CityData city, UUID viewerId) {
+        return buildMembersResponse(null, pos, city, viewerId);
+    }
+
+    public static CityCoreMembersResponsePacket buildMembersResponse(ServerLevel level, BlockPos pos, CityData city, UUID viewerId) {
         List<CityCoreMembersResponsePacket.MemberEntry> entries = city.members().stream()
                 .sorted(Comparator.comparing((CityMemberData member) -> member.permissionLevel().ordinal()).reversed().thenComparing(CityMemberData::playerName))
                 .map(member -> new CityCoreMembersResponsePacket.MemberEntry(member.playerId(), member.playerName(), member.permissionLevel()))
                 .toList();
         CityPermissionLevel viewerPermission = CityService.getPlayerPermission(city, viewerId);
-        return new CityCoreMembersResponsePacket(pos, city.cityId(), city.cityName(), city.funds(), city.cityLevel(), entries, viewerPermission, CityService.canManageCity(city, viewerId));
+        List<CityCoreMembersResponsePacket.CandidateEntry> candidates = buildOnlineCandidates(level, city, viewerId);
+        return new CityCoreMembersResponsePacket(pos, city.cityId(), city.cityName(), city.funds(), city.cityLevel(), entries, candidates, viewerPermission, CityService.canManageCity(city, viewerId));
+    }
+
+    private static List<CityCoreMembersResponsePacket.CandidateEntry> buildOnlineCandidates(ServerLevel level, CityData city, UUID viewerId) {
+        {
+            return List.of();
+        }
     }
 
     public static CityCoreMapResponsePacket buildMapResponse(ServerLevel level, BlockPos pos, UUID viewerId) {

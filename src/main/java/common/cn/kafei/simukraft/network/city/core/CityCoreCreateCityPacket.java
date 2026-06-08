@@ -5,8 +5,10 @@ import common.cn.kafei.simukraft.citizen.CitizenService;
 import common.cn.kafei.simukraft.city.CityChunkManager;
 import common.cn.kafei.simukraft.city.CityData;
 import common.cn.kafei.simukraft.city.CityService;
+import common.cn.kafei.simukraft.city.group.CityGroupMessageService;
 import common.cn.kafei.simukraft.network.city.CityNetworkViewFactory;
 import common.cn.kafei.simukraft.network.city.chunk.CityChunkSyncService;
+import common.cn.kafei.simukraft.network.hud.HudSyncService;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -85,9 +87,10 @@ public record CityCoreCreateCityPacket(BlockPos pos, String cityName) implements
             return;
         }
         CitizenService.spawnCitizen(level, pos.above(), city.cityId(), true);
-        InfoToastService.success(player, Component.translatable("message.simukraft.city_core.created", city.cityName()));
-        InfoToastService.send(player, Component.translatable("message.simukraft.city_core.initial_chunks_claimed"));
+        CityGroupMessageService.successToCity(level, city.cityId(), Component.translatable("message.simukraft.city_core.created", city.cityName()));
+        CityGroupMessageService.sendToCity(level, city.cityId(), Component.translatable("message.simukraft.city_core.initial_chunks_claimed"));
         PacketDistributor.sendToPlayer(player, CityNetworkViewFactory.buildCreatedCityResponse(level, pos, city, player.getUUID()));
         CityChunkSyncService.syncToAll(level);
+        HudSyncService.syncToCityGroup(level, city.cityId(), true);
     }
 }

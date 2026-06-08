@@ -3,6 +3,7 @@ package common.cn.kafei.simukraft.network.city.chunk;
 import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.city.CityClaimService;
 import common.cn.kafei.simukraft.city.CityService;
+import common.cn.kafei.simukraft.city.group.CityGroupMessageService;
 import common.cn.kafei.simukraft.network.city.core.CityCoreAccessValidator;
 import common.cn.kafei.simukraft.network.city.map.CityCoreMapRequestPacket;
 import common.cn.kafei.simukraft.network.hud.HudSyncService;
@@ -41,7 +42,7 @@ public record CityChunkPurchasePacket(BlockPos pos, int chunkX, int chunkZ) impl
         CityService.findCityByCorePos(level, packet.pos()).ifPresent(city -> {
             CityClaimService.ClaimResult result = CityClaimService.buyChunk(level, player, city, packet.chunkX(), packet.chunkZ());
             if (result.success()) {
-                InfoToastService.success(player, result.message());
+                CityGroupMessageService.successToCity(level, city.cityId(), result.message());
             } else {
                 InfoToastService.warning(player, result.message());
             }
@@ -49,7 +50,7 @@ public record CityChunkPurchasePacket(BlockPos pos, int chunkX, int chunkZ) impl
             if (result.success()) {
                 CityChunkSyncService.syncToAll(level);
             }
-            HudSyncService.syncToPlayer(player, true);
+            HudSyncService.syncToCityGroup(level, city.cityId(), true);
         });
     }
 

@@ -4,11 +4,13 @@ import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.citizen.CitizenWorkStatus;
 import common.cn.kafei.simukraft.city.CityService;
 import common.cn.kafei.simukraft.city.FinanceTransactionData;
+import common.cn.kafei.simukraft.city.group.CityGroupMessageService;
 import common.cn.kafei.simukraft.config.ServerConfig;
 import common.cn.kafei.simukraft.economy.EconomyService;
 import common.cn.kafei.simukraft.economy.FinanceLedgerService;
 import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.job.CityJobType;
+import common.cn.kafei.simukraft.network.hud.HudSyncService;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import common.cn.kafei.simukraft.planner.PlanOperation;
 import common.cn.kafei.simukraft.planner.PlannerWorkService;
@@ -149,6 +151,7 @@ public record CreatePlanningTaskPacket(BlockPos buildBoxPos,
                 return;
             }
             FinanceLedgerService.record(level, cityId, player, -cost, EconomyService.getCityBalance(level, cityId), FinanceTransactionData.Type.EXPENSE, "planner");
+            HudSyncService.syncToCityGroup(level, cityId, true);
         }
 
         var planner = plannerContext.planner();
@@ -181,7 +184,7 @@ public record CreatePlanningTaskPacket(BlockPos buildBoxPos,
                 now);
         PlannerWorkService.startTask(level, task);
         CitizenEmploymentService.hire(level, planner.uuid(), CityJobType.PLANNER, PlannerNetworkValidation.workplaceId(boxPos), boxPos, CitizenWorkStatus.WORKING, "");
-        InfoToastService.success(player, Component.translatable("message.simukraft.plan_area.started", Component.translatable(packet.operation().translationKey()), volume));
+        CityGroupMessageService.successToCity(level, cityId, Component.translatable("message.simukraft.plan_area.started", Component.translatable(packet.operation().translationKey()), volume));
     }
 
     private static Map<String, String> effectiveReplacementMap(CreatePlanningTaskPacket packet) {

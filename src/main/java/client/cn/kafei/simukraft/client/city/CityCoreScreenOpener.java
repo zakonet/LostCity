@@ -273,47 +273,139 @@ public final class CityCoreScreenOpener {
         UIElement panel = basePanel();
         panel.addChild(line(Component.translatable("screen.simukraft.city_core.members.title")));
         if (packet.viewerPermission().atLeast(CityPermissionLevel.OFFICIAL)) {
-            TextField addField = textField("", 180);
-            addField.getTextFieldStyle().placeholder(Component.translatable("screen.simukraft.city_core.members.add_placeholder"));
-            panel.addChild(addField);
-            panel.addChild(contentButton("screen.simukraft.city_core.members.add_citizen", () -> PacketDistributor.sendToServer(new CityCoreMemberActionPacket(packet.pos(), CityCoreMemberActionPacket.Action.ADD, CityCoreMemberActionPacket.EMPTY_PLAYER_ID, addField.getValue(), CityPermissionLevel.CITIZEN))));
-            if (packet.viewerPermission() == CityPermissionLevel.MAYOR) {
-                panel.addChild(contentButton("screen.simukraft.city_core.members.add_official", () -> PacketDistributor.sendToServer(new CityCoreMemberActionPacket(packet.pos(), CityCoreMemberActionPacket.Action.ADD, CityCoreMemberActionPacket.EMPTY_PLAYER_ID, addField.getValue(), CityPermissionLevel.OFFICIAL))));
-            }
+            panel.addChild(addMemberPanel(packet));
             panel.addChild(contentSpacer());
         }
-        addMemberRows(panel, packet.members(), packet.viewerPermission(), packet.pos());
+        addMemberGroup(panel, packet.members(), CityPermissionLevel.MAYOR, "screen.simukraft.city_core.members.group_mayor", packet.viewerPermission(), packet.pos());
+        addMemberGroup(panel, packet.members(), CityPermissionLevel.OFFICIAL, "screen.simukraft.city_core.members.group_officials", packet.viewerPermission(), packet.pos());
+        addMemberGroup(panel, packet.members(), CityPermissionLevel.CITIZEN, "screen.simukraft.city_core.members.group_citizens", packet.viewerPermission(), packet.pos());
         return scrollable(panel);
+    }
+
+    private static UIElement addMemberPanel(CityCoreMembersResponsePacket packet) {
+        UIElement panel = new UIElement().layout(layout -> {
+            layout.widthPercent(100);
+            layout.flexDirection(FlexDirection.COLUMN);
+            layout.gapAll(4);
+            layout.alignItems(AlignItems.STRETCH);
+        });
+        panel.addChild(sectionLabel("screen.simukraft.city_core.members.add_title"));
+        panel.addChild(manualAddRow(packet));
+        if (!packet.onlineCandidates().isEmpty()) {
+            panel.addChild(sectionLabel("screen.simukraft.city_core.members.candidates"));
+            packet.onlineCandidates().forEach(candidate -> panel.addChild(candidateRow(packet, candidate)));
+        } else {
+            panel.addChild(line(Component.translatable("screen.simukraft.city_core.members.candidate_empty")));
+        }
+        return panel;
+    }
+
+    private static UIElement manualAddRow(CityCoreMembersResponsePacket packet) {
+        TextField addField = textField("", 180);
+        addField.getTextFieldStyle().placeholder(Component.translatable("screen.simukraft.city_core.members.add_placeholder"));
+        UIElement row = addRow();
+        row.addChild(addField.layout(layout -> {
+            layout.flex(1);
+            layout.height(20);
+        }));
+        row.addChild(memberActionButton("screen.simukraft.city_core.members.add_citizen", 72,
+                () -> sendAddMember(packet.pos(), CityCoreMemberActionPacket.EMPTY_PLAYER_ID, addField.getValue(), CityPermissionLevel.CITIZEN)));
+        if (packet.viewerPermission() == CityPermissionLevel.MAYOR) {
+            row.addChild(memberActionButton("screen.simukraft.city_core.members.add_official", 72,
+                    () -> sendAddMember(packet.pos(), CityCoreMemberActionPacket.EMPTY_PLAYER_ID, addField.getValue(), CityPermissionLevel.OFFICIAL)));
+        }
+        return row;
+    }
+
+    private static UIElement candidateRow(CityCoreMembersResponsePacket packet, CityCoreMembersResponsePacket.CandidateEntry candidate) {
+        UIElement row = addRow();
+        Label name = line(Component.literal(candidate.playerName()));
+        name.layout(layout -> {
+            layout.flex(1);
+            layout.height(13);
+        });
+        row.addChild(name);
+        row.addChild(memberActionButton("screen.simukraft.city_core.members.add_citizen", 72,
+                () -> sendAddMember(packet.pos(), candidate.playerId(), candidate.playerName(), CityPermissionLevel.CITIZEN)));
+        if (packet.viewerPermission() == CityPermissionLevel.MAYOR) {
+            row.addChild(memberActionButton("screen.simukraft.city_core.members.add_official", 72,
+                    () -> sendAddMember(packet.pos(), candidate.playerId(), candidate.playerName(), CityPermissionLevel.OFFICIAL)));
+        }
+        return row;
+    }
+
+    private static void addMemberGroup(UIElement panel, List<CityCoreMembersResponsePacket.MemberEntry> members, CityPermissionLevel groupPermission, String titleKey, CityPermissionLevel viewerPermission, BlockPos pos) {
+        List<CityCoreMembersResponsePacket.MemberEntry> groupMembers = members.stream()
+                .filter(member -> member.permissionLevel() == groupPermission)
+                .toList();
+        if (groupMembers.isEmpty()) {
+            return;
+        }
+        panel.addChild(sectionLabel(titleKey));
+        addMemberRows(panel, groupMembers, viewerPermission, pos);
     }
 
     private static void addMemberRows(UIElement panel, List<CityCoreMembersResponsePacket.MemberEntry> members, CityPermissionLevel viewerPermission, BlockPos pos) {
         for (CityCoreMembersResponsePacket.MemberEntry member : members) {
-            UIElement row = new UIElement().layout(layout -> {
-                layout.widthPercent(100);
-                layout.height(24);
-                layout.flexDirection(FlexDirection.ROW);
-                layout.gapAll(4);
-                layout.alignItems(AlignItems.CENTER);
-            });
+            UIElement row = addRow();
             row.addChild(memberLabel(member));
             if (viewerPermission == CityPermissionLevel.MAYOR && member.permissionLevel() != CityPermissionLevel.MAYOR) {
-                row.addChild(smallButton("screen.simukraft.city_core.members.set_citizen", () -> PacketDistributor.sendToServer(new CityCoreMemberActionPacket(pos, CityCoreMemberActionPacket.Action.SET_PERMISSION, member.playerId(), member.playerName(), CityPermissionLevel.CITIZEN))));
-                row.addChild(smallButton("screen.simukraft.city_core.members.set_official", () -> PacketDistributor.sendToServer(new CityCoreMemberActionPacket(pos, CityCoreMemberActionPacket.Action.SET_PERMISSION, member.playerId(), member.playerName(), CityPermissionLevel.OFFICIAL))));
+                row.addChild(memberActionButton("screen.simukraft.city_core.members.set_citizen", 56, () -> PacketDistributor.sendToServer(new CityCoreMemberActionPacket(pos, CityCoreMemberActionPacket.Action.SET_PERMISSION, member.playerId(), member.playerName(), CityPermissionLevel.CITIZEN))));
+                row.addChild(memberActionButton("screen.simukraft.city_core.members.set_official", 56, () -> PacketDistributor.sendToServer(new CityCoreMemberActionPacket(pos, CityCoreMemberActionPacket.Action.SET_PERMISSION, member.playerId(), member.playerName(), CityPermissionLevel.OFFICIAL))));
             }
             if (viewerPermission.atLeast(CityPermissionLevel.OFFICIAL) && member.permissionLevel() != CityPermissionLevel.MAYOR) {
-                row.addChild(smallButton("screen.simukraft.city_core.members.remove", () -> PacketDistributor.sendToServer(new CityCoreMemberActionPacket(pos, CityCoreMemberActionPacket.Action.REMOVE, member.playerId(), member.playerName(), CityPermissionLevel.CITIZEN))));
+                row.addChild(memberActionButton("screen.simukraft.city_core.members.remove", 48, () -> PacketDistributor.sendToServer(new CityCoreMemberActionPacket(pos, CityCoreMemberActionPacket.Action.REMOVE, member.playerId(), member.playerName(), CityPermissionLevel.CITIZEN))));
             }
             panel.addChild(row);
         }
     }
 
     private static Label memberLabel(CityCoreMembersResponsePacket.MemberEntry member) {
-        Label label = line(Component.translatable("screen.simukraft.city_core.members.row", member.playerName(), Component.translatable("permission.simukraft." + member.permissionLevel().name().toLowerCase(Locale.ROOT)).getString()));
+        Label label = line(Component.translatable("screen.simukraft.city_core.members.row", member.playerName(), permissionText(member.permissionLevel())));
         label.layout(layout -> {
             layout.height(13);
             layout.flex(1);
         });
         return label;
+    }
+
+    private static UIElement addRow() {
+        return new UIElement().layout(layout -> {
+            layout.widthPercent(100);
+            layout.height(24);
+            layout.flexDirection(FlexDirection.ROW);
+            layout.gapAll(4);
+            layout.alignItems(AlignItems.CENTER);
+        });
+    }
+
+    private static Label sectionLabel(String key) {
+        Label label = line(Component.translatable(key));
+        label.layout(layout -> {
+            layout.widthPercent(100);
+            layout.height(14);
+        });
+        return label;
+    }
+
+    private static Button memberActionButton(String key, int width, Runnable action) {
+        Button button = baseButton(key, action);
+        button.layout(layout -> {
+            layout.width(width);
+            layout.height(18);
+            layout.flexShrink(0);
+            layout.flexDirection(FlexDirection.ROW);
+            layout.justifyContent(AlignContent.CENTER);
+        });
+        return button;
+    }
+
+    private static void sendAddMember(BlockPos pos, java.util.UUID playerId, String playerName, CityPermissionLevel permissionLevel) {
+        PacketDistributor.sendToServer(new CityCoreMemberActionPacket(pos, CityCoreMemberActionPacket.Action.ADD, playerId, playerName, permissionLevel));
+    }
+
+    private static String permissionText(CityPermissionLevel permissionLevel) {
+        return Component.translatable("permission.simukraft." + permissionLevel.name().toLowerCase(Locale.ROOT)).getString();
     }
 
     private static UIElement contentPanel(CityCoreOpenResponsePacket packet) {
@@ -485,17 +577,6 @@ public final class CityCoreScreenOpener {
         button.layout(layout -> {
             layout.width(100);
             layout.height(20);
-            layout.flexDirection(FlexDirection.ROW);
-            layout.justifyContent(AlignContent.CENTER);
-        });
-        return button;
-    }
-
-    private static Button smallButton(String key, Runnable action) {
-        Button button = baseButton(key, action);
-        button.layout(layout -> {
-            layout.width(42);
-            layout.height(18);
             layout.flexDirection(FlexDirection.ROW);
             layout.justifyContent(AlignContent.CENTER);
         });

@@ -1,21 +1,16 @@
 package common.cn.kafei.simukraft.material;
 
-import common.cn.kafei.simukraft.city.CityData;
-import common.cn.kafei.simukraft.city.CityMemberData;
-import common.cn.kafei.simukraft.city.CityService;
+import common.cn.kafei.simukraft.city.group.CityGroupMessageService;
 import common.cn.kafei.simukraft.config.ServerConfig;
-import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-@SuppressWarnings("null")
 public final class WorkMaterialNotificationService {
     private static final ConcurrentMap<MaterialNoticeKey, Long> NEXT_NOTICE_TICK = new ConcurrentHashMap<>();
     private static final int MAX_NOTICE_KEYS = 2048;
@@ -43,17 +38,7 @@ public final class WorkMaterialNotificationService {
                 result.acceptedMaterialsText()
         );
         ItemStack requested = result.requested();
-        CityService.findCity(level, cityId)
-                .map(CityData::members)
-                .ifPresent(members -> members.stream()
-                        .map(CityMemberData::playerId)
-                        .map(playerId -> level.getServer().getPlayerList().getPlayer(playerId))
-                        .filter(player -> player != null && player.level() == level)
-                        .forEach(player -> send(player, message, requested)));
-    }
-
-    private static void send(ServerPlayer player, Component message, ItemStack requested) {
-        InfoToastService.material(player, message, requested);
+        CityGroupMessageService.materialToCity(level, cityId, message, requested);
     }
 
     private static void cleanupExpired(long gameTime) {

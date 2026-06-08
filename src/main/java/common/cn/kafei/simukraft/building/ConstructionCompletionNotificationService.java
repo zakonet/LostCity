@@ -4,13 +4,15 @@ import common.cn.kafei.simukraft.city.CityData;
 import common.cn.kafei.simukraft.city.CityMemberData;
 import common.cn.kafei.simukraft.city.CityPermissionLevel;
 import common.cn.kafei.simukraft.city.CityService;
+import common.cn.kafei.simukraft.city.group.CityGroupMessageService;
+import common.cn.kafei.simukraft.city.group.CityUserGroup;
 import common.cn.kafei.simukraft.citizen.CitizenData;
-import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import common.cn.kafei.simukraft.registry.ModSoundEvents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.Optional;
 
@@ -29,15 +31,9 @@ public final class ConstructionCompletionNotificationService {
             return;
         }
         Component message = Component.translatable("message.simukraft.construction.completed", citizen.name(), task.displayName());
-        city.get().members().forEach(member -> notifyMember(level, member, message));
+        CityGroupMessageService.send(level, CityUserGroup.members(task.cityId()),
+                Component.translatable("toast.simukraft.construction_title"), message, "success", ItemStack.EMPTY);
         findMayor(city.get()).ifPresent(member -> playMayorSound(level, member));
-    }
-
-    private static void notifyMember(ServerLevel level, CityMemberData member, Component message) {
-        ServerPlayer player = level.getServer().getPlayerList().getPlayer(member.playerId());
-        if (player != null) {
-            InfoToastService.send(player, Component.translatable("toast.simukraft.construction_title"), message, "success");
-        }
     }
 
     private static Optional<CityMemberData> findMayor(CityData city) {

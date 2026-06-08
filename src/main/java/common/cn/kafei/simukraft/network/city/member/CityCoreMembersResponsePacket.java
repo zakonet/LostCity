@@ -17,9 +17,14 @@ import java.util.List;
 import java.util.UUID;
 
 @SuppressWarnings("null")
-public record CityCoreMembersResponsePacket(BlockPos pos, UUID cityId, String cityName, double funds, int cityLevel, List<MemberEntry> members, CityPermissionLevel viewerPermission, boolean canManageCity) implements CustomPacketPayload {
+public record CityCoreMembersResponsePacket(BlockPos pos, UUID cityId, String cityName, double funds, int cityLevel, List<MemberEntry> members, List<CandidateEntry> onlineCandidates, CityPermissionLevel viewerPermission, boolean canManageCity) implements CustomPacketPayload {
     public static final Type<CityCoreMembersResponsePacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SimuKraft.MOD_ID, "city_core_members_response"));
     public static final StreamCodec<RegistryFriendlyByteBuf, CityCoreMembersResponsePacket> STREAM_CODEC = StreamCodec.of(CityCoreMembersResponsePacket::encode, CityCoreMembersResponsePacket::decode);
+
+    public CityCoreMembersResponsePacket {
+        members = members == null ? List.of() : List.copyOf(members);
+        onlineCandidates = onlineCandidates == null ? List.of() : List.copyOf(onlineCandidates);
+    }
 
     @Override
     public Type<? extends CustomPacketPayload> type() {
@@ -42,6 +47,11 @@ public record CityCoreMembersResponsePacket(BlockPos pos, UUID cityId, String ci
             buffer.writeUtf(member.playerName(), 64);
             buffer.writeUtf(member.permissionLevel().name(), 16);
         });
+        buffer.writeVarInt(packet.onlineCandidates().size());
+        packet.onlineCandidates().forEach(candidate -> {
+            buffer.writeUUID(candidate.playerId());
+            buffer.writeUtf(candidate.playerName(), 64);
+        });
         buffer.writeUtf(packet.viewerPermission().name(), 16);
         buffer.writeBoolean(packet.canManageCity());
     }
@@ -57,7 +67,12 @@ public record CityCoreMembersResponsePacket(BlockPos pos, UUID cityId, String ci
         for (int i = 0; i < size; i++) {
             members.add(new MemberEntry(buffer.readUUID(), buffer.readUtf(64), CityPermissionLevel.fromName(buffer.readUtf(16))));
         }
-        return new CityCoreMembersResponsePacket(pos, cityId, cityName, funds, cityLevel, List.copyOf(members), CityPermissionLevel.fromName(buffer.readUtf(16)), buffer.readBoolean());
+        int candidateSize = buffer.readVarInt();
+        List<CandidateEntry> candidates = new ArrayList<>(candidateSize);
+        for (int i = 0; i < candidateSize; i++) {
+            candidates.add(new CandidateEntry(buffer.readUUID(), buffer.readUtf(64)));
+        }
+        return new CityCoreMembersResponsePacket(pos, cityId, cityName, funds, cityLevel, members, candidates, CityPermissionLevel.fromName(buffer.readUtf(16)), buffer.readBoolean());
     }
 
     public static void handle(CityCoreMembersResponsePacket packet, IPayloadContext context) {
@@ -65,5 +80,8 @@ public record CityCoreMembersResponsePacket(BlockPos pos, UUID cityId, String ci
     }
 
     public record MemberEntry(UUID playerId, String playerName, CityPermissionLevel permissionLevel) {
+    }
+
+    public record CandidateEntry(UUID playerId, String playerName) {
     }
 }

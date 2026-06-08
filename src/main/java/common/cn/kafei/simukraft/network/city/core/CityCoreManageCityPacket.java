@@ -5,8 +5,12 @@ import common.cn.kafei.simukraft.city.CityChunkManager;
 import common.cn.kafei.simukraft.city.CityData;
 import common.cn.kafei.simukraft.city.CityPermissionLevel;
 import common.cn.kafei.simukraft.city.CityService;
+import common.cn.kafei.simukraft.city.group.CityGroupMessageService;
+import common.cn.kafei.simukraft.city.group.CityUserGroup;
+import common.cn.kafei.simukraft.city.group.CityUserGroupService;
 import common.cn.kafei.simukraft.city.poi.CityPoiManager;
 import common.cn.kafei.simukraft.network.city.chunk.CityChunkSyncService;
+import common.cn.kafei.simukraft.network.hud.HudSyncService;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -19,6 +23,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -78,7 +83,8 @@ public record CityCoreManageCityPacket(BlockPos pos, Action action, String value
         boolean renamed = CityService.renameCity(level, cityId, player.getUUID(), cityName);
         Component message = Component.translatable(renamed ? "message.simukraft.city_core.renamed" : "message.simukraft.city_core.rename_failed", cityName);
         if (renamed) {
-            InfoToastService.success(player, message);
+            CityGroupMessageService.successToCity(level, cityId, message);
+            HudSyncService.syncToCityGroup(level, cityId, true);
         } else {
             InfoToastService.warning(player, message);
         }
@@ -92,10 +98,12 @@ public record CityCoreManageCityPacket(BlockPos pos, Action action, String value
             CityCoreOpenRequestPacket.openFor(level, player, pos);
             return;
         }
+        List<ServerPlayer> cityGroup = CityUserGroupService.onlinePlayers(level, CityUserGroup.members(cityId));
         boolean deleted = CityService.deleteCity(level, cityId, player.getUUID(), CityChunkManager.get(level), CityPoiManager.get(level));
         Component message = Component.translatable(deleted ? "message.simukraft.city_core.deleted" : "message.simukraft.city_core.delete_failed", confirmation);
         if (deleted) {
-            InfoToastService.success(player, message);
+            CityGroupMessageService.sendResolved(cityGroup, Component.translatable("toast.simukraft.title"), message, "success", net.minecraft.world.item.ItemStack.EMPTY);
+            HudSyncService.syncResolvedGroup(cityGroup, true);
         } else {
             InfoToastService.warning(player, message);
         }

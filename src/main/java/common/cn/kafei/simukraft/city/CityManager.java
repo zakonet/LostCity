@@ -212,6 +212,13 @@ public final class CityManager extends SavedData {
         if (permissionLevel == CityPermissionLevel.MAYOR) {
             return false;
         }
+        Optional<CityMemberData> existingMember = city.member(targetId);
+        if (existingMember.map(CityMemberData::permissionLevel).orElse(CityPermissionLevel.CITIZEN) == CityPermissionLevel.MAYOR) {
+            return false;
+        }
+        if (permissionLevel == CityPermissionLevel.OFFICIAL && !city.hasPermission(operatorId, CityPermissionLevel.MAYOR)) {
+            return false;
+        }
         UUID oldCityId = playerCityIndex.get(targetId);
         if (oldCityId != null && !oldCityId.equals(cityId)) {
             return false;
@@ -229,6 +236,11 @@ public final class CityManager extends SavedData {
             return false;
         }
         if (operatorId.equals(targetId)) {
+            return false;
+        }
+        Optional<CityMemberData> targetMember = city.member(targetId);
+        if (targetMember.map(CityMemberData::permissionLevel).orElse(CityPermissionLevel.CITIZEN).atLeast(CityPermissionLevel.OFFICIAL)
+                && !city.hasPermission(operatorId, CityPermissionLevel.MAYOR)) {
             return false;
         }
         boolean removed = city.removeMember(targetId);

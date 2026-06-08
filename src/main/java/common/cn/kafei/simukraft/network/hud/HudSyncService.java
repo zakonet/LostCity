@@ -3,6 +3,8 @@ package common.cn.kafei.simukraft.network.hud;
 import common.cn.kafei.simukraft.city.CityData;
 import common.cn.kafei.simukraft.city.CityPermissionLevel;
 import common.cn.kafei.simukraft.city.CityService;
+import common.cn.kafei.simukraft.city.group.CityUserGroup;
+import common.cn.kafei.simukraft.city.group.CityUserGroupService;
 import common.cn.kafei.simukraft.citizen.CitizenManager;
 import common.cn.kafei.simukraft.util.SaveScopedCacheKey;
 import net.minecraft.server.MinecraftServer;
@@ -10,6 +12,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -65,6 +68,20 @@ public final class HudSyncService {
                 state.permissionLevel(),
                 state.creativeMode()
         ));
+    }
+
+    // syncToCityGroup: 立即同步城市用户组内所有在线玩家的 HUD。
+    public static void syncToCityGroup(ServerLevel level, UUID cityId, boolean force) {
+        CityUserGroupService.onlinePlayers(level, CityUserGroup.members(cityId))
+                .forEach(player -> syncToPlayer(player, force));
+    }
+
+    // syncResolvedGroup: 同步已经解析好的用户组快照，供成员移除等场景使用。
+    public static void syncResolvedGroup(Collection<ServerPlayer> players, boolean force) {
+        if (players == null || players.isEmpty()) {
+            return;
+        }
+        players.forEach(player -> syncToPlayer(player, force));
     }
 
     public static void clearPlayer(UUID playerId) {

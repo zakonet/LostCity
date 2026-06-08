@@ -5,6 +5,7 @@ import common.cn.kafei.simukraft.citizen.CitizenData;
 import common.cn.kafei.simukraft.citizen.CitizenService;
 import common.cn.kafei.simukraft.commercial.CommercialConstants;
 import common.cn.kafei.simukraft.commercial.CommercialControlBoxService;
+import common.cn.kafei.simukraft.city.group.CityGroupMessageService;
 import common.cn.kafei.simukraft.network.commercial.CommercialControlBoxOpenResponsePacket;
 import common.cn.kafei.simukraft.industrial.IndustrialConstants;
 import common.cn.kafei.simukraft.industrial.IndustrialControlBoxService;
@@ -69,7 +70,7 @@ public record NpcHireAssignPacket(BlockPos sourcePos, String sourceType, String 
                 PacketDistributor.sendToPlayer(player, CommercialControlBoxOpenResponsePacket.from(CommercialControlBoxService.buildView(level, access.sourcePos())));
             }
             SimuKraft.LOGGER.info("Simukraft: Hired citizen {} ({}) as {} for {} at {}", citizen.name(), citizen.uuid(), access.role(), access.sourceType(), access.sourcePos());
-            InfoToastService.success(player, Component.translatable("message.simukraft.hire_npc.success", citizen.name()));
+            CityGroupMessageService.successToCity(level, access.cityId(), Component.translatable("message.simukraft.hire_npc.success", citizen.name()));
         }
     }
 }

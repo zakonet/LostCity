@@ -5,6 +5,7 @@ import common.cn.kafei.simukraft.citizen.CitizenData;
 import common.cn.kafei.simukraft.citizen.CitizenService;
 import common.cn.kafei.simukraft.commercial.CommercialConstants;
 import common.cn.kafei.simukraft.commercial.CommercialControlBoxService;
+import common.cn.kafei.simukraft.city.group.CityGroupMessageService;
 import common.cn.kafei.simukraft.network.commercial.CommercialControlBoxOpenResponsePacket;
 import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
@@ -63,7 +64,7 @@ public record NpcHireFirePacket(BlockPos sourcePos, String sourceType, String ro
                 CommercialControlBoxService.fireWorker(level, access.sourcePos());
                 PacketDistributor.sendToPlayer(player, CommercialControlBoxOpenResponsePacket.from(CommercialControlBoxService.buildView(level, access.sourcePos())));
             }
-            InfoToastService.success(player, Component.translatable("message.simukraft.fire_npc.success", citizen.name()));
+            CityGroupMessageService.successToCity(level, access.cityId(), Component.translatable("message.simukraft.fire_npc.success", citizen.name()));
         }
     }
 }

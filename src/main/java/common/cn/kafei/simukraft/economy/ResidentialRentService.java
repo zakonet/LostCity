@@ -132,13 +132,7 @@ public final class ResidentialRentService {
     }
 
     private static void syncCityMembers(ServerLevel level, UUID cityId) {
-        for (ServerPlayer player : level.players()) {
-            if (CityService.findPlayerCity(level, player.getUUID())
-                    .map(city -> cityId.equals(city.cityId()))
-                    .orElse(false)) {
-                HudSyncService.syncToPlayer(player, true);
-            }
-        }
+        HudSyncService.syncToCityGroup(level, cityId, true);
     }
 
     /** notifyPlayerIncome: 收租窗口触发后立即通知玩家，不再使用延迟计时器。 */

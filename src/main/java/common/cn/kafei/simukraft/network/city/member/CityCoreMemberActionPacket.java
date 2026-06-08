@@ -2,10 +2,15 @@ package common.cn.kafei.simukraft.network.city.member;
 
 import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.city.CityData;
+import common.cn.kafei.simukraft.city.CityMemberData;
 import common.cn.kafei.simukraft.city.CityPermissionLevel;
 import common.cn.kafei.simukraft.city.CityService;
+import common.cn.kafei.simukraft.city.group.CityGroupMessageService;
+import common.cn.kafei.simukraft.city.group.CityUserGroup;
+import common.cn.kafei.simukraft.city.group.CityUserGroupService;
 import common.cn.kafei.simukraft.network.city.core.CityCoreAccessValidator;
 import common.cn.kafei.simukraft.network.city.core.CityCoreOpenRequestPacket;
+import common.cn.kafei.simukraft.network.hud.HudSyncService;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -17,6 +22,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -58,35 +66,117 @@ public record CityCoreMemberActionPacket(BlockPos pos, Action action, UUID targe
             InfoToastService.warning(player, Component.translatable("message.simukraft.city_core.not_found"));
             return;
         }
-        boolean success = switch (packet.action()) {
-            case ADD -> addOnlinePlayer(level, player, city.get().cityId(), packet.targetName(), packet.permissionLevel());
-            case REMOVE -> CityService.removePlayer(level, city.get().cityId(), player.getUUID(), packet.targetId());
-            case SET_PERMISSION -> CityService.setPlayerPermission(level, city.get().cityId(), player.getUUID(), packet.targetId(), packet.permissionLevel());
+        CityData cityData = city.get();
+        List<ServerPlayer> beforeGroup = CityUserGroupService.onlinePlayers(level, CityUserGroup.members(cityData.cityId()));
+        MemberActionResult result = switch (packet.action()) {
+            case ADD -> addOnlinePlayer(level, player, cityData, packet.targetId(), packet.targetName(), packet.permissionLevel());
+            case REMOVE -> removePlayer(level, player, cityData, packet.targetId(), packet.targetName(), beforeGroup);
+            case SET_PERMISSION -> setPermission(level, player, cityData, packet.targetId(), packet.targetName(), packet.permissionLevel());
         };
-        Component message = Component.translatable(success ? "message.simukraft.city_core.member_action_success" : "message.simukraft.city_core.member_action_failed");
-        if (success) {
-            InfoToastService.success(player, message);
+        if (result.success()) {
+            CityGroupMessageService.sendResolved(result.recipients(), Component.translatable("toast.simukraft.title"), result.message(), "success", net.minecraft.world.item.ItemStack.EMPTY);
+            HudSyncService.syncResolvedGroup(result.recipients(), true);
         } else {
-            InfoToastService.warning(player, message);
+            InfoToastService.warning(player, result.message());
         }
         CityCoreMembersRequestPacket.sendMembers(level, player, packet.pos());
         CityCoreOpenRequestPacket.openFor(level, player, packet.pos());
     }
 
-    private static boolean addOnlinePlayer(ServerLevel level, ServerPlayer operator, UUID cityId, String rawTargetName, CityPermissionLevel permissionLevel) {
+    // addOnlinePlayer: 将在线玩家加入城市，并按权限生成城市用户组消息。
+    private static MemberActionResult addOnlinePlayer(ServerLevel level, ServerPlayer operator, CityData city, UUID targetId, String rawTargetName, CityPermissionLevel permissionLevel) {
         if (permissionLevel == CityPermissionLevel.MAYOR) {
-            return false;
+            return MemberActionResult.failed(Component.translatable("message.simukraft.city_core.member_action_failed"));
         }
         String targetName = rawTargetName == null ? "" : rawTargetName.trim();
-        if (targetName.isBlank()) {
-            return false;
+        boolean hasTargetId = targetId != null && !EMPTY_PLAYER_ID.equals(targetId);
+        if (targetName.isBlank() && !hasTargetId) {
+            return MemberActionResult.failed(Component.translatable("message.simukraft.city_core.member_action_failed"));
         }
-        ServerPlayer target = level.getServer().getPlayerList().getPlayerByName(targetName);
+        ServerPlayer target = hasTargetId
+                ? level.getServer().getPlayerList().getPlayer(targetId)
+                : level.getServer().getPlayerList().getPlayerByName(targetName);
         if (target == null) {
-            InfoToastService.warning(operator, Component.translatable("message.simukraft.city_core.player_not_online", targetName));
-            return false;
+            return MemberActionResult.failed(Component.translatable("message.simukraft.city_core.player_not_online", targetName));
         }
-        return CityService.addPlayer(level, cityId, operator.getUUID(), target.getUUID(), target.getGameProfile().getName(), permissionLevel);
+        Optional<CityData> targetCity = CityService.findPlayerCity(level, target.getUUID());
+        if (targetCity.isPresent() && !targetCity.get().cityId().equals(city.cityId())) {
+            return MemberActionResult.failed(Component.translatable("message.simukraft.city_core.target_has_city", target.getGameProfile().getName()));
+        }
+        boolean added = CityService.addPlayer(level, city.cityId(), operator.getUUID(), target.getUUID(), target.getGameProfile().getName(), permissionLevel);
+        if (!added) {
+            return MemberActionResult.failed(Component.translatable("message.simukraft.city_core.member_action_failed"));
+        }
+        Component message = permissionLevel == CityPermissionLevel.OFFICIAL
+                ? Component.translatable("message.simukraft.city_core.official_added", target.getGameProfile().getName(), city.cityName())
+                : Component.translatable("message.simukraft.city_core.member_added", target.getGameProfile().getName(), city.cityName(), permissionName(permissionLevel));
+        return MemberActionResult.succeeded(message, CityUserGroupService.onlinePlayers(level, CityUserGroup.members(city.cityId())));
+    }
+
+    // removePlayer: 从城市移除成员，并使用变更前用户组快照通知所有相关在线成员。
+    private static MemberActionResult removePlayer(ServerLevel level, ServerPlayer operator, CityData city, UUID targetId, String targetName, List<ServerPlayer> beforeGroup) {
+        Optional<CityMemberData> targetMember = city.member(targetId);
+        if (targetMember.isEmpty()) {
+            return MemberActionResult.failed(Component.translatable("message.simukraft.city_core.member_action_failed"));
+        }
+        boolean removed = CityService.removePlayer(level, city.cityId(), operator.getUUID(), targetId);
+        if (!removed) {
+            return MemberActionResult.failed(Component.translatable("message.simukraft.city_core.member_action_failed"));
+        }
+        String displayName = displayName(targetMember.get(), targetName);
+        Component message = targetMember.get().permissionLevel() == CityPermissionLevel.OFFICIAL
+                ? Component.translatable("message.simukraft.city_core.official_removed", displayName, city.cityName())
+                : Component.translatable("message.simukraft.city_core.member_removed", displayName, city.cityName());
+        return MemberActionResult.succeeded(message, beforeGroup);
+    }
+
+    // setPermission: 调整成员权限，并向城市用户组广播权限变化。
+    private static MemberActionResult setPermission(ServerLevel level, ServerPlayer operator, CityData city, UUID targetId, String targetName, CityPermissionLevel permissionLevel) {
+        Optional<CityMemberData> targetMember = city.member(targetId);
+        if (targetMember.isEmpty() || permissionLevel == CityPermissionLevel.MAYOR) {
+            return MemberActionResult.failed(Component.translatable("message.simukraft.city_core.member_action_failed"));
+        }
+        CityPermissionLevel oldPermission = targetMember.get().permissionLevel();
+        boolean changed = CityService.setPlayerPermission(level, city.cityId(), operator.getUUID(), targetId, permissionLevel);
+        if (!changed) {
+            return MemberActionResult.failed(Component.translatable("message.simukraft.city_core.member_action_failed"));
+        }
+        String displayName = displayName(targetMember.get(), targetName);
+        Component message;
+        if (oldPermission != CityPermissionLevel.OFFICIAL && permissionLevel == CityPermissionLevel.OFFICIAL) {
+            message = Component.translatable("message.simukraft.city_core.official_added", displayName, city.cityName());
+        } else if (oldPermission == CityPermissionLevel.OFFICIAL && permissionLevel == CityPermissionLevel.CITIZEN) {
+            message = Component.translatable("message.simukraft.city_core.official_removed", displayName, city.cityName());
+        } else {
+            message = Component.translatable("message.simukraft.city_core.member_permission_changed", displayName, city.cityName(), permissionName(permissionLevel));
+        }
+        return MemberActionResult.succeeded(message, CityUserGroupService.onlinePlayers(level, CityUserGroup.members(city.cityId())));
+    }
+
+    // displayName: 优先使用服务端已知成员名，缺失时使用包内名称兜底。
+    private static String displayName(CityMemberData member, String fallbackName) {
+        String memberName = member != null ? member.playerName() : "";
+        if (memberName != null && !memberName.isBlank()) {
+            return memberName;
+        }
+        return fallbackName != null && !fallbackName.isBlank() ? fallbackName : "Unknown";
+    }
+
+    // permissionName: 生成权限等级的本地化显示名。
+    private static Component permissionName(CityPermissionLevel permissionLevel) {
+        return Component.translatable("permission.simukraft." + permissionLevel.name().toLowerCase(Locale.ROOT));
+    }
+
+    private record MemberActionResult(boolean success, Component message, Collection<ServerPlayer> recipients) {
+        // succeeded: 记录成功消息和目标用户组快照。
+        private static MemberActionResult succeeded(Component message, Collection<ServerPlayer> recipients) {
+            return new MemberActionResult(true, message, recipients);
+        }
+
+        // failed: 记录仅回给操作者的失败消息。
+        private static MemberActionResult failed(Component message) {
+            return new MemberActionResult(false, message, List.of());
+        }
     }
 
     public enum Action {
