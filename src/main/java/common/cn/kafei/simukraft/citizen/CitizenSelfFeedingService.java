@@ -26,7 +26,7 @@ public final class CitizenSelfFeedingService {
     public static final String TOO_HUNGRY_STRIKE_STATUS = "gui.npc.status.too_hungry_on_strike";
     private static final String FOOD_NEED_PREFIX = "food:";
     private static final double START_HUNGER_THRESHOLD = 4.0D;
-    private static final double FULL_HUNGER = 20.0D;
+    private static final double FULL_HUNGER = CitizenEntity.DEFAULT_HUNGER;
     private static final double ARRIVAL_DISTANCE_SQR = 16.0D;
     private static final long SERVICE_INTERVAL_TICKS = 20L;
     private static final long SEARCH_RETRY_TICKS = 200L;
@@ -205,7 +205,6 @@ public final class CitizenSelfFeedingService {
         CitizenJobVisualService.setMainHandOverride(citizen.uuid(), foodStack);
         level.playSound(null, entity.blockPosition(), SoundEvents.GENERIC_EAT, SoundSource.NEUTRAL, 0.8F, 1.0F);
         entity.swing(InteractionHand.MAIN_HAND);
-        manager.saveCitizenNow(citizen.uuid());
         manager.syncEntity(entity);
     }
 
@@ -267,9 +266,10 @@ public final class CitizenSelfFeedingService {
     /** clearStaleFoodStatus: 清理已吃饱 NPC 身上残留的买饭临时状态。 */
     private static boolean clearStaleFoodStatus(ServerLevel level, CitizenManager manager, CitizenData citizen) {
         CitizenEntity entity = CitizenTeleportService.findCitizenEntity(level, citizen.uuid());
-        double hunger = entity != null ? entity.getHungerValue() : citizen.hunger();
-        if (hunger <= START_HUNGER_THRESHOLD
-                || !isSelfFeedingStatus(citizen.statusLabel()) && !isFoodNeedDetail(citizen.workNeedDetail())) {
+        if (entity != null && entity.getHungerValue() <= START_HUNGER_THRESHOLD) {
+            return false;
+        }
+        if (!isSelfFeedingStatus(citizen.statusLabel()) && !isFoodNeedDetail(citizen.workNeedDetail())) {
             return false;
         }
         citizen.setStatusLabel(restorableStatusLabel(citizen.statusLabel()));

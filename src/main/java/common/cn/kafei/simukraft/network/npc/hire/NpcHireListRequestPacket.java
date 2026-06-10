@@ -62,7 +62,7 @@ public record NpcHireListRequestPacket(BlockPos sourcePos, String sourceType, St
                                 data.gender(),
                                 data.age(),
                                 data.health(),
-                                entity != null ? entity.getHungerValue() : data.hunger(),
+                                entity != null ? entity.getHungerValue() : CitizenEntity.DEFAULT_HUNGER,
                                 data.skinPath(),
                                 data.jobType().name(),
                                 data.workStatus(),

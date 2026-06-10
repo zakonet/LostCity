@@ -33,7 +33,7 @@ public final class CitizenManager extends SavedData {
     private static final double HUNGER_DECAY_PER_UPDATE = 1.0D;
     private static final Factory<CitizenManager> FACTORY = new Factory<>(CitizenManager::new, CitizenManager::load, null);
 
-    // 居民主数据在服务端内存中维护，SQLite 负责持久化，实体只做世界内表现。
+    // 居民主数据在服务端内存中维护，SQLite 负责档案持久化，饱食度独立保存在实体 NBT。
     private final ConcurrentMap<UUID, CitizenData> citizens = new ConcurrentHashMap<>();
     // 分帧处理居民状态，避免城市人口变大后单 tick 扫全量。
     private final ConcurrentLinkedQueue<UUID> aiQueue = new ConcurrentLinkedQueue<>();
@@ -292,7 +292,6 @@ public final class CitizenManager extends SavedData {
         data.setName(entity.getCitizenName());
         data.setSkinPath(entity.getSkinPath());
         data.setStatusLabel(entity.getStatusLabel());
-        data.setHunger(entity.getHungerValue());
         data.setAge(entity.getAge());
         data.setLifespan(entity.getLifespan());
         data.setSick(entity.isSick());
@@ -313,21 +312,15 @@ public final class CitizenManager extends SavedData {
         if (gameTime % CITIZEN_STATUS_UPDATE_INTERVAL_TICKS == Math.floorMod(uuidBits, CITIZEN_STATUS_UPDATE_INTERVAL_TICKS)) {
             RandomSource random = level.random;
             CitizenEntity entity = CitizenTeleportService.findCitizenEntity(level, data.uuid());
-            double hunger;
             boolean dataChanged = false;
             boolean shouldDecayHunger = gameTime % HUNGER_DECAY_INTERVAL_TICKS == Math.floorMod(uuidBits, HUNGER_DECAY_INTERVAL_TICKS);
-            if (entity != null) {
-                if (shouldDecayHunger) {
-                    entity.setHunger(entity.getHungerValue() - HUNGER_DECAY_PER_UPDATE);
-                }
-                hunger = entity.getHungerValue();
-            } else {
-                if (shouldDecayHunger) {
-                    data.setHunger(data.hunger() - HUNGER_DECAY_PER_UPDATE);
-                    dataChanged = true;
-                }
-                hunger = data.hunger();
+            if (entity == null) {
+                return;
             }
+            if (shouldDecayHunger) {
+                entity.setHunger(entity.getHungerValue() - HUNGER_DECAY_PER_UPDATE);
+            }
+            double hunger = entity.getHungerValue();
             boolean hasAssignedWork = data.workplaceId() != null && data.jobType() != null && data.jobType() != common.cn.kafei.simukraft.job.CityJobType.UNEMPLOYED;
             boolean isWorkingCitizen = data.workStatusType() == CitizenWorkStatus.WORKING;
             if (hunger < 6.0D) {
@@ -356,7 +349,6 @@ public final class CitizenManager extends SavedData {
         } else {
             entity.setStatusLabel(data.statusLabel());
         }
-        entity.initializeHungerFromData(data.hunger());
         if (data.age() >= 0) {
             entity.setAge(data.age());
         }

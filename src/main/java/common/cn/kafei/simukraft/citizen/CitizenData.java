@@ -26,7 +26,6 @@ public final class CitizenData {
     private UUID workplaceId;
     private BlockPos workplacePos;
     private double health;
-    private double hunger;
     private double happiness;
     private boolean sick;
     private boolean child;
@@ -55,7 +54,6 @@ public final class CitizenData {
         this.npcId = -1;
         this.skinPath = "";
         this.health = 20.0D;
-        this.hunger = 20.0D;
         this.happiness = 50.0D;
         this.dead = false;
         this.deathDay = 0L;
@@ -84,7 +82,6 @@ public final class CitizenData {
         data.workplaceId = tag.hasUUID("WorkplaceId") ? tag.getUUID("WorkplaceId") : null;
         data.workplacePos = tag.contains("WorkplacePos") ? BlockPos.of(tag.getLong("WorkplacePos")) : null;
         data.health = tag.getDouble("Health");
-        data.hunger = tag.getDouble("Hunger");
         data.happiness = tag.getDouble("Happiness");
         data.sick = tag.getBoolean("Sick");
         data.child = tag.getBoolean("Child");
@@ -129,7 +126,6 @@ public final class CitizenData {
             tag.putLong("WorkplacePos", workplacePos.asLong());
         }
         tag.putDouble("Health", health);
-        tag.putDouble("Hunger", hunger);
         tag.putDouble("Happiness", happiness);
         tag.putBoolean("Sick", sick);
         tag.putBoolean("Child", child);
@@ -183,15 +179,9 @@ public final class CitizenData {
         if (health <= 0.0D) {
             health = 20.0D;
         }
-        if (hunger <= 0.0D) {
-            hunger = 20.0D;
-        } else {
-            hunger = normalizeHunger(hunger);
-        }
         if (dead || workStatus == CitizenWorkStatus.DEAD || isDeadMarker(status) || isDeadMarker(jobId)) {
             dead = true;
             health = 0.0D;
-            hunger = 0.0D;
             deathDay = Math.max(1L, deathDay);
             workStatus = CitizenWorkStatus.DEAD;
             status = workStatus.legacyStatus();
@@ -202,11 +192,6 @@ public final class CitizenData {
 
     private static boolean isDeadMarker(String value) {
         return CitizenWorkStatus.fromName(value) == CitizenWorkStatus.DEAD;
-    }
-
-    // normalizeHunger：把居民饥饿值约束为原版风格的 0-20 整数点。
-    private static double normalizeHunger(double hunger) {
-        return Math.clamp((double) Math.round(hunger), 0.0D, 20.0D);
     }
 
     public UUID uuid() {
@@ -382,10 +367,6 @@ public final class CitizenData {
         this.workplacePos = workplacePos != null ? workplacePos.immutable() : null;
     }
 
-    public double hunger() {
-        return hunger;
-    }
-
     public double health() {
         return health;
     }
@@ -427,7 +408,6 @@ public final class CitizenData {
         this.dead = true;
         this.deathDay = Math.max(1L, deathDay);
         this.health = 0.0D;
-        this.hunger = 0.0D;
         this.workStatus = CitizenWorkStatus.DEAD;
         this.status = CitizenWorkStatus.DEAD.legacyStatus();
         this.working = false;
@@ -442,14 +422,6 @@ public final class CitizenData {
 
     public void setChildGrowthDueDay(long childGrowthDueDay) {
         this.childGrowthDueDay = Math.max(0L, childGrowthDueDay);
-    }
-
-    public void setHunger(double hunger) {
-        if (dead) {
-            this.hunger = 0.0D;
-            return;
-        }
-        this.hunger = normalizeHunger(hunger);
     }
 
     public double happiness() {

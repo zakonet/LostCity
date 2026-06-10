@@ -6,6 +6,7 @@
     "MixinCamera",
     "MixinEntity",
     "MixinKeyboardHandler",
+    "MixinLdlibTextField",
     "MixinMouseHandler"
   ],
   "injectors": {

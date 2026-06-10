@@ -34,6 +34,8 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 @SuppressWarnings("null")
 public class CitizenEntity extends PathfinderMob {
+    // DEFAULT_HUNGER：NPC 饱食度只写入实体 NBT，缺少旧标签时使用满值初始化。
+    public static final double DEFAULT_HUNGER = 20.0D;
     // SynchedEntityData 会自动同步到客户端，用于渲染名字、职业、状态和皮肤。
     private static final EntityDataAccessor<String> DATA_CITIZEN_NAME = SynchedEntityData.defineId(CitizenEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<String> DATA_JOB = SynchedEntityData.defineId(CitizenEntity.class, EntityDataSerializers.STRING);
@@ -52,8 +54,7 @@ public class CitizenEntity extends PathfinderMob {
     private static final int WORK_SWING_DURATION_TICKS = 6;
     private static final int WALL_RESCUE_INTERVAL_TICKS = 20;
     private static final double WALL_RESCUE_COLLISION_DEFLATE = 0.0625D;
-    private double hunger = 20.0D;
-    private boolean hungerInitialized;
+    private double hunger = DEFAULT_HUNGER;
     private int lastWorkSwingPulse = -1;
     private int workSwingStartTick = -WORK_SWING_DURATION_TICKS;
 
@@ -104,7 +105,7 @@ public class CitizenEntity extends PathfinderMob {
         builder.define(DATA_SKIN_PATH, "");
         builder.define(DATA_WORK_STATUS, CitizenWorkStatus.IDLE.translationKey());
         builder.define(DATA_STATUS_LABEL, "");
-        builder.define(DATA_HUNGER, 20);
+        builder.define(DATA_HUNGER, (int) DEFAULT_HUNGER);
         builder.define(DATA_AGE, -1);
         builder.define(DATA_LIFESPAN, -1);
         builder.define(DATA_IS_SICK, false);
@@ -230,9 +231,9 @@ public class CitizenEntity extends PathfinderMob {
         setSkinPath(compound.getString("SkinPath"));
         setStatusLabel(compound.getString("StatusLabel"));
         if (compound.contains(TAG_HUNGER)) {
-            setHungerInternal(compound.getDouble(TAG_HUNGER), true);
+            setHungerInternal(compound.getDouble(TAG_HUNGER));
         } else {
-            setHungerInternal(20.0D, false);
+            setHungerInternal(DEFAULT_HUNGER);
         }
         setAge(compound.contains("Age") ? compound.getInt("Age") : -1);
         setLifespan(compound.contains("Lifespan") ? compound.getInt("Lifespan") : -1);
@@ -309,21 +310,13 @@ public class CitizenEntity extends PathfinderMob {
     }
 
     public void setHunger(double hunger) {
-        setHungerInternal(hunger, true);
+        setHungerInternal(hunger);
     }
 
-    // initializeHungerFromData：仅旧数据/新生成实体缺少实体 NBT 饱食度时，才用 CitizenData 兜底初始化。
-    public void initializeHungerFromData(double hunger) {
-        if (!hungerInitialized) {
-            setHungerInternal(hunger, true);
-        }
-    }
-
-    private void setHungerInternal(double hunger, boolean initialized) {
+    private void setHungerInternal(double hunger) {
         double normalized = normalizeHunger(hunger);
         this.hunger = normalized;
         this.entityData.set(DATA_HUNGER, (int) normalized);
-        this.hungerInitialized = initialized;
     }
 
     // normalizeHunger：把实体饥饿值约束为原版风格的 0-20 整数点。
