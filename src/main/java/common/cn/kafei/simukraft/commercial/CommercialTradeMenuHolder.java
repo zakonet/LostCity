@@ -7,6 +7,8 @@ import common.cn.kafei.simukraft.network.commercial.CommercialTradeOpenResponseP
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.loading.FMLEnvironment;
 
 @SuppressWarnings("null")
 public final class CommercialTradeMenuHolder implements IContainerUIHolder {
@@ -19,6 +21,9 @@ public final class CommercialTradeMenuHolder implements IContainerUIHolder {
     /** createUI: 创建包含真实玩家背包槽位的 LDLib 交易 UI。 */
     @Override
     public ModularUI createUI(Player player) {
+        if (FMLEnvironment.dist == Dist.DEDICATED_SERVER) {
+            return ModularUI.of(UI.empty(), player);
+        }
         return ModularUI.of(UI.of(new CommercialTradeUiRoot(packet)), player);
     }
 
