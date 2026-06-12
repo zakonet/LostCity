@@ -23,7 +23,7 @@ public final class WorkMaterialNotificationService {
             return;
         }
         long gameTime = level.getGameTime();
-        MaterialNoticeKey key = new MaterialNoticeKey(level.dimension().location(), cityId, taskId, result.materialName());
+        MaterialNoticeKey key = new MaterialNoticeKey(level.dimension().location(), cityId, taskId, result.materialId());
         Long nextNoticeTick = NEXT_NOTICE_TICK.get(key);
         if (nextNoticeTick != null && nextNoticeTick > gameTime) {
             return;
@@ -35,7 +35,7 @@ public final class WorkMaterialNotificationService {
                 "message.simukraft.material.missing",
                 normalize(citizenName, "NPC"),
                 normalize(taskName, "建筑"),
-                result.acceptedMaterialsText()
+                result.acceptedMaterialsComponent()
         );
         ItemStack requested = result.requested();
         CityGroupMessageService.materialToCity(level, cityId, message, requested);

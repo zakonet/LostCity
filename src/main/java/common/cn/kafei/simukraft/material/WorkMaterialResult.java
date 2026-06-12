@@ -9,7 +9,6 @@ import net.minecraft.world.item.ItemStack;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 
 @SuppressWarnings("null")
 public record WorkMaterialResult(boolean available, ItemStack requested, List<Item> acceptedItems) {
@@ -44,45 +43,41 @@ public record WorkMaterialResult(boolean available, ItemStack requested, List<It
         return requested.isEmpty() ? Component.translatable("message.simukraft.material.unknown") : requested.getHoverName();
     }
 
-    public String materialName() {
+    public String materialId() {
         if (requested.isEmpty()) {
             return "unknown";
         }
-        String translated = requested.getHoverName().getString();
-        if (!translated.isBlank()) {
-            return translated;
-        }
-        return BuiltInRegistries.ITEM.getKey(requested.getItem()).toString().toLowerCase(Locale.ROOT);
+        ResourceLocation key = BuiltInRegistries.ITEM.getKey(requested.getItem());
+        return key != null ? key.toString() : "unknown";
     }
 
-    public String acceptedMaterialsText() {
+    public String materialName() {
+        return materialId();
+    }
+
+    public Component acceptedMaterialsComponent() {
         if (acceptedItems.isEmpty()) {
-            return Component.translatable("message.simukraft.material.unknown").getString();
+            return Component.translatable("message.simukraft.material.unknown");
         }
         int limit = Math.min(3, acceptedItems.size());
-        StringBuilder builder = new StringBuilder();
+        Component component = Component.empty();
         for (int index = 0; index < limit; index++) {
             if (index > 0) {
-                builder.append(", ");
+                component = component.copy().append(Component.literal(", "));
             }
-            builder.append(displayItemName(acceptedItems.get(index)));
+            component = component.copy().append(displayItemName(acceptedItems.get(index)));
         }
         if (acceptedItems.size() > limit) {
-            builder.append(' ').append(Component.translatable("simukraft.material.etc").getString());
+            component = component.copy().append(Component.literal(" ")).append(Component.translatable("simukraft.material.etc"));
         }
-        return builder.toString();
+        return component;
     }
 
-    private static String displayItemName(Item item) {
+    private static Component displayItemName(Item item) {
         if (item == null) {
-            return Component.translatable("message.simukraft.material.unknown").getString();
+            return Component.translatable("message.simukraft.material.unknown");
         }
         ItemStack stack = new ItemStack(item);
-        String translated = stack.getHoverName().getString();
-        if (!translated.isBlank()) {
-            return translated;
-        }
-        ResourceLocation key = BuiltInRegistries.ITEM.getKey(item);
-        return key != null ? key.toString() : Component.translatable("message.simukraft.material.unknown").getString();
+        return stack.isEmpty() ? Component.translatable("message.simukraft.material.unknown") : stack.getHoverName();
     }
 }

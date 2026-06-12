@@ -37,16 +37,19 @@ public final class CommercialDefinitionLoader {
         }
         Optional<BuildingCatalog.BuildingDefinition> definition = BuildingCatalog.findBuilding(building.category(), building.buildingFileName());
         if (definition.isPresent()) {
-            Path explicit = explicitCommercialPath(definition.get().metaPath());
+            Path explicit = CommercialDefinitionSourceResolver.explicitCommercialPath(definition.get().metaPath());
             if (explicit != null && Files.isRegularFile(explicit)) {
                 return load(explicit);
             }
-            Path sibling = definition.get().metaPath().getParent().resolve(stripExtension(definition.get().metaFileName()) + ".json");
-            if (Files.isRegularFile(sibling)) {
+            Path sibling = CommercialDefinitionSourceResolver.siblingCommercialPath(definition.get().metaPath(), definition.get().metaFileName());
+            if (sibling != null) {
                 return load(sibling);
             }
         }
-        LoadResult bundled = loadBundled(stripExtension(building.buildingFileName()));
+        String bundledName = definition
+                .map(value -> stripExtensionPreserveCase(value.metaFileName()))
+                .orElse(stripExtensionPreserveCase(building.buildingFileName()));
+        LoadResult bundled = loadBundled(bundledName);
         return bundled.definition() != null ? bundled : LoadResult.missing("missing_commercial_json");
     }
 
@@ -74,17 +77,21 @@ public final class CommercialDefinitionLoader {
     /** clearCache: 清理定义缓存。 */
     public static void clearCache() {
         CACHE.clear();
+        CommercialDefinitionSourceResolver.clearCache();
     }
 
     private static LoadResult loadBundled(String baseName) {
-        String normalized = stripExtension(baseName);
-        String key = "bundled:" + normalized;
+        String normalized = stripExtensionPreserveCase(baseName);
+        String key = "bundled:" + normalized.toLowerCase(Locale.ROOT);
         CacheEntry cached = CACHE.get(key);
         if (cached != null) {
             return cached.result();
         }
-        String resourcePath = "/assets/" + SimuKraft.MOD_ID + "/commercial/" + normalized + ".json";
-        try (var input = CommercialDefinitionLoader.class.getResourceAsStream(resourcePath)) {
+        String resourcePath = CommercialDefinitionSourceResolver.resolveBundledResourcePath(normalized);
+        if (resourcePath == null) {
+            return LoadResult.missing("missing_commercial_json");
+        }
+        try (var input = CommercialDefinitionSourceResolver.openBundledResource(resourcePath)) {
             if (input == null) {
                 return LoadResult.missing("missing_commercial_json");
             }
@@ -308,28 +315,6 @@ public final class CommercialDefinitionLoader {
     }
 
     @Nullable
-    private static Path explicitCommercialPath(Path metaPath) {
-        if (metaPath == null || !Files.isRegularFile(metaPath)) {
-            return null;
-        }
-        try {
-            for (String rawLine : Files.readAllLines(metaPath, StandardCharsets.UTF_8)) {
-                String line = rawLine != null ? rawLine.trim() : "";
-                if (!line.regionMatches(true, 0, "commercial:", 0, "commercial:".length())) {
-                    continue;
-                }
-                String fileName = line.substring("commercial:".length()).trim();
-                if (!fileName.isBlank()) {
-                    return metaPath.getParent().resolve(fileName);
-                }
-            }
-        } catch (Exception exception) {
-            SimuKraft.LOGGER.warn("Simukraft: Failed to read commercial entry from {}", metaPath, exception);
-        }
-        return null;
-    }
-
-    @Nullable
     private static JsonObject asObject(JsonElement element) {
         return element != null && element.isJsonObject() ? element.getAsJsonObject() : null;
     }
@@ -414,9 +399,13 @@ public final class CommercialDefinitionLoader {
     }
 
     private static String stripExtension(String fileName) {
+        return stripExtensionPreserveCase(fileName).toLowerCase(Locale.ROOT);
+    }
+
+    private static String stripExtensionPreserveCase(String fileName) {
         String safeName = fileName != null ? fileName : "";
         int index = safeName.lastIndexOf('.');
-        return (index > 0 ? safeName.substring(0, index) : safeName).toLowerCase(Locale.ROOT);
+        return index > 0 ? safeName.substring(0, index) : safeName;
     }
 
     public record LoadResult(CommercialDefinition definition, List<String> errors, Path path) {

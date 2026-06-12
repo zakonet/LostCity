@@ -128,7 +128,7 @@ final class PathSnapshotBuilder {
         }
         if (isClosedWoodenLowerDoor(foot) && isMatchingWoodenDoorHead(head)) {
             double standY = supportTop(cache, pos.below(), below);
-            if (!Double.isNaN(standY) && hasNpcClearance(cache, pos, standY, pos, pos.above())) {
+            if (isGridFloorSupport(pos, standY) && hasNpcClearance(cache, pos, standY, pos, pos.above())) {
                 return new PathCell(pos.immutable(), pos.getX(), pos.getY(), pos.getZ(), standY, false, false, true, 3.2D);
             }
         }
@@ -140,13 +140,8 @@ final class PathSnapshotBuilder {
             return null;
         }
         double standY = supportTop(cache, pos.below(), below);
-        if (Double.isNaN(standY)) {
-            return null;
-        }
-        // Reject standing on the cap of a fence, wall or closed gate: their 1.5-high collision makes
-        // the support top protrude into this cell, but vanilla ground navigation treats them as
-        // non-walkable and the slim post cannot actually carry the body.
-        if (standY - pos.getY() > FLOOR_TOP_EPSILON) {
+        // 只接受贴着当前脚部格底面的支撑面；过高是栅栏/墙，过低则属于下一格内部的薄方块。
+        if (!isGridFloorSupport(pos, standY)) {
             return null;
         }
         if (!hasNpcClearance(cache, pos, standY, null, null)) {
@@ -282,18 +277,39 @@ final class PathSnapshotBuilder {
      * no collision to stand on.
      */
     private static double supportTop(SampleCache cache, BlockPos supportPos, BlockState supportState) {
-        VoxelShape shape = cache.shape(supportPos, supportState);
+        return supportTop(supportPos, cache.shape(supportPos, supportState));
+    }
+
+    /** supportTop: 返回能接触 NPC 脚印的最高支撑面，避免竖直薄板被误当成地板。 */
+    static double supportTop(BlockPos supportPos, VoxelShape shape) {
         if (shape.isEmpty()) {
             return Double.NaN;
         }
         double top = Double.NEGATIVE_INFINITY;
         for (AABB box : shape.toAabbs()) {
+            if (!touchesNpcSupportFootprint(box)) {
+                continue;
+            }
             top = Math.max(top, supportPos.getY() + box.maxY);
         }
         if (!Double.isFinite(top)) {
             return Double.NaN;
         }
         return top;
+    }
+
+    /** isGridFloorSupport: 判断支撑面是否正好承托当前脚部格，而不是上一层或下一层。 */
+    static boolean isGridFloorSupport(BlockPos pos, double standY) {
+        return !Double.isNaN(standY) && Math.abs(standY - pos.getY()) <= FLOOR_TOP_EPSILON;
+    }
+
+    private static boolean touchesNpcSupportFootprint(AABB box) {
+        double minX = 0.5D - NPC_HALF_WIDTH;
+        double maxX = 0.5D + NPC_HALF_WIDTH;
+        double minZ = 0.5D - NPC_HALF_WIDTH;
+        double maxZ = 0.5D + NPC_HALF_WIDTH;
+        return box.maxX > minX && box.minX < maxX
+                && box.maxZ > minZ && box.minZ < maxZ;
     }
 
     /** isNpcPassableDoorLikeBlock: 门、栅栏门、活板门仅在当前陆地寻路状态可通过时放行。 */

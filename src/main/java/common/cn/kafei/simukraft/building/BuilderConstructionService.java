@@ -20,6 +20,7 @@ import common.cn.kafei.simukraft.job.CityJobType;
 import common.cn.kafei.simukraft.material.WorkMaterialCache;
 import common.cn.kafei.simukraft.material.WorkMaterialNotificationService;
 import common.cn.kafei.simukraft.material.WorkMaterialResult;
+import common.cn.kafei.simukraft.material.NpcWorkMaterialService;
 import common.cn.kafei.simukraft.protection.NpcBlockProtectionPolicy;
 import common.cn.kafei.simukraft.registry.ModBlocks;
 import common.cn.kafei.simukraft.storage.SimuSqliteStorage;
@@ -595,12 +596,12 @@ public final class BuilderConstructionService {
         BuildingTaskStatus status = BuildingTaskStatus.from(task.status());
         // 状态文本同时写入持久化数据，客户端实体重载后也能恢复显示。
         if (status == BuildingTaskStatus.WAITING_MATERIALS) {
-            String materialName = taskRuntime.missingMaterialName == null || taskRuntime.missingMaterialName.isBlank()
-                    ? "未知材料"
+            String materialId = taskRuntime.missingMaterialName == null || taskRuntime.missingMaterialName.isBlank()
+                    ? "unknown"
                     : taskRuntime.missingMaterialName;
-            phaseKey = "missing:" + materialName;
-            statusLabel = "缺少材料: " + materialName;
-            workNeedDetail = "build:" + task.taskId() + ":missing=" + materialName;
+            phaseKey = "missing:" + materialId;
+            statusLabel = NpcWorkMaterialService.missingMaterialStatus(materialId);
+            workNeedDetail = "build:" + task.taskId() + ":missing=" + materialId;
         } else if (status.isPaused()) {
             phaseKey = status.id();
             statusLabel = status == BuildingTaskStatus.PAUSED_RESTING ? "夜间休息中: " + task.displayName() : "建造暂停中: " + task.displayName();

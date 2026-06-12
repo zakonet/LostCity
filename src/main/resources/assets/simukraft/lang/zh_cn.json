@@ -121,6 +121,7 @@
     "work_status.idle":  "空闲中",
     "work_status.working":  "工作中",
     "work_status.resting":  "休息中",
+    "work_status.missing_material":  "缺少材料：%s",
     "work_status.dead":  "已死亡",
     "screen.simukraft.city_core.title":  "New:Sim-U-Kraft* 城市核心",
     "screen.simukraft.city_core.city_name":  "城市：%s",

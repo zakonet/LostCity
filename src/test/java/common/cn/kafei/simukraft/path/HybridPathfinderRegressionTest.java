@@ -197,6 +197,34 @@ class HybridPathfinderRegressionTest {
     }
 
     /**
+     * Trapdoor support: a trapdoor below the feet cell must not be treated as a floor unless its
+     * top surface really touches the current grid layer and covers the NPC footprint.
+     */
+    @Test
+    void trapdoorBelowFeetMustBeRealGridFloorSupport() {
+        BlockPos supportPos = BlockPos.ZERO;
+        BlockPos feetCell = supportPos.above();
+        VoxelShape fullBlockShape = Blocks.STONE.defaultBlockState().getCollisionShape(EmptyBlockGetter.INSTANCE, supportPos);
+        BlockState closedTopTrapDoor = Blocks.OAK_TRAPDOOR.defaultBlockState()
+                .setValue(TrapDoorBlock.OPEN, false)
+                .setValue(TrapDoorBlock.HALF, Half.TOP);
+        BlockState closedBottomTrapDoor = closedTopTrapDoor.setValue(TrapDoorBlock.HALF, Half.BOTTOM);
+        BlockState openTrapDoor = closedTopTrapDoor.setValue(TrapDoorBlock.OPEN, true);
+
+        assertTrue(PathSnapshotBuilder.isGridFloorSupport(feetCell, PathSnapshotBuilder.supportTop(supportPos, fullBlockShape)),
+                "full block below should remain a normal floor support");
+        assertTrue(PathSnapshotBuilder.isGridFloorSupport(feetCell, PathSnapshotBuilder.supportTop(supportPos,
+                        closedTopTrapDoor.getCollisionShape(EmptyBlockGetter.INSTANCE, supportPos))),
+                "top trapdoor flush with the feet layer should remain a valid thin floor");
+        assertFalse(PathSnapshotBuilder.isGridFloorSupport(feetCell, PathSnapshotBuilder.supportTop(supportPos,
+                        closedBottomTrapDoor.getCollisionShape(EmptyBlockGetter.INSTANCE, supportPos))),
+                "bottom trapdoor below the feet cell was lifted into the upper grid as a false floor");
+        assertTrue(Double.isNaN(PathSnapshotBuilder.supportTop(supportPos,
+                        openTrapDoor.getCollisionShape(EmptyBlockGetter.INSTANCE, supportPos))),
+                "open vertical trapdoor below the feet cell should not support the centred footprint");
+    }
+
+    /**
      * Diagonal drop: a one-block drop sits diagonally across an open corner. The descent must be
      * routed as an orthogonal walk-then-fall, never a single diagonal fall.
      */

@@ -1,11 +1,15 @@
 package common.cn.kafei.simukraft.commercial;
 
+import common.cn.kafei.simukraft.building.PlacedBuildingRecord;
+import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -16,6 +20,36 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CommercialDefinitionLoaderTest {
     @TempDir
     Path tempDir;
+
+    @Test
+    void loadsBundledCommercialJsonIgnoringSavedFileCase() {
+        CommercialDefinitionLoader.clearCache();
+        PlacedBuildingRecord building = new PlacedBuildingRecord(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "minecraft:overworld",
+                "commerce",
+                "jcsd",
+                "建材商店",
+                "",
+                "JCSD.nbt",
+                "north",
+                BlockPos.ZERO,
+                BlockPos.ZERO,
+                BlockPos.ZERO,
+                BlockPos.ZERO,
+                0L,
+                List.of(),
+                List.of(),
+                List.of()
+        );
+
+        CommercialDefinitionLoader.LoadResult result = CommercialDefinitionLoader.loadForBuilding(building);
+
+        assertTrue(result.valid(), () -> "Loader errors: " + result.errors());
+        assertEquals("JCSD", result.definition().id());
+        assertNotNull(result.definition().offerById("buy_oak_planks"));
+    }
 
     @Test
     void loadsNewInfiniteFoodOffer() throws Exception {

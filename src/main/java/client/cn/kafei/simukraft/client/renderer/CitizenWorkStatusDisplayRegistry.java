@@ -1,8 +1,14 @@
 package client.cn.kafei.simukraft.client.renderer;
 
 import common.cn.kafei.simukraft.entity.CitizenEntity;
+import common.cn.kafei.simukraft.material.NpcWorkMaterialService;
 import net.minecraft.client.resources.language.I18n;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 
@@ -37,6 +43,7 @@ public final class CitizenWorkStatusDisplayRegistry {
     static {
         register("dead_status", PRIORITY_LIFE_STATE, workStatus(WORK_STATUS_DEAD));
         registerLabelPrefix("self_feeding", PRIORITY_SELF_FEEDING, SELF_FEEDING_PREFIX);
+        register("missing_material_status", PRIORITY_PROBLEM, CitizenWorkStatusDisplayRegistry::missingMaterialStatus);
         register("problem_status_key", PRIORITY_PROBLEM, statusLabel(CitizenWorkStatusDisplayRegistry::isProblemStatusKey));
         register("problem_status_text", PRIORITY_PROBLEM, statusLabel(CitizenWorkStatusDisplayRegistry::isProblemStatusText));
         register("resting_status_key", PRIORITY_RESTING, statusLabel(CitizenWorkStatusDisplayRegistry::isRestingStatusKey));
@@ -134,6 +141,29 @@ public final class CitizenWorkStatusDisplayRegistry {
             return Component.empty();
         }
         return I18n.exists(value) ? Component.translatable(value) : Component.literal(value);
+    }
+
+    /** missingMaterialStatus: 客户端按本地语言显示缺少的材料名。 */
+    private static Optional<Component> missingMaterialStatus(WorkStatusContext context) {
+        String label = context.statusLabel();
+        if (isBlank(label) || !label.startsWith(NpcWorkMaterialService.MISSING_MATERIAL_STATUS_PREFIX)) {
+            return Optional.empty();
+        }
+        String itemId = label.substring(NpcWorkMaterialService.MISSING_MATERIAL_STATUS_PREFIX.length());
+        return Optional.of(Component.translatable("work_status.missing_material", itemName(itemId)));
+    }
+
+    private static Component itemName(String itemId) {
+        if (itemId == null || itemId.isBlank() || "unknown".equals(itemId)) {
+            return Component.translatable("message.simukraft.material.unknown");
+        }
+        try {
+            ResourceLocation id = ResourceLocation.parse(itemId);
+            Item item = BuiltInRegistries.ITEM.getOptional(id).orElse(Items.AIR);
+            return item == Items.AIR ? Component.literal(itemId) : new ItemStack(item).getHoverName();
+        } catch (Exception exception) {
+            return Component.literal(itemId);
+        }
     }
 
     private static boolean isProblemStatusKey(String label) {

@@ -121,6 +121,7 @@
     "work_status.idle":  "Idle",
     "work_status.working":  "Working",
     "work_status.resting":  "Resting",
+    "work_status.missing_material":  "Missing material: %s",
     "work_status.dead":  "Dead",
     "screen.simukraft.city_core.title":  "New:Sim-U-Kraft* City Core",
     "screen.simukraft.city_core.city_name":  "City: %s",
