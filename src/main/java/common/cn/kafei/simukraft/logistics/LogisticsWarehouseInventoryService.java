@@ -115,7 +115,8 @@ public final class LogisticsWarehouseInventoryService {
             return stack == null ? ItemStack.EMPTY : stack;
         }
         ItemStack remaining = stack.copy();
-        for (int slot = 0; slot < inventory.getContainerSize() && !remaining.isEmpty(); slot++) {
+        // slots 0-8 hotbar, 9-35 main inventory; 36+ are armor/offhand — exclude them
+        for (int slot = 0; slot < 36 && !remaining.isEmpty(); slot++) {
             ItemStack existing = inventory.getItem(slot);
             if (existing.isEmpty() || !stacksMatchExactly(existing, remaining)) {
                 continue;
@@ -127,7 +128,7 @@ public final class LogisticsWarehouseInventoryService {
                 remaining.shrink(movable);
             }
         }
-        for (int slot = 0; slot < inventory.getContainerSize() && !remaining.isEmpty(); slot++) {
+        for (int slot = 0; slot < 36 && !remaining.isEmpty(); slot++) {
             if (!inventory.getItem(slot).isEmpty()) {
                 continue;
             }

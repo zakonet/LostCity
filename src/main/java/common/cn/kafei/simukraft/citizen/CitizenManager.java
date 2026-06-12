@@ -87,6 +87,13 @@ public final class CitizenManager extends SavedData {
         }
     }
 
+    public synchronized void reloadFromSqlite(ServerLevel level) {
+        citizens.clear();
+        aiQueue.clear();
+        sqliteLoaded = false;
+        loadFromSqlite(storageLevel(level));
+    }
+
     private synchronized void loadFromSqlite(ServerLevel level) {
         if (sqliteLoaded) {
             return;

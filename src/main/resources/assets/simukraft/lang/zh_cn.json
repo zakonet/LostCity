@@ -382,6 +382,7 @@
     "message.simukraft.construction.completed":  "§a%s 已完成建设 %s",
     "simukraft.subtitle.construction.complete":  "建造完成",
     "message.simukraft.reload.success":  "已向 %s 个在线玩家发送建筑缓存重载。",
+    "message.simukraft.reload.database.success":  "数据库已从 SQLite 全量重载。",
     "message.simukraft.path_debug.player_required":  "该寻路调试命令只能由玩家执行。",
     "message.simukraft.path_debug.no_citizen":  "附近没有已加载的 NPC，无法开始寻路测试。",
     "message.simukraft.path_debug.selected_not_citizen":  "选中的实体不是新模拟大都市 NPC。",

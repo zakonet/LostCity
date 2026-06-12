@@ -71,6 +71,14 @@ public final class CityManager extends SavedData {
         SimuSqliteStorage.saveCities(level, save(new CompoundTag(), level.registryAccess()));
     }
 
+    public synchronized void reloadFromSqlite(ServerLevel level) {
+        cities.clear();
+        playerCityIndex.clear();
+        corePosIndex.clear();
+        sqliteLoaded = false;
+        loadFromSqlite(storageLevel(level));
+    }
+
     private synchronized void loadFromSqlite(ServerLevel level) {
         if (sqliteLoaded) {
             return;

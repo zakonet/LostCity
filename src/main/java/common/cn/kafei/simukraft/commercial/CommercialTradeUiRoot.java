@@ -2,6 +2,7 @@ package common.cn.kafei.simukraft.commercial;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.lowdragmc.lowdraglib2.gui.slot.LocalSlot;
+import net.minecraft.world.entity.player.Player;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
@@ -563,7 +564,12 @@ public final class CommercialTradeUiRoot extends UIElement {
     }
 
     private static ItemSlot displaySlot(int x, int y) {
-        ItemSlot slot = new ItemSlot(new LocalSlot());
+        ItemSlot slot = new ItemSlot(new LocalSlot() {
+            @Override
+            public boolean mayPickup(Player player) {
+                return false;
+            }
+        });
         slot.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).left(x - 1).top(y - 1).width(SLOT_SIZE).height(SLOT_SIZE));
         slot.style(style -> style.backgroundTexture(IGuiTexture.EMPTY));
         slot.slotStyle(style -> style.slotOverlay(IGuiTexture.EMPTY).showItemTooltips(true));

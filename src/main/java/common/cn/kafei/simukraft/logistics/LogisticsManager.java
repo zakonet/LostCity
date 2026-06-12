@@ -85,6 +85,12 @@ public final class LogisticsManager extends SavedData {
         }
     }
 
+    public synchronized void reloadFromSqlite(ServerLevel level) {
+        clearIndexes();
+        sqliteLoaded = false;
+        loadFromSqlite(level);
+    }
+
     private synchronized void loadFromSqlite(ServerLevel level) {
         if (sqliteLoaded) {
             return;

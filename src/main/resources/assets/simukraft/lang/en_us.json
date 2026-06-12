@@ -382,6 +382,7 @@
     "message.simukraft.construction.completed":  "§a%s has completed building %s",
     "simukraft.subtitle.construction.complete":  "Construction complete",
     "message.simukraft.reload.success":  "Sent building cache reload to %s online players.",
+    "message.simukraft.reload.database.success":  "Database fully reloaded from SQLite.",
     "message.simukraft.path_debug.player_required":  "This path debug command can only be run by a player.",
     "message.simukraft.path_debug.no_citizen":  "No loaded NPC was found nearby, so the path test cannot start.",
     "message.simukraft.path_debug.selected_not_citizen":  "The selected entity is not a Sim-U-Kraft NPC.",

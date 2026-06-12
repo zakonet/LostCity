@@ -55,6 +55,12 @@ public final class CommercialBoxManager extends SavedData {
         }
     }
 
+    public synchronized void reloadFromSqlite(ServerLevel level) {
+        boxes.clear();
+        sqliteLoaded = false;
+        loadFromSqlite(level);
+    }
+
     private synchronized void loadFromSqlite(ServerLevel level) {
         if (sqliteLoaded) {
             return;

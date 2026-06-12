@@ -56,6 +56,12 @@ public final class CommercialStockManager extends SavedData {
         }
     }
 
+    public synchronized void reloadFromSqlite(ServerLevel level) {
+        stock.clear();
+        sqliteLoaded = false;
+        loadFromSqlite(level);
+    }
+
     private synchronized void loadFromSqlite(ServerLevel level) {
         if (sqliteLoaded) {
             return;

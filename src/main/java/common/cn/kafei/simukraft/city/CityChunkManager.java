@@ -74,6 +74,13 @@ public final class CityChunkManager extends SavedData {
         SimuSqliteStorage.saveCityChunks(level, save(new CompoundTag(), level.registryAccess()));
     }
 
+    public synchronized void reloadFromSqlite(ServerLevel level) {
+        cityChunks.clear();
+        chunkCityIndex.clear();
+        sqliteLoaded = false;
+        loadFromSqlite(level);
+    }
+
     private synchronized void loadFromSqlite(ServerLevel level) {
         if (sqliteLoaded) {
             return;

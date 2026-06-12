@@ -6,11 +6,20 @@ import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import common.cn.kafei.simukraft.citizen.CitizenData;
+import common.cn.kafei.simukraft.citizen.CitizenManager;
 import common.cn.kafei.simukraft.citizen.CitizenService;
 import common.cn.kafei.simukraft.citizen.CitizenTeleportService;
+import common.cn.kafei.simukraft.city.CityChunkManager;
 import common.cn.kafei.simukraft.city.CityData;
+import common.cn.kafei.simukraft.city.CityManager;
 import common.cn.kafei.simukraft.city.CityPermissionInviteService;
 import common.cn.kafei.simukraft.city.CityService;
+import common.cn.kafei.simukraft.city.poi.CityPoiManager;
+import common.cn.kafei.simukraft.commercial.CommercialBoxManager;
+import common.cn.kafei.simukraft.commercial.CommercialStockManager;
+import common.cn.kafei.simukraft.farmland.FarmlandBoxManager;
+import common.cn.kafei.simukraft.industrial.IndustrialBoxManager;
+import common.cn.kafei.simukraft.logistics.LogisticsManager;
 import common.cn.kafei.simukraft.economy.EconomyService;
 import common.cn.kafei.simukraft.entity.CitizenEntity;
 import common.cn.kafei.simukraft.network.building.BuildingCacheReloadPacket;
@@ -47,7 +56,9 @@ public final class SimuKraftCommand {
         var root = Commands.literal("simukraft");
         root.then(Commands.literal("reload")
                 .requires(source -> source.hasPermission(2))
-                .executes(context -> reload(context.getSource())));
+                .executes(context -> reload(context.getSource()))
+                .then(Commands.literal("database")
+                        .executes(context -> reloadDatabase(context.getSource()))));
         root.then(Commands.literal("city")
                 .then(Commands.literal("permission")
                         .then(Commands.literal("accept")
@@ -157,6 +168,34 @@ public final class SimuKraftCommand {
         final int reloadedPlayerCount = count;
         source.sendSuccess(() -> Component.translatable("message.simukraft.reload.success", reloadedPlayerCount), true);
         return 1;
+    }
+
+    private static int reloadDatabase(CommandSourceStack source) {
+        ServerLevel overworld = source.getServer().overworld();
+        CityManager.get(overworld).saveToSqlite(overworld);
+        CitizenManager.get(overworld).saveToSqlite(overworld);
+        for (ServerLevel level : source.getServer().getAllLevels()) {
+            CityChunkManager.get(level).saveToSqlite(level);
+            CityPoiManager.get(level).saveToSqlite(level);
+            CommercialBoxManager.get(level).saveToSqlite(level);
+            CommercialStockManager.get(level).saveToSqlite(level);
+            IndustrialBoxManager.get(level).saveToSqlite(level);
+            FarmlandBoxManager.get(level).saveToSqlite(level);
+            LogisticsManager.get(level).saveToSqlite(level);
+        }
+        CityManager.get(overworld).reloadFromSqlite(overworld);
+        CitizenManager.get(overworld).reloadFromSqlite(overworld);
+        for (ServerLevel level : source.getServer().getAllLevels()) {
+            CityChunkManager.get(level).reloadFromSqlite(level);
+            CityPoiManager.get(level).reloadFromSqlite(level);
+            CommercialBoxManager.get(level).reloadFromSqlite(level);
+            CommercialStockManager.get(level).reloadFromSqlite(level);
+            IndustrialBoxManager.get(level).reloadFromSqlite(level);
+            FarmlandBoxManager.get(level).reloadFromSqlite(level);
+            LogisticsManager.get(level).reloadFromSqlite(level);
+        }
+        source.sendSuccess(() -> Component.translatable("message.simukraft.reload.database.success"), true);
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int testNearestCitizenPath(CommandSourceStack source, Vec3 target) {

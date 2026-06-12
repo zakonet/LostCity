@@ -61,6 +61,14 @@ public final class CityPoiManager extends SavedData {
         SimuSqliteStorage.saveCityPois(level, save(new CompoundTag(), level.registryAccess()));
     }
 
+    public synchronized void reloadFromSqlite(ServerLevel level) {
+        pois.clear();
+        cityPoiIndex.clear();
+        posIndex.clear();
+        sqliteLoaded = false;
+        loadFromSqlite(level);
+    }
+
     private synchronized void loadFromSqlite(ServerLevel level) {
         if (sqliteLoaded) {
             return;
