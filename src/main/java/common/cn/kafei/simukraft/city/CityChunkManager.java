@@ -75,6 +75,10 @@ public final class CityChunkManager extends SavedData {
     }
 
     public synchronized void reloadFromSqlite(ServerLevel level) {
+        CompoundTag existing = SimuSqliteStorage.loadCityChunks(level);
+        if ((existing == null || existing.isEmpty()) && !cityChunks.isEmpty()) {
+            saveToSqlite(level);
+        }
         cityChunks.clear();
         chunkCityIndex.clear();
         sqliteLoaded = false;
@@ -136,6 +140,7 @@ public final class CityChunkManager extends SavedData {
                 long chunkLong = ChunkPos.asLong(centerChunk.x + x, centerChunk.z + z);
                 chunks.add(chunkLong);
                 chunkCityIndex.put(chunkLong, cityId);
+                saveChunkIncremental(cityId, chunkLong);
             }
         }
         setDirty();

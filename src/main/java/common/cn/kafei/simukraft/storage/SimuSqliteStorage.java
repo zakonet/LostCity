@@ -92,27 +92,27 @@ public final class SimuSqliteStorage {
 
     public static CompoundTag loadCityChunks(ServerLevel level) {
         SimuSqliteStorage storage = openSafely(level);
-        return storage != null ? storage.cityChunks.loadAll() : null;
+        return storage != null ? storage.cityChunks.loadAll(level.dimension().location().toString()) : null;
     }
 
     public static void saveCityChunks(ServerLevel level, CompoundTag tag) {
         SimuSqliteStorage storage = openSafely(level);
         if (storage != null) {
-            storage.cityChunks.saveAll(tag);
+            storage.cityChunks.saveAll(tag, level.dimension().location().toString());
         }
     }
 
     public static void saveCityChunk(ServerLevel level, UUID cityId, long chunkLong) {
         SimuSqliteStorage storage = openSafely(level);
         if (storage != null && cityId != null) {
-            storage.cityChunks.upsert(cityId, chunkLong);
+            storage.cityChunks.upsert(cityId, chunkLong, level.dimension().location().toString());
         }
     }
 
     public static void deleteCityChunks(ServerLevel level, UUID cityId) {
         SimuSqliteStorage storage = openSafely(level);
         if (storage != null && cityId != null) {
-            storage.cityChunks.deleteCity(cityId);
+            storage.cityChunks.deleteCity(cityId, level.dimension().location().toString());
         }
     }
 

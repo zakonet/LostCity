@@ -64,7 +64,9 @@ public final class SimuSqliteSchema {
             addColumnIfMissing(connection, "logistics_channels", "updated_at", "INTEGER NOT NULL DEFAULT 0");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_city_members_city ON city_members(city_id)");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_finance_city ON finance_transactions(city_id, sort_index)");
+            addColumnIfMissing(connection, "city_chunks", "dimension_id", "TEXT NOT NULL DEFAULT 'minecraft:overworld'");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_city_chunks_city ON city_chunks(city_id)");
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_city_chunks_dimension ON city_chunks(dimension_id)");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_city_pois_city ON city_pois(city_id)");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_citizens_city ON citizens(city_id)");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_building_tasks_city ON building_tasks(city_id)");
