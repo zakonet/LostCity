@@ -106,20 +106,27 @@ public final class IndustrialEntityActionService {
         int sheared = 0;
         for (Animal animal : targets) {
             if (sheared >= limit) break;
-            List<ItemStack> drops = ((IShearable) animal).onSheared(null, ItemStack.EMPTY, level, animal.blockPosition());
+            if (worker != null) {
+                worker.getLookControl().setLookAt(animal);
+                worker.triggerWorkSwing(InteractionHand.MAIN_HAND);
+            }
+            ItemStack heldShears = worker != null ? worker.getMainHandItem() : ItemStack.EMPTY;
+            List<ItemStack> drops = ((IShearable) animal).onSheared(null, heldShears, level, animal.blockPosition());
             for (ItemStack drop : drops) {
                 ItemStack remaining = insertIntoContainers(level, outputContainers, drop.copy());
                 if (!remaining.isEmpty()) {
                     return sheared > 0 ? ActionResult.SUCCESS : ActionResult.OUTPUT_FULL;
                 }
             }
-            if (worker != null) {
-                worker.getLookControl().setLookAt(animal);
-                worker.triggerWorkSwing(InteractionHand.MAIN_HAND);
-            }
             sheared++;
         }
         return sheared > 0 ? ActionResult.SUCCESS : ActionResult.MISSING_ENTITIES;
+    }
+
+    static java.util.Optional<Animal> nearestShearable(ServerLevel level, PlacedBuildingRecord building, IndustrialDefinition definition, IndustrialDefinition.StepDefinition step, CitizenEntity worker) {
+        return animals(level, building, definition, step).stream()
+                .filter(a -> !a.isBaby() && a instanceof IShearable s && s.isShearable(null, ItemStack.EMPTY, level, a.blockPosition()))
+                .min(Comparator.comparingDouble(a -> worker != null ? a.distanceToSqr(worker) : 0.0));
     }
 
     public static ActionResult collectDrops(ServerLevel level, PlacedBuildingRecord building, IndustrialDefinition definition, IndustrialDefinition.StepDefinition step, CitizenEntity worker) {

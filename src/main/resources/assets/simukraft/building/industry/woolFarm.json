@@ -37,8 +37,8 @@
       "steps": [
         { "type": "require_output_space", "container": "output" },
         { "type": "set_held_item", "item": "minecraft:shears" },
-        { "type": "move_to", "point": "stand", "range": 1.5 },
-        { "type": "shear_entities", "entityType": "minecraft:sheep", "output": "output", "count": 1 }
+        { "type": "move_to_entity", "entityType": "minecraft:sheep", "range": 1.5 },
+        { "type": "shear_entities", "entityType": "minecraft:sheep", "output": "output", "count": 1, "ticks": 40, "swing": true }
       ],
       "materials": [],
       "products": [

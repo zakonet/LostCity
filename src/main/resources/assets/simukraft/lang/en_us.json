@@ -685,6 +685,7 @@
     "gui.simukraft.industrial.status.invalid_point":  "Work point is not standable",
     "gui.simukraft.industrial.status.missing_container":  "Missing container",
     "gui.simukraft.industrial.status.missing_entities":  "Missing target entities",
+    "gui.simukraft.industrial.status.waiting_regrowth":  "Waiting for wool regrowth",
     "gui.simukraft.industrial.status.missing_drops":  "Waiting for collectible drops",
     "gui.simukraft.industrial.status.missing_inputs":  "Missing input materials",
     "gui.simukraft.industrial.status.output_full":  "Output containers are full",

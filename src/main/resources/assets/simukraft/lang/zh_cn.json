@@ -685,6 +685,7 @@
     "gui.simukraft.industrial.status.invalid_point":  "工作点不可站立",
     "gui.simukraft.industrial.status.missing_container":  "缺少容器",
     "gui.simukraft.industrial.status.missing_entities":  "缺少目标生物",
+    "gui.simukraft.industrial.status.waiting_regrowth":  "等待生物恢复",
     "gui.simukraft.industrial.status.missing_drops":  "等待可收集掉落物",
     "gui.simukraft.industrial.status.missing_inputs":  "缺少输入材料",
     "gui.simukraft.industrial.status.output_full":  "输出容器空间不足",

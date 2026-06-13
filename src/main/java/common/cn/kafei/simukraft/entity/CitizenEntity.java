@@ -63,12 +63,6 @@ public class CitizenEntity extends PathfinderMob {
         this.setPersistenceRequired();
     }
 
-    // CitizenManager/SQLite 是唯一持久化来源；禁止写入 chunk NBT 避免跨维度重复加载。
-    @Override
-    public boolean shouldBeSaved() {
-        return false;
-    }
-
     public static AttributeSupplier.Builder createAttributes() {
         return PathfinderMob.createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0D)

@@ -201,6 +201,7 @@ public final class IndustrialWorkService {
             }
             case "move_to" -> moveTo(level, data, boxRuntime, building, definition, worker, entity, step);
             case "move_to_container", "move_to_chest" -> moveToContainer(level, data, boxRuntime, building, definition, worker, entity, step);
+            case "move_to_entity" -> moveToEntity(level, data, boxRuntime, building, definition, worker, entity, step);
             case "look_at" -> lookAt(building, definition, entity, step);
             case "look_at_container", "look_at_chest" -> lookAtContainer(level, data, building, definition, entity, step);
             case "require_inputs" -> requireInputs(level, manager, data, building, definition, recipe, step);
@@ -222,9 +223,11 @@ public final class IndustrialWorkService {
             case "collect_drops" -> entityAction(manager, data,
                     IndustrialEntityActionService.collectDrops(level, building, definition, step, entity),
                     "gui.simukraft.industrial.status.collecting_drops");
-            case "shear_entities", "shear_sheep" -> entityAction(manager, data,
-                    IndustrialEntityActionService.shear(level, building, definition, step, entity),
-                    "gui.simukraft.industrial.status.shearing");
+            case "shear_entities", "shear_sheep" -> step.ticks() > 0
+                    ? shearWithAnimation(level, manager, data, boxRuntime, building, definition, entity, step, gameTime)
+                    : entityAction(manager, data,
+                            IndustrialEntityActionService.shear(level, building, definition, step, entity),
+                            "gui.simukraft.industrial.status.shearing");
             case "place_block", "set_block" -> blockAction(manager, data,
                     IndustrialBlockActionService.placeBlock(level, building, definition, step, entity),
                     "gui.simukraft.industrial.status.placing_block", step);
@@ -438,6 +441,63 @@ public final class IndustrialWorkService {
         CitizenNavigationService.requestMove(level, worker.uuid(), target.position(), MovementIntent.WORK);
         boxRuntime.resetStep(data.currentStep());
         return StepResult.WAITING_MOVE;
+    }
+
+    private static StepResult moveToEntity(ServerLevel level,
+                                            IndustrialBoxData data,
+                                            BoxRuntime boxRuntime,
+                                            PlacedBuildingRecord building,
+                                            IndustrialDefinition definition,
+                                            CitizenData worker,
+                                            CitizenEntity entity,
+                                            IndustrialDefinition.StepDefinition step) {
+        var target = IndustrialEntityActionService.nearestShearable(level, building, definition, step, entity);
+        if (target.isEmpty()) {
+            setStatus(IndustrialBoxManager.get(level), data, "gui.simukraft.industrial.status.waiting_regrowth", "");
+            return StepResult.WAITING_RETRY;
+        }
+        double range = Math.max(1.5D, step.range());
+        if (entity.position().distanceToSqr(target.get().position()) <= range * range) {
+            CitizenNavigationService.stop(level, worker.uuid());
+            return StepResult.PROGRESSED;
+        }
+        setStatus(IndustrialBoxManager.get(level), data, "gui.simukraft.industrial.status.moving", "");
+        CitizenNavigationService.requestMove(level, worker.uuid(), target.get().position(), MovementIntent.WORK);
+        boxRuntime.resetStep(data.currentStep());
+        return StepResult.WAITING_MOVE;
+    }
+
+    private static StepResult shearWithAnimation(ServerLevel level,
+                                                  IndustrialBoxManager manager,
+                                                  IndustrialBoxData data,
+                                                  BoxRuntime boxRuntime,
+                                                  PlacedBuildingRecord building,
+                                                  IndustrialDefinition definition,
+                                                  CitizenEntity entity,
+                                                  IndustrialDefinition.StepDefinition step,
+                                                  long gameTime) {
+        var target = IndustrialEntityActionService.nearestShearable(level, building, definition, step, entity);
+        if (target.isEmpty()) {
+            setStatus(manager, data, "gui.simukraft.industrial.status.missing_entities", "");
+            return StepResult.WAITING_RETRY;
+        }
+        int stepKey = boxRuntimeStepKey(entity, step);
+        if (boxRuntime.activeStep != stepKey) {
+            boxRuntime.activeStep = stepKey;
+            boxRuntime.stepStartedAt = gameTime;
+        }
+        entity.getLookControl().setLookAt(target.get());
+        long elapsed = gameTime - boxRuntime.stepStartedAt;
+        if (elapsed % 8 == 0) {
+            entity.triggerWorkSwing(InteractionHand.MAIN_HAND);
+        }
+        if (elapsed < step.ticks()) {
+            setStatus(manager, data, "gui.simukraft.industrial.status.shearing", "");
+            return StepResult.WAITING;
+        }
+        return entityAction(manager, data,
+                IndustrialEntityActionService.shear(level, building, definition, step, entity),
+                "gui.simukraft.industrial.status.shearing");
     }
 
     private static StepResult lookAt(PlacedBuildingRecord building, IndustrialDefinition definition, CitizenEntity entity, IndustrialDefinition.StepDefinition step) {
