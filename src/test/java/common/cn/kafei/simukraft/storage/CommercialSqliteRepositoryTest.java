@@ -19,23 +19,24 @@ class CommercialSqliteRepositoryTest {
     /** accumulatesIncomeAndMarksEnterpriseTaxCollected: 验证商业日收入累加后只结算一次企业税。 */
     @Test
     void accumulatesIncomeAndMarksEnterpriseTaxCollected() throws Exception {
-        SimuSqliteDatabase database = openDatabase(tempDir.resolve("commercial.sqlite"));
-        CommercialSqliteRepository repository = new CommercialSqliteRepository(database);
-        UUID cityId = UUID.randomUUID();
-        insertCity(database, cityId);
+        try (SimuSqliteDatabase database = openDatabase(tempDir.resolve("commercial.sqlite"))) {
+            CommercialSqliteRepository repository = new CommercialSqliteRepository(database);
+            UUID cityId = UUID.randomUUID();
+            insertCity(database, cityId);
 
-        assertTrue(repository.addDailyIncome(cityId, 1L, 10.0D));
-        assertTrue(repository.addDailyIncome(cityId, 1L, 6.0D));
-        assertTrue(repository.addDailyIncome(cityId, 2L, 4.0D));
+            assertTrue(repository.addDailyIncome(cityId, 1L, 10.0D));
+            assertTrue(repository.addDailyIncome(cityId, 1L, 6.0D));
+            assertTrue(repository.addDailyIncome(cityId, 2L, 4.0D));
 
-        Map<UUID, Double> dayTwoDue = repository.loadUntaxedIncomeBefore(2L);
-        assertEquals(16.0D, dayTwoDue.get(cityId), 0.001D);
+            Map<UUID, Double> dayTwoDue = repository.loadUntaxedIncomeBefore(2L);
+            assertEquals(16.0D, dayTwoDue.get(cityId), 0.001D);
 
-        assertTrue(repository.markIncomeTaxCollectedBefore(cityId, 2L));
-        assertTrue(repository.loadUntaxedIncomeBefore(2L).isEmpty());
+            assertTrue(repository.markIncomeTaxCollectedBefore(cityId, 2L));
+            assertTrue(repository.loadUntaxedIncomeBefore(2L).isEmpty());
 
-        Map<UUID, Double> dayThreeDue = repository.loadUntaxedIncomeBefore(3L);
-        assertEquals(4.0D, dayThreeDue.get(cityId), 0.001D);
+            Map<UUID, Double> dayThreeDue = repository.loadUntaxedIncomeBefore(3L);
+            assertEquals(4.0D, dayThreeDue.get(cityId), 0.001D);
+        }
     }
 
     /** openDatabase: 通过反射创建测试用 SQLite 数据库实例。 */

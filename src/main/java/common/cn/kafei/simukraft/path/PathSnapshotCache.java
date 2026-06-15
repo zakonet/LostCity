@@ -42,12 +42,14 @@ final class PathSnapshotCache {
                 return entry.snapshot();
             }
         }
-        PathSnapshot snapshot = PathSnapshotBuilder.build(level, start, target, radius);
+        int buildRadius = radius + 16;
+        PathSnapshotBuilder.SnapshotBounds buildBounds = PathSnapshotBuilder.bounds(level, start, target, buildRadius);
+        PathSnapshot snapshot = PathSnapshotBuilder.build(level, start, target, buildRadius);
         // Only cache snapshots that fully sampled their box. A build skips columns whose chunk was
         // not loaded, so an incomplete snapshot can be missing cells for columns a later contained
         // request needs; caching only complete snapshots keeps box containment a sound reuse test.
         if (snapshot.complete()) {
-            entries.addLast(new Entry(snapshot, bounds));
+            entries.addLast(new Entry(snapshot, buildBounds));
             while (entries.size() > MAX_ENTRIES) {
                 entries.removeFirst();
             }

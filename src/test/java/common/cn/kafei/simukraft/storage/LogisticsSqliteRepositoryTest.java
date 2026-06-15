@@ -32,7 +32,8 @@ class LogisticsSqliteRepositoryTest {
     void persistsManualLogisticsDataAfterLegacySchemaMigration() throws Exception {
         Path databasePath = tempDir.resolve("simukraft.sqlite");
         createLegacyLogisticsTables(databasePath);
-        LogisticsSqliteRepository repository = new LogisticsSqliteRepository(openDatabase(databasePath));
+        try (SimuSqliteDatabase db = openDatabase(databasePath)) {
+        LogisticsSqliteRepository repository = new LogisticsSqliteRepository(db);
 
         UUID cityId = UUID.randomUUID();
         UUID warehouseId = UUID.randomUUID();
@@ -71,11 +72,13 @@ class LogisticsSqliteRepositoryTest {
         assertEquals(List.of(LogisticsItemFilter.item("minecraft:iron_ingot")), loadedChannel.filters());
         assertEquals(5, loadedChannel.keepSourceQuantity());
         assertEquals(10, loadedChannel.keepTargetQuantity());
+        }
     }
 
     @Test
     void savingEmptyDifferentDimensionDoesNotClearExistingLogistics() throws Exception {
-        LogisticsSqliteRepository repository = new LogisticsSqliteRepository(openDatabase(tempDir.resolve("dimension.sqlite")));
+        try (SimuSqliteDatabase db = openDatabase(tempDir.resolve("dimension.sqlite"))) {
+        LogisticsSqliteRepository repository = new LogisticsSqliteRepository(db);
         UUID cityId = UUID.randomUUID();
         UUID warehouseId = UUID.randomUUID();
         UUID clientId = UUID.randomUUID();
@@ -96,6 +99,7 @@ class LogisticsSqliteRepositoryTest {
         assertEquals(1, loaded.getList("Warehouses", CompoundTag.TAG_COMPOUND).size());
         assertEquals(1, loaded.getList("Clients", CompoundTag.TAG_COMPOUND).size());
         assertEquals(1, loaded.getList("Channels", CompoundTag.TAG_COMPOUND).size());
+        }
     }
 
     private static CompoundTag rootTag(LogisticsWarehouseData warehouse, LogisticsClientData client, LogisticsChannelData channel) {

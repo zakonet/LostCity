@@ -690,6 +690,66 @@ final class HybridPathfinder {
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
+    static PathSearch begin(PathRequest request, PathSnapshot snapshot) {
+        return new PathSearch(request, snapshot);
+    }
+
+    static final class PathSearch {
+        static final int STEP_BUDGET = 500;
+        final java.util.concurrent.atomic.AtomicBoolean stepping = new java.util.concurrent.atomic.AtomicBoolean();
+        volatile PathResult result;
+        private final PathRequest request;
+        private final PathSnapshot snapshot;
+        private final PathCell target;
+        private final PriorityQueue<SearchNode> open = new PriorityQueue<>(Comparator.comparingDouble(n -> n.fCost));
+        private final Long2ObjectOpenHashMap<SearchNode> bestNodes = new Long2ObjectOpenHashMap<>();
+        private int totalIterations;
+
+        private PathSearch(PathRequest request, PathSnapshot snapshot) {
+            this.request = request;
+            this.snapshot = snapshot;
+            PathCell start = nearestCell(snapshot, request.startPos(), NEAREST_RANGE);
+            this.target = nearestCell(snapshot, request.targetBlockPos(), NEAREST_RANGE);
+            if (start == null || target == null) {
+                result = PathResult.failed(request, "missing_start_or_target_cell");
+                return;
+            }
+            if (start.key() == target.key()) {
+                result = PathResult.success(request, List.of(PathWaypoint.of(target, target.defaultMode(request.intent()))));
+                return;
+            }
+            SearchNode startNode = new SearchNode(start, null, start.defaultMode(request.intent()), 0.0, heuristic(start, target));
+            open.add(startNode);
+            bestNodes.put(start.key(), startNode);
+        }
+
+        void step() {
+            if (result != null) return;
+            try {
+                int i = 0;
+                while (!open.isEmpty() && i++ < STEP_BUDGET && totalIterations++ < MAX_ITERATIONS) {
+                    SearchNode current = open.poll();
+                    if (bestNodes.get(current.cell.key()) != current) continue;
+                    if (current.cell.key() == target.key()) {
+                        result = PathResult.success(request, smooth(snapshot, reconstruct(current)));
+                        return;
+                    }
+                    for (Neighbor neighbor : neighbors(snapshot, current.cell, target, request.intent())) {
+                        double nextCost = current.gCost + neighbor.cost;
+                        SearchNode existing = bestNodes.get(neighbor.cell.key());
+                        if (existing != null && existing.gCost <= nextCost) continue;
+                        SearchNode next = new SearchNode(neighbor.cell, current, neighbor.mode, nextCost, nextCost + heuristic(neighbor.cell, target));
+                        bestNodes.put(neighbor.cell.key(), next);
+                        open.add(next);
+                    }
+                }
+                if (open.isEmpty() || totalIterations >= MAX_ITERATIONS) result = PathResult.failed(request, "path_not_found");
+            } catch (RuntimeException e) {
+                result = PathResult.failed(request, "internal_error");
+            }
+        }
+    }
+
     private record Neighbor(PathCell cell, MovementMode mode, double cost) {
     }
 
