@@ -99,11 +99,12 @@ public final class CityPoiManager extends SavedData {
             }
             CityPoiManager loaded = load(sqliteTag, captured.registryAccess());
             synchronized (CityPoiManager.this) {
-                pois.putAll(loaded.pois);
-                cityPoiIndex.putAll(loaded.cityPoiIndex);
-                posIndex.putAll(loaded.posIndex);
+                loaded.pois.forEach(pois::putIfAbsent);
+                loaded.cityPoiIndex.forEach((cityId, ids) ->
+                        cityPoiIndex.computeIfAbsent(cityId, id -> ConcurrentHashMap.newKeySet()).addAll(ids));
+                loaded.posIndex.forEach(posIndex::putIfAbsent);
             }
-            GLOBAL_POI_CACHE.putAll(loaded.pois);
+            loaded.pois.forEach(GLOBAL_POI_CACHE::putIfAbsent);
         });
     }
 

@@ -125,7 +125,7 @@ final class PathSnapshotBuilder {
             return new PathCell(pos.immutable(), pos.getX(), pos.getY(), pos.getZ(), pos.getY(), true, climbable, false, 5.0D);
         }
         if (climbable && isFootPassable(cache, pos, foot) && isHeadPassable(cache, pos.above(), head)) {
-            return new PathCell(pos.immutable(), pos.getX(), pos.getY(), pos.getZ(), pos.getY(), false, true, false, 2.0D);
+            return new PathCell(pos.immutable(), pos.getX(), pos.getY(), pos.getZ(), pos.getY(), false, true, false, 4.0D);
         }
         if (isClosedWoodenLowerDoor(foot) && isMatchingWoodenDoorHead(head)) {
             double standY = supportTop(cache, pos.below(), below);
