@@ -7,15 +7,13 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 
 /**
- * Small bounded cache of recently built path snapshots, keyed by their sampled box.
+ * Small bounded cache of recently captured chunk data, keyed by their sampled box.
  *
  * <p>When several citizens path within the same area on the same tick they would otherwise each
- * rebuild largely the same volume, which is the single most expensive main-thread step. A new
- * request may instead reuse a still-fresh snapshot whose box fully contains the new request's box:
- * an immutable snapshot that strictly contains the needed volume only ever adds cells, so it can
- * never produce an invalid path. Reuse therefore requires strict three-axis containment and a tight
- * freshness window, and the cache is cleared whenever the world changes so a block edit cannot be
- * pathed through stale terrain.
+ * re-read the same blocks from the world. Citizens whose path boxes fall inside the same aligned
+ * cell share a single {@link PathSnapshotBuilder.ChunkDataCapture} per tick burst. The capture is
+ * then handed to a worker thread for the CPU-heavy {@link PathSnapshotBuilder#buildFromCapture}
+ * step, so the server thread only pays the fast block-read cost once per area per burst.
  *
  * <p>Only accessed from the server thread, so it needs no synchronization.
  */
@@ -25,45 +23,37 @@ final class PathSnapshotCache {
     private final Deque<Entry> entries = new ArrayDeque<>();
 
     /**
-     * Returns a fresh snapshot covering the request, reusing a still-fresh containing entry when one
-     * exists and otherwise building, caching and returning a new snapshot.
-     *
-     * @param level the server level to sample
-     * @param start the citizen's start block
-     * @param target the destination block
-     * @param radius the local path radius that bounds the sampled box
-     * @return a snapshot whose box fully contains the request volume
+     * Returns a {@link PathSnapshotBuilder.ChunkDataCapture} covering the request, reusing a
+     * still-fresh containing entry when one exists, otherwise capturing and caching a new one.
      */
-    PathSnapshot acquire(ServerLevel level, BlockPos start, BlockPos target, int radius) {
+    PathSnapshotBuilder.ChunkDataCapture acquire(ServerLevel level, BlockPos start, BlockPos target, int radius) {
         PathSnapshotBuilder.SnapshotBounds bounds = PathSnapshotBuilder.bounds(level, start, target, radius);
         long now = level.getGameTime();
         for (Entry entry : entries) {
-            if (now - entry.snapshot().createdAt() <= REUSE_TTL_TICKS && entry.bounds().contains(bounds)) {
-                return entry.snapshot();
+            if (now - entry.capture().createdAt() <= REUSE_TTL_TICKS && entry.bounds().contains(bounds)) {
+                return entry.capture();
             }
         }
+        BlockPos buildStart = new BlockPos(
+                Math.floorDiv(start.getX(), 16) * 16 + 8,
+                start.getY(),
+                Math.floorDiv(start.getZ(), 16) * 16 + 8);
         int buildRadius = radius + 16;
-        PathSnapshotBuilder.SnapshotBounds buildBounds = PathSnapshotBuilder.bounds(level, start, target, buildRadius);
-        PathSnapshot snapshot = PathSnapshotBuilder.build(level, start, target, buildRadius);
-        // Only cache snapshots that fully sampled their box. A build skips columns whose chunk was
-        // not loaded, so an incomplete snapshot can be missing cells for columns a later contained
-        // request needs; caching only complete snapshots keeps box containment a sound reuse test.
-        if (snapshot.complete()) {
-            entries.addLast(new Entry(snapshot, buildBounds));
+        PathSnapshotBuilder.SnapshotBounds buildBounds = PathSnapshotBuilder.bounds(level, buildStart, target, buildRadius);
+        PathSnapshotBuilder.ChunkDataCapture capture = PathSnapshotBuilder.capture(level, buildStart, target, buildRadius);
+        if (capture.complete()) {
+            entries.addLast(new Entry(capture, buildBounds));
             while (entries.size() > MAX_ENTRIES) {
                 entries.removeFirst();
             }
         }
-        return snapshot;
+        return capture;
     }
 
-    /**
-     * Drops every cached snapshot, e.g. after a block change invalidates the sampled terrain.
-     */
     void clear() {
         entries.clear();
     }
 
-    private record Entry(PathSnapshot snapshot, PathSnapshotBuilder.SnapshotBounds bounds) {
+    private record Entry(PathSnapshotBuilder.ChunkDataCapture capture, PathSnapshotBuilder.SnapshotBounds bounds) {
     }
 }

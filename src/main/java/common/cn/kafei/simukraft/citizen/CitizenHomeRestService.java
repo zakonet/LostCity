@@ -36,6 +36,7 @@ public final class CitizenHomeRestService {
     private static final int HOME_ANCHOR_SEARCH_RADIUS = 8;
     private static final int REST_START_TIME = 13000;
     private static final int REST_END_TIME = 0;
+    private static final int MAX_HOME_TARGETS_PER_TICK = 3;
     // 记录本晚已经处理过的居民，避免每 40 tick 反复传送造成抖动。
     private static final ConcurrentMap<String, Set<UUID>> RESTED_CITIZENS_BY_LEVEL = new ConcurrentHashMap<>();
     // 缓存每个 POI 当晚的 home target，仅计算一次，天亮时随 RESTED_CITIZENS_BY_LEVEL 一起清除。
@@ -64,6 +65,7 @@ public final class CitizenHomeRestService {
         ConcurrentMap<UUID, Vec3> homeTargets = HOME_TARGETS_BY_LEVEL.computeIfAbsent(levelKey, ignored -> new ConcurrentHashMap<>());
         CityPoiManager poiManager = CityPoiManager.get(level);
         CitizenManager manager = CitizenManager.get(level);
+        int newTargetsThisTick = 0;
         for (CitizenData citizen : manager.allCitizens()) {
             if (citizen.dead()) {
                 continue;
@@ -75,7 +77,15 @@ public final class CitizenHomeRestService {
             if (home == null || !home.active() || home.type() != CityPoiType.RESIDENTIAL) {
                 continue;
             }
-            Vec3 homeTarget = homeTargets.computeIfAbsent(home.poiId(), ignored -> resolveHomeTarget(level, home.pos()));
+            Vec3 homeTarget = homeTargets.get(home.poiId());
+            if (homeTarget == null) {
+                if (newTargetsThisTick >= MAX_HOME_TARGETS_PER_TICK) {
+                    continue;
+                }
+                homeTarget = resolveHomeTarget(level, home.pos());
+                homeTargets.put(home.poiId(), homeTarget);
+                newTargetsThisTick++;
+            }
             if (restedCitizens.contains(citizen.uuid())) {
                 CitizenTeleportService.reconcileLoadedCitizenEntities(level, citizen.uuid(), homeTarget);
                 continue;

@@ -22,11 +22,20 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 /**
  * Samples the live world on the server thread into an immutable {@link PathSnapshot}.
  *
- * <p>This is the only component that reads the live world for pathfinding; once a snapshot is
- * frozen the asynchronous search never touches block state again. Each {@link PathCell} records the
- * exact stand height and traversal class of a column position. Redundant block-state and collision
- * reads are deduplicated through a per-build {@link SampleCache}, which keeps the produced cell map
- * identical while removing the overlapping world reads between adjacent vertical samples.
+ * <h3>Two-phase build</h3>
+ * <ol>
+ *   <li>{@link #capture} — runs on the <em>server thread</em>. Eagerly reads every
+ *       {@link BlockState} and {@link VoxelShape} in the bounded volume into a plain
+ *       {@link ChunkDataCapture}. Context-sensitive shapes (fences, walls, bars) are computed
+ *       here while the live {@link ServerLevel} is available. The result is an immutable
+ *       snapshot of raw block data with no further world access needed.</li>
+ *   <li>{@link #buildFromCapture} — runs on a <em>worker thread</em>. Performs all A*-relevant
+ *       classification logic ({@code classify}, {@code hasBodyPassage}, clearance checks) against
+ *       the pre-captured data. The live world is never read here.</li>
+ * </ol>
+ *
+ * <p>{@link #build} is a convenience wrapper that calls both phases on the current thread and is
+ * retained for the debug-path code path.
  */
 @SuppressWarnings("null")
 final class PathSnapshotBuilder {
@@ -44,21 +53,38 @@ final class PathSnapshotBuilder {
     }
 
     /**
-     * Builds an immutable snapshot covering the volume between {@code start} and {@code target}.
+     * Immutable block data captured on the server thread for a bounded volume.
      *
-     * @param level the server level to sample
-     * @param start the citizen's start block
-     * @param target the destination block
-     * @param radius the local path radius that bounds the sampled box
-     * @return an immutable snapshot of every walkable cell in the bounded volume
+     * <p>Both {@code states} and {@code shapes} cover {@code bounds} plus a one-block vertical
+     * fringe ({@code minY-1} to {@code maxY+1}) so that {@link #buildFromCapture} can read
+     * {@code pos.below()} and {@code pos.above()} without a bounds check. The maps are written
+     * once during capture and never modified afterward, so worker threads may read them freely.
+     *
+     * @param complete false when at least one chunk in the volume was unloaded at capture time
      */
-    static PathSnapshot build(ServerLevel level, BlockPos start, BlockPos target, int radius) {
+    record ChunkDataCapture(
+            Long2ObjectOpenHashMap<BlockState> states,
+            Long2ObjectOpenHashMap<VoxelShape> shapes,
+            SnapshotBounds bounds,
+            net.minecraft.resources.ResourceLocation dimensionId,
+            long createdAt,
+            boolean complete) {
+    }
+
+    /**
+     * Phase 1 — server thread. Reads every {@link BlockState} and {@link VoxelShape} in the
+     * bounded volume (plus a one-block vertical fringe) into a {@link ChunkDataCapture}.
+     * Context-sensitive shapes (fences, walls, iron bars) are resolved here while the live
+     * {@link ServerLevel} is available. Returns incomplete data if any column's chunk is unloaded.
+     */
+    static ChunkDataCapture capture(ServerLevel level, BlockPos start, BlockPos target, int radius) {
         SnapshotBounds bounds = bounds(level, start, target, radius);
-        SampleCache cache = new SampleCache(level);
-        Long2ObjectOpenHashMap<PathCell> cells = new Long2ObjectOpenHashMap<>();
-        LongOpenHashSet bodyPassages = new LongOpenHashSet();
-        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
+        Long2ObjectOpenHashMap<BlockState> states = new Long2ObjectOpenHashMap<>();
+        Long2ObjectOpenHashMap<VoxelShape> shapes = new Long2ObjectOpenHashMap<>();
         boolean complete = true;
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
+        int scanMinY = Math.max(level.getMinBuildHeight(), bounds.minY() - 1);
+        int scanMaxY = Math.min(level.getMaxBuildHeight() - 1, bounds.maxY() + 1);
         for (int x = bounds.minX(); x <= bounds.maxX(); x++) {
             for (int z = bounds.minZ(); z <= bounds.maxZ(); z++) {
                 mutable.set(x, start.getY(), z);
@@ -66,20 +92,58 @@ final class PathSnapshotBuilder {
                     complete = false;
                     continue;
                 }
+                for (int y = scanMinY; y <= scanMaxY; y++) {
+                    mutable.set(x, y, z);
+                    long key = mutable.asLong();
+                    BlockState state = level.getBlockState(mutable);
+                    states.put(key, state);
+                    shapes.put(key, state.getCollisionShape(level, mutable));
+                }
+            }
+        }
+        return new ChunkDataCapture(states, shapes, bounds, level.dimension().location(), level.getGameTime(), complete);
+    }
+
+    /**
+     * Phase 2 — worker thread. Classifies every cell in {@code capture} into walkable
+     * {@link PathCell}s and body passages. Never touches the live world.
+     */
+    static PathSnapshot buildFromCapture(ChunkDataCapture capture, BlockPos start, BlockPos target) {
+        CaptureData data = new CaptureData(capture.states(), capture.shapes());
+        SnapshotBounds bounds = capture.bounds();
+        Long2ObjectOpenHashMap<PathCell> cells = new Long2ObjectOpenHashMap<>();
+        LongOpenHashSet bodyPassages = new LongOpenHashSet();
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
+        for (int x = bounds.minX(); x <= bounds.maxX(); x++) {
+            for (int z = bounds.minZ(); z <= bounds.maxZ(); z++) {
                 for (int y = bounds.minY(); y <= bounds.maxY(); y++) {
                     mutable.set(x, y, z);
-                    if (hasBodyPassage(cache, mutable)) {
+                    if (hasBodyPassage(data, mutable)) {
                         bodyPassages.add(mutable.asLong());
                     }
-                    PathCell cell = classify(cache, mutable);
+                    PathCell cell = classify(data, mutable);
                     if (cell != null) {
                         cells.put(cell.key(), cell);
                     }
                 }
             }
         }
-        return new PathSnapshot(level.dimension().location(), start.immutable(), target.immutable(),
-                cells, LongSets.unmodifiable(bodyPassages), bounds.minY(), bounds.maxY(), level.getGameTime(), complete);
+        return new PathSnapshot(capture.dimensionId(), start.immutable(), target.immutable(),
+                cells, LongSets.unmodifiable(bodyPassages), bounds.minY(), bounds.maxY(), capture.createdAt(), capture.complete());
+    }
+
+    /**
+     * Convenience wrapper that runs both phases on the calling thread.
+     * Used by the debug-path code path which already runs async.
+     */
+    static PathSnapshot build(ServerLevel level, BlockPos start, BlockPos target, int radius) {
+        BlockPos buildStart = new BlockPos(
+                Math.floorDiv(start.getX(), 16) * 16 + 8,
+                start.getY(),
+                Math.floorDiv(start.getZ(), 16) * 16 + 8);
+        int buildRadius = radius + 16;
+        ChunkDataCapture capture = capture(level, buildStart, target, buildRadius);
+        return buildFromCapture(capture, start, target);
     }
 
     /**
@@ -103,7 +167,7 @@ final class PathSnapshotBuilder {
      * Classifies a single column position into a walkable {@link PathCell}, or {@code null} when the
      * citizen cannot occupy it.
      */
-    private static PathCell classify(SampleCache cache, BlockPos pos) {
+    private static PathCell classify(BlockDataSource cache, BlockPos pos) {
         BlockState foot = cache.state(pos);
         BlockState head = cache.state(pos.above());
         BlockState below = cache.state(pos.below());
@@ -155,21 +219,21 @@ final class PathSnapshotBuilder {
     /**
      * Returns whether the citizen's body can occupy the column at {@code pos} given its block state.
      */
-    private static boolean isFootPassable(SampleCache cache, BlockPos pos, BlockState state) {
+    private static boolean isFootPassable(BlockDataSource cache, BlockPos pos, BlockState state) {
         return isBodyPassable(cache, pos, state, 0.0D, 1.0D);
     }
 
-    private static boolean isHeadPassable(SampleCache cache, BlockPos pos, BlockState state) {
+    private static boolean isHeadPassable(BlockDataSource cache, BlockPos pos, BlockState state) {
         return isBodyPassable(cache, pos, state, 0.0D, NPC_HEIGHT - 1.0D);
     }
 
-    private static boolean isHeadPassable(SampleCache cache, BlockPos pos, BlockState state, double standOffset) {
+    private static boolean isHeadPassable(BlockDataSource cache, BlockPos pos, BlockState state, double standOffset) {
         double localMinY = Math.max(0.0D, standOffset - 1.0D);
         double localMaxY = Math.max(localMinY, standOffset + NPC_HEIGHT - 1.0D);
         return isBodyPassable(cache, pos, state, localMinY, localMaxY);
     }
 
-    private static boolean isBodyPassable(SampleCache cache, BlockPos pos, BlockState state, double localMinY, double localMaxY) {
+    private static boolean isBodyPassable(BlockDataSource cache, BlockPos pos, BlockState state, double localMinY, double localMaxY) {
         Block block = state.getBlock();
         if (isDoorLikeBlock(block)) {
             return isNpcPassableDoorLikeBlock(state, cache.shape(pos, state), localMinY, localMaxY);
@@ -192,7 +256,7 @@ final class PathSnapshotBuilder {
      * #lowStandY} or jumped/avoided exactly as before. The test also checks the occupied vertical
      * slice, so upper trapdoors above the head are not treated like floor-level blockers.
      */
-    private static boolean clearsNpcBodySlice(SampleCache cache, BlockPos pos, BlockState state, double localMinY, double localMaxY) {
+    private static boolean clearsNpcBodySlice(BlockDataSource cache, BlockPos pos, BlockState state, double localMinY, double localMaxY) {
         return clearsNpcBodySlice(cache.shape(pos, state), localMinY, localMaxY);
     }
 
@@ -215,7 +279,7 @@ final class PathSnapshotBuilder {
         return true;
     }
 
-    private static boolean hasBodyPassage(SampleCache cache, BlockPos pos) {
+    private static boolean hasBodyPassage(BlockDataSource cache, BlockPos pos) {
         BlockState foot = cache.state(pos);
         BlockState head = cache.state(pos.above());
         if (isDangerous(foot) || isDangerous(head)) {
@@ -230,7 +294,7 @@ final class PathSnapshotBuilder {
      * Returns whether the citizen's bounding box, standing at {@code standY} above {@code feet}, is
      * free of solid collision, ignoring up to two positions (used to exclude an opening door).
      */
-    private static boolean hasNpcClearance(SampleCache cache, BlockPos feet, double standY, BlockPos ignoredA, BlockPos ignoredB) {
+    private static boolean hasNpcClearance(BlockDataSource cache, BlockPos feet, double standY, BlockPos ignoredA, BlockPos ignoredB) {
         double centerX = feet.getX() + 0.5D;
         double centerZ = feet.getZ() + 0.5D;
         AABB npcBox = new AABB(
@@ -276,7 +340,7 @@ final class PathSnapshotBuilder {
      * Returns the world-space top surface of a supporting block, or {@link Double#NaN} when it has
      * no collision to stand on.
      */
-    private static double supportTop(SampleCache cache, BlockPos supportPos, BlockState supportState) {
+    private static double supportTop(BlockDataSource cache, BlockPos supportPos, BlockState supportState) {
         return supportTop(supportPos, cache.shape(supportPos, supportState));
     }
 
@@ -352,7 +416,7 @@ final class PathSnapshotBuilder {
     }
 
     // lowStandY：识别半砖、地毯等低矮碰撞面，避免把半格台阶误判为上一层跳跃。
-    private static double lowStandY(SampleCache cache, BlockPos pos, BlockState state) {
+    private static double lowStandY(BlockDataSource cache, BlockPos pos, BlockState state) {
         double standY = supportTop(cache, pos, state);
         double offset = standY - pos.getY();
         return !Double.isNaN(standY) && offset > 0.0D && offset <= MAX_LOW_STAND_OFFSET ? standY : Double.NaN;
@@ -384,44 +448,38 @@ final class PathSnapshotBuilder {
         }
     }
 
+    /** Common block-data access used by classify and clearance checks. */
+    private interface BlockDataSource {
+        BlockState state(BlockPos pos);
+        VoxelShape shape(BlockPos pos, BlockState state);
+    }
+
     /**
-     * Per-build memoization of block states and collision shapes.
-     *
-     * <p>A single build samples each position's state and shape at most once even though adjacent
-     * vertical samples and overlapping clearance scans request the same positions repeatedly. The
-     * cache lives only for the duration of one synchronous {@link #build} call, so the world cannot
-     * change underneath it and the produced cell map is byte-for-byte identical to an uncached
-     * build.
+     * Pre-captured source: reads from maps populated by {@link #capture} on the server thread.
+     * Safe to use on worker threads — the maps are never modified after capture completes.
+     * Missing positions (unloaded chunks) return air / empty shape.
      */
-    private static final class SampleCache {
-        private final ServerLevel level;
-        private final Long2ObjectOpenHashMap<BlockState> states = new Long2ObjectOpenHashMap<>();
-        private final Long2ObjectOpenHashMap<VoxelShape> shapes = new Long2ObjectOpenHashMap<>();
+    private static final class CaptureData implements BlockDataSource {
+        private static final BlockState AIR = net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+        private static final VoxelShape EMPTY = net.minecraft.world.phys.shapes.Shapes.empty();
+        private final Long2ObjectOpenHashMap<BlockState> states;
+        private final Long2ObjectOpenHashMap<VoxelShape> shapes;
 
-        private SampleCache(ServerLevel level) {
-            this.level = level;
+        private CaptureData(Long2ObjectOpenHashMap<BlockState> states, Long2ObjectOpenHashMap<VoxelShape> shapes) {
+            this.states = states;
+            this.shapes = shapes;
         }
 
-        private BlockState state(BlockPos pos) {
-            long key = pos.asLong();
-            BlockState cached = states.get(key);
-            if (cached != null) {
-                return cached;
-            }
-            BlockState state = level.getBlockState(pos);
-            states.put(key, state);
-            return state;
+        @Override
+        public BlockState state(BlockPos pos) {
+            BlockState s = states.get(pos.asLong());
+            return s != null ? s : AIR;
         }
 
-        private VoxelShape shape(BlockPos pos, BlockState state) {
-            long key = pos.asLong();
-            VoxelShape cached = shapes.get(key);
-            if (cached != null) {
-                return cached;
-            }
-            VoxelShape shape = state.getCollisionShape(level, pos);
-            shapes.put(key, shape);
-            return shape;
+        @Override
+        public VoxelShape shape(BlockPos pos, BlockState state) {
+            VoxelShape s = shapes.get(pos.asLong());
+            return s != null ? s : EMPTY;
         }
     }
 }

@@ -370,11 +370,13 @@ public final class CitizenNavigationService {
                 processed++;
                 continue;
             }
-            PathSnapshot snapshot = runtime.snapshotCache.acquire(level, currentRequest.startPos(), currentRequest.targetBlockPos(), ServerConfig.pathLocalRadiusBlocks());
-            HybridPathfinder.PathSearch search = HybridPathfinder.begin(currentRequest, snapshot);
-            search.stepping.set(true);
-            executor().execute(() -> { try { while (search.result == null) search.step(); } finally { search.stepping.set(false); } });
-            runtime.pending.put(citizenId, new RunningRequest(search, cacheKey));
+            PathSnapshotBuilder.ChunkDataCapture capture = runtime.snapshotCache.acquire(level, currentRequest.startPos(), currentRequest.targetBlockPos(), ServerConfig.pathLocalRadiusBlocks());
+            BlockPos reqStart = currentRequest.startPos();
+            BlockPos reqTarget = currentRequest.targetBlockPos();
+            CompletableFuture<PathResult> future = CompletableFuture.supplyAsync(
+                    () -> HybridPathfinder.find(currentRequest, PathSnapshotBuilder.buildFromCapture(capture, reqStart, reqTarget)),
+                    executor());
+            runtime.pending.put(citizenId, new RunningRequest(future, cacheKey));
             processed++;
         }
     }
@@ -383,24 +385,28 @@ public final class CitizenNavigationService {
         for (Iterator<Map.Entry<UUID, RunningRequest>> iterator = runtime.pending.entrySet().iterator(); iterator.hasNext();) {
             Map.Entry<UUID, RunningRequest> entry = iterator.next();
             RunningRequest running = entry.getValue();
-            HybridPathfinder.PathSearch search = running.search();
-            if (search.result == null && search.stepping.compareAndSet(false, true)) {
-                executor().execute(() -> { try { while (search.result == null) search.step(); } finally { search.stepping.set(false); } });
-            }
-            PathResult result = search.result;
-            if (result == null) {
+            if (!running.future().isDone()) {
                 continue;
             }
             iterator.remove();
-            if (result.success()) {
-                runtime.pathCache.put(running.cacheKey, result, level.getGameTime(), ServerConfig.pathCacheTtlTicks());
+            PathResult result;
+            try {
+                result = running.future().get();
+            } catch (Exception e) {
+                result = null;
+            }
+            if (result != null && result.success()) {
+                runtime.pathCache.put(running.cacheKey(), result, level.getGameTime(), ServerConfig.pathCacheTtlTicks());
                 activate(level, runtime, result);
             } else {
-                runtime.cooldowns.remove(result.citizenId());
-                runtime.blockedSince.remove(result.citizenId());
-                CitizenTeleportService.teleportCitizen(level, result.citizenId(), result.target());
-                if (ServerConfig.pathDebugEnabled()) {
-                    SimuKraft.LOGGER.info("Simukraft: NPC path failed for {}, teleporting to target: {}", result.citizenId(), result.reason());
+                UUID citizenId = entry.getKey();
+                runtime.cooldowns.remove(citizenId);
+                runtime.blockedSince.remove(citizenId);
+                if (result != null) {
+                    CitizenTeleportService.teleportCitizen(level, citizenId, result.target());
+                    if (ServerConfig.pathDebugEnabled()) {
+                        SimuKraft.LOGGER.info("Simukraft: NPC path failed for {}, teleporting to target: {}", citizenId, result.reason());
+                    }
                 }
             }
         }
@@ -789,7 +795,7 @@ public final class CitizenNavigationService {
         private int loadedCitizenCount;
     }
 
-    private record RunningRequest(HybridPathfinder.PathSearch search, PathCacheKey cacheKey) {
+    private record RunningRequest(CompletableFuture<PathResult> future, PathCacheKey cacheKey) {
     }
 
     /** A wooden door a citizen opened, tracked so it can be closed once cleared. */

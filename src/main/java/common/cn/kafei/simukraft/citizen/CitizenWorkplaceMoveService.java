@@ -8,10 +8,15 @@ import common.cn.kafei.simukraft.job.CityJobType;
 import common.cn.kafei.simukraft.path.CitizenNavigationService;
 import common.cn.kafei.simukraft.path.MovementIntent;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 @SuppressWarnings("null")
 public final class CitizenWorkplaceMoveService {
@@ -27,6 +32,21 @@ public final class CitizenWorkplaceMoveService {
     };
 
     private CitizenWorkplaceMoveService() {
+    }
+
+    private record CachedTarget(UUID workplaceId, BlockPos workplacePos, Vec3 target) {
+        boolean matches(CitizenData citizen) {
+            return Objects.equals(workplaceId, citizen.workplaceId())
+                    && Objects.equals(workplacePos, citizen.workplacePos());
+        }
+    }
+
+    // 工作地点落点缓存，按存档+维度分区，避免换存档时混用。
+    private static final ConcurrentMap<String, ConcurrentMap<UUID, CachedTarget>> WORKPLACE_TARGETS_BY_LEVEL = new ConcurrentHashMap<>();
+
+    public static void clearServerCaches(MinecraftServer server) {
+        String prefix = common.cn.kafei.simukraft.util.SaveScopedCacheKey.serverKey(server) + "|";
+        WORKPLACE_TARGETS_BY_LEVEL.keySet().removeIf(key -> key.startsWith(prefix));
     }
 
     // returnToWorkplace：让市民恢复上班时优先走寻路，失败或距离过远时由传送兜底。
@@ -55,7 +75,27 @@ public final class CitizenWorkplaceMoveService {
 
     // resolveWorkplaceTarget：解析普通城市 POI 或建筑师当前施工控制盒的岗位落点。
     public static Optional<Vec3> resolveWorkplaceTarget(ServerLevel level, CitizenData citizen) {
-        if (level == null || citizen == null || citizen.workplaceId() == null) {
+        if (level == null || citizen == null || citizen.workplaceId() == null && citizen.workplacePos() == null
+                && citizen.jobType() != CityJobType.BUILDER) {
+            return Optional.empty();
+        }
+        // 建造师目标随施工进度频繁变化，跳过缓存。
+        if (citizen.jobType() != CityJobType.BUILDER) {
+            String levelKey = common.cn.kafei.simukraft.util.SaveScopedCacheKey.levelKey(level);
+            ConcurrentMap<UUID, CachedTarget> cache = WORKPLACE_TARGETS_BY_LEVEL.computeIfAbsent(levelKey, k -> new ConcurrentHashMap<>());
+            CachedTarget cached = cache.get(citizen.uuid());
+            if (cached != null && cached.matches(citizen)) {
+                return Optional.of(cached.target());
+            }
+            Optional<Vec3> result = computeWorkplaceTarget(level, citizen);
+            result.ifPresent(vec -> cache.put(citizen.uuid(), new CachedTarget(citizen.workplaceId(), citizen.workplacePos(), vec)));
+            return result;
+        }
+        return computeWorkplaceTarget(level, citizen);
+    }
+
+    private static Optional<Vec3> computeWorkplaceTarget(ServerLevel level, CitizenData citizen) {
+        if (citizen.workplaceId() == null && citizen.workplacePos() == null && citizen.jobType() != CityJobType.BUILDER) {
             return Optional.empty();
         }
         CityPoiData poi = CityPoiManager.get(level).getPoi(citizen.workplaceId());

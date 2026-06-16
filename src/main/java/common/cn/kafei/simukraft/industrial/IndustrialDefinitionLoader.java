@@ -23,14 +23,24 @@ public final class IndustrialDefinitionLoader {
     private static final int MAX_POSITIONS = 64;
     private static final int MAX_RECIPES = 64;
     private static final int MAX_STEPS = 256;
+    private static final java.util.concurrent.ConcurrentHashMap<String, LoadResult> CACHE = new java.util.concurrent.ConcurrentHashMap<>();
 
     private IndustrialDefinitionLoader() {
+    }
+
+    public static void clearCache() {
+        CACHE.clear();
     }
 
     public static LoadResult loadForBuilding(PlacedBuildingRecord building) {
         if (building == null) {
             return LoadResult.missing("missing_building");
         }
+        String cacheKey = building.category() + "/" + building.buildingFileName();
+        return CACHE.computeIfAbsent(cacheKey, k -> loadForBuildingInternal(building));
+    }
+
+    private static LoadResult loadForBuildingInternal(PlacedBuildingRecord building) {
         Optional<BuildingCatalog.BuildingDefinition> definition = BuildingCatalog.findBuilding(building.category(), building.buildingFileName());
         if (definition.isEmpty()) {
             return LoadResult.missing("missing_building_definition");
