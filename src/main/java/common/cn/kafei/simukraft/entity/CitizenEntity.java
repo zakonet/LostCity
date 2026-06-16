@@ -23,8 +23,6 @@ import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
-import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
-import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -36,6 +34,8 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 @SuppressWarnings("null")
 public class CitizenEntity extends PathfinderMob {
+    private static final int RECONCILE_INTERVAL_TICKS = 100;
+    private static final int EAT_FOOD_INTERVAL_TICKS = 20;
     // DEFAULT_HUNGER：NPC 饱食度只写入实体 NBT，缺少旧标签时使用满值初始化。
     public static final double DEFAULT_HUNGER = 20.0D;
     // SynchedEntityData 会自动同步到客户端，用于渲染名字、职业、状态和皮肤。
@@ -123,8 +123,6 @@ public class CitizenEntity extends PathfinderMob {
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
-        this.goalSelector.addGoal(1, new LookAtPlayerGoal(this, Player.class, 8.0F));
-        this.goalSelector.addGoal(2, new RandomLookAroundGoal(this));
     }
 
     @Override
@@ -136,13 +134,18 @@ public class CitizenEntity extends PathfinderMob {
         }
         if (level() instanceof ServerLevel serverLevel) {
             // 同 UUID 重复实体只保留一个，防止未加载区块中的旧实体回来后复制居民。
-            if (CitizenTeleportService.reconcileLoadedCitizenEntities(serverLevel, getUUID(), null) != this) {
-                return;
+            // 每 100 tick 检查一次，区块重载事件低频，无需每 tick 扫描。
+            if (tickCount % RECONCILE_INTERVAL_TICKS == 0) {
+                if (CitizenTeleportService.reconcileLoadedCitizenEntities(serverLevel, getUUID(), null) != this) {
+                    return;
+                }
             }
             rescueFromWall(false);
             // 实体每 tick 确保自己有 CitizenData，数据缺失时会自动补全。
             CitizenData data = CitizenService.ensureCitizen(serverLevel, this);
-            CitizenDroppedFoodService.tryEatNearbyFood(serverLevel, this, data);
+            if (tickCount % EAT_FOOD_INTERVAL_TICKS == 0) {
+                CitizenDroppedFoodService.tryEatNearbyFood(serverLevel, this, data);
+            }
         }
     }
 
