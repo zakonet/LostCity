@@ -42,6 +42,7 @@ public final class CitizenManager extends SavedData {
     private final Set<UUID> pendingSaves = ConcurrentHashMap.newKeySet();
     // 分帧处理居民状态，避免城市人口变大后单 tick 扫全量。
     private final ConcurrentLinkedQueue<UUID> aiQueue = new ConcurrentLinkedQueue<>();
+    private final ConcurrentMap<UUID, Long> lastHungerDecayTick = new ConcurrentHashMap<>();
     private final AtomicInteger dirtyCounter = new AtomicInteger();
     private volatile boolean sqliteLoaded;
     private volatile ServerLevel level;
@@ -340,7 +341,14 @@ public final class CitizenManager extends SavedData {
             RandomSource random = level.random;
             CitizenEntity entity = CitizenTeleportService.findCitizenEntity(level, data.uuid());
             boolean dataChanged = false;
-            boolean shouldDecayHunger = gameTime % HUNGER_DECAY_INTERVAL_TICKS == Math.floorMod(uuidBits, HUNGER_DECAY_INTERVAL_TICKS);
+            boolean shouldDecayHunger = false;
+            if (lastHungerDecayTick.putIfAbsent(data.uuid(), gameTime) != null) {
+                long lastDecay = lastHungerDecayTick.get(data.uuid());
+                if (gameTime - lastDecay >= HUNGER_DECAY_INTERVAL_TICKS) {
+                    shouldDecayHunger = true;
+                    lastHungerDecayTick.put(data.uuid(), gameTime);
+                }
+            }
             if (entity == null) {
                 return;
             }
