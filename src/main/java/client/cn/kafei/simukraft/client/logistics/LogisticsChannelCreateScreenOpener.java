@@ -45,6 +45,11 @@ public final class LogisticsChannelCreateScreenOpener {
         private LogisticsDirection direction;
         private EditBox nameField;
         private String lastAutoName = "";
+        private int clientScrollOffset = 0;
+        private static final int CLIENT_LIST_TOP = 52;
+        private static final int CLIENT_LIST_BOTTOM = 196;
+        private static final int CLIENT_ITEM_HEIGHT = 22;
+        private static final int CLIENT_LIST_VISIBLE = (CLIENT_LIST_BOTTOM - CLIENT_LIST_TOP) / CLIENT_ITEM_HEIGHT;
 
         private LogisticsChannelCreateScreen(LogisticsServerBoxOpenResponsePacket packet, UUID preselectedClientId, LogisticsDirection direction) {
             super(Component.translatable("gui.simukraft.logistics.channel.create_title"));
@@ -78,6 +83,7 @@ public final class LogisticsChannelCreateScreenOpener {
             graphics.drawString(this.font, Component.translatable("gui.simukraft.logistics.channel.direction"), layout.x() + 176, layout.y() + 76, LogisticsNativeStyle.TEXT_WARN);
             graphics.drawString(this.font, Component.translatable("gui.simukraft.logistics.channel.items"), layout.x() + 176, layout.y() + 116, LogisticsNativeStyle.TEXT_WARN);
             renderSelectedClientHint(graphics, layout.x() + 10, layout.y() + 206);
+            renderClientScrollbar(graphics, layout);
             itemGrid.render(graphics, this.font, layout.gridX(), layout.gridY(), mouseX, mouseY);
             super.render(graphics, mouseX, mouseY, partialTick);
         }
@@ -93,10 +99,17 @@ public final class LogisticsChannelCreateScreenOpener {
             return super.mouseClicked(mouseX, mouseY, button);
         }
 
-        /** mouseScrolled: 处理过滤网格滚动。 */
+        /** mouseScrolled: 处理客户端列表和过滤网格滚动。 */
         @Override
         public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
             Layout layout = layout();
+            if (mouseX >= layout.x() && mouseX <= layout.x() + 166
+                    && mouseY >= layout.y() + CLIENT_LIST_TOP && mouseY <= layout.y() + CLIENT_LIST_BOTTOM) {
+                int maxOffset = Math.max(0, packet.clients().size() - CLIENT_LIST_VISIBLE);
+                clientScrollOffset = Math.clamp((int) (clientScrollOffset - verticalAmount), 0, maxOffset);
+                rebuildWidgets(nameField != null ? nameField.getValue() : "");
+                return true;
+            }
             if (itemGrid.mouseScrolled(mouseX, mouseY, verticalAmount, layout.gridX(), layout.gridY())) {
                 return true;
             }
@@ -131,11 +144,15 @@ public final class LogisticsChannelCreateScreenOpener {
                     () -> LogisticsServerBoxScreenOpener.open(packet)));
         }
 
-        /** addClientButtons: 创建目标客户端选择按钮。 */
+        /** addClientButtons: 创建目标客户端选择按钮（支持滚动）。 */
         private void addClientButtons(Layout layout) {
+            List<LogisticsControlBoxService.ClientEntry> clients = packet.clients();
+            int maxOffset = Math.max(0, clients.size() - CLIENT_LIST_VISIBLE);
+            clientScrollOffset = Math.clamp(clientScrollOffset, 0, maxOffset);
             int x = layout.x() + 10;
-            int y = layout.y() + 52;
-            for (LogisticsControlBoxService.ClientEntry client : packet.clients()) {
+            int y = layout.y() + CLIENT_LIST_TOP;
+            for (int i = clientScrollOffset; i < clients.size() && y <= layout.y() + CLIENT_LIST_BOTTOM - CLIENT_ITEM_HEIGHT; i++) {
+                LogisticsControlBoxService.ClientEntry client = clients.get(i);
                 UUID clientId = client.clientId();
                 String prefix = clientId.equals(selectedClientId) ? "> " : "";
                 addRenderableWidget(LogisticsNativeStyle.button(Component.literal(prefix + client.name() + " [" + client.portCount() + "]"),
@@ -144,10 +161,7 @@ public final class LogisticsChannelCreateScreenOpener {
                             refreshFilterItems();
                             rebuildWidgets(nameField != null ? nameField.getValue() : "");
                         }));
-                y += 22;
-                if (y > layout.y() + 196) {
-                    break;
-                }
+                y += CLIENT_ITEM_HEIGHT;
             }
         }
 
@@ -177,6 +191,20 @@ public final class LogisticsChannelCreateScreenOpener {
                     ? Component.translatable("gui.simukraft.logistics.channel.need_client")
                     : Component.literal(client.name() + " " + LogisticsNativeStyle.posText(client.boxPos()));
             LogisticsNativeStyle.drawFitString(graphics, this.font, text, x, y, 150, client == null ? LogisticsNativeStyle.TEXT_BAD : LogisticsNativeStyle.TEXT_GOOD);
+        }
+
+        /** renderClientScrollbar: 当客户端列表超出可见区时绘制滚动条。 */
+        private void renderClientScrollbar(GuiGraphics graphics, Layout layout) {
+            int total = packet.clients().size();
+            if (total <= CLIENT_LIST_VISIBLE) return;
+            int sbX = layout.x() + 163;
+            int sbTop = layout.y() + CLIENT_LIST_TOP;
+            int sbHeight = CLIENT_LIST_BOTTOM - CLIENT_LIST_TOP;
+            int thumbH = Math.max(10, sbHeight * CLIENT_LIST_VISIBLE / total);
+            int maxOffset = total - CLIENT_LIST_VISIBLE;
+            int thumbY = sbTop + (sbHeight - thumbH) * clientScrollOffset / maxOffset;
+            graphics.fill(sbX, sbTop, sbX + 3, sbTop + sbHeight, 0xFF444444);
+            graphics.fill(sbX, thumbY, sbX + 3, thumbY + thumbH, 0xFFAAAAAA);
         }
 
         /** confirm: 校验客户端和过滤物品后发送创建频道请求。 */

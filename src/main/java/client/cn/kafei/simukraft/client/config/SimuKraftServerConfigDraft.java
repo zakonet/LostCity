@@ -2,8 +2,8 @@ package client.cn.kafei.simukraft.client.config;
 
 import common.cn.kafei.simukraft.config.MaterialConfigDefaults;
 import common.cn.kafei.simukraft.config.ServerConfig;
-import common.cn.kafei.simukraft.material.WorkMaterialPolicy;
-import common.cn.kafei.simukraft.protection.NpcBlockProtectionPolicy;
+import common.cn.kafei.simukraft.network.config.ServerConfigSavePacket;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -179,62 +179,30 @@ final class SimuKraftServerConfigDraft {
         setExpertModeSkipList(MaterialConfigDefaults.EXPERT_MODE_SKIP_LIST);
     }
 
-    /** saveToLive: 保存草稿到 NeoForge 配置并清理材料策略缓存。 */
+    /** saveToLive: 发包至服务端保存配置。 */
     void saveToLive() {
-        ServerConfig.CITY_CHUNK_PRICE.set(cityChunkPrice);
-        ServerConfig.ENABLE_BLACKLIST_PROTECTION.set(blacklistProtection);
-        ServerConfig.LOG_BLACKLIST_SKIPPED_BLOCKS.set(logBlacklistSkippedBlocks);
-        ServerConfig.POPULATION_GROWTH_INTERVAL_TICKS.set(populationGrowthIntervalTicks);
-        ServerConfig.POPULATION_GROWTH_MAX_PER_INTERVAL.set(populationGrowthMaxPerInterval);
-        ServerConfig.FARM_AREA_RADIUS.set(farmAreaRadius);
-        ServerConfig.FARM_WORK_INTERVAL_TICKS.set(farmWorkIntervalTicks);
-        ServerConfig.FARM_ACTIONS_PER_CYCLE.set(farmActionsPerCycle);
-        ServerConfig.PATH_MAX_LOADED_CITIZEN_ENTITIES.set(pathMaxLoadedCitizenEntities);
-        ServerConfig.PATH_MAX_ACTIVE_CITIZENS.set(pathMaxActiveCitizens);
-        ServerConfig.PATH_MAX_NEW_REQUESTS_PER_TICK.set(pathMaxNewRequestsPerTick);
-        ServerConfig.PATH_WORKER_THREADS.set(pathWorkerThreads);
-        ServerConfig.PATH_LOCAL_RADIUS_BLOCKS.set(pathLocalRadiusBlocks);
-        ServerConfig.PATH_FAR_MOVEMENT_TELEPORT_DISTANCE.set(pathFarMovementTeleportDistance);
-        ServerConfig.PATH_REPATH_COOLDOWN_TICKS.set(pathRepathCooldownTicks);
-        ServerConfig.PATH_CACHE_TTL_TICKS.set(pathCacheTtlTicks);
-        ServerConfig.PATH_DEBUG.set(pathDebug);
-        ServerConfig.BUILDING_INTEGRITY_AUTO_DEMOLISH_THRESHOLD_PERCENT.set(buildingIntegrityAutoDemolishThresholdPercent);
-        ServerConfig.BUILDING_INTEGRITY_CHECK_INTERVAL_TICKS.set(buildingIntegrityCheckIntervalTicks);
-        ServerConfig.BUILDING_INTEGRITY_REPAIR_MONEY_PER_BLOCK.set(buildingIntegrityRepairMoneyPerBlock);
-        ServerConfig.NPC_MAX_LEVEL.set(npcMaxLevel);
-        ServerConfig.BUILDER_XP_GAIN.set(builderXpGain);
-        ServerConfig.BUILDER_XP_PER_BLOCK.set(builderXpPerBlock);
-        ServerConfig.PLANNER_XP_GAIN.set(plannerXpGain);
-        ServerConfig.PLANNER_XP_PER_BLOCK.set(plannerXpPerBlock);
-        ServerConfig.PLANNER_BLOCKS_PER_SECOND.set(plannerBlocksPerSecond);
-        ServerConfig.PLANNER_MAX_VOLUME.set(plannerMaxVolume);
-        ServerConfig.PLANNER_MONEY_PER_BLOCK_REMOVE.set(plannerMoneyPerBlockRemove);
-        ServerConfig.PLANNER_MONEY_PER_BLOCK_FILL.set(plannerMoneyPerBlockFill);
-        ServerConfig.PLANNER_MONEY_PER_BLOCK_REPLACE.set(plannerMoneyPerBlockReplace);
-        ServerConfig.PLANNER_PAUSE_AT_NIGHT.set(plannerPauseAtNight);
-        ServerConfig.BUILDER_BLOCKS_PER_SECOND.set(builderBlocksPerSecond);
-        ServerConfig.BUILDER_PAUSE_AT_NIGHT.set(builderPauseAtNight);
-        ServerConfig.LOGISTICS_TRANSFER_INTERVAL_TICKS.set(logisticsTransferIntervalTicks);
-        ServerConfig.LOGISTICS_MAX_CHANNELS_PER_TICK.set(logisticsMaxChannelsPerTick);
-        ServerConfig.LOGISTICS_MAX_TRANSFERS_PER_TICK.set(logisticsMaxTransfersPerTick);
-        ServerConfig.LOGISTICS_CHARGE_ENABLED.set(logisticsChargeEnabled);
-        ServerConfig.LOGISTICS_FREE_DISTANCE_BLOCKS.set(logisticsFreeDistanceBlocks);
-        ServerConfig.LOGISTICS_BASE_COST.set(logisticsBaseCost);
-        ServerConfig.LOGISTICS_DISTANCE_STEP_BLOCKS.set(logisticsDistanceStepBlocks);
-        ServerConfig.LOGISTICS_STEP_COST.set(logisticsStepCost);
-        ServerConfig.LOGISTICS_MAX_WAREHOUSE_CONTAINERS.set(logisticsMaxWarehouseContainers);
-        ServerConfig.LOGISTICS_MAX_CLIENT_PORTS.set(logisticsMaxClientPorts);
-        ServerConfig.MATERIALS_CREATIVE_MODE.set(workMode == WorkMode.CREATIVE);
-        ServerConfig.MATERIALS_EXPERT_MODE.set(workMode == WorkMode.EXPERT);
-        ServerConfig.MATERIALS_CATEGORY_MATCHING.set(materialCategoryMatching);
-        ServerConfig.MATERIAL_WARNING_COOLDOWN_SECONDS.set(materialWarningCooldownSeconds);
-        ServerConfig.ALL_MODE_BLOCK_BLACKLIST.set(List.copyOf(allModeBlockBlacklist));
-        ServerConfig.BASIC_MATERIALS.set(List.copyOf(basicMaterials));
-        ServerConfig.MATERIAL_CATEGORY_GROUPS.set(List.copyOf(materialCategoryGroups));
-        ServerConfig.EXPERT_MODE_SKIP_LIST.set(List.copyOf(expertModeSkipList));
-        ServerConfig.SPEC.save();
-        WorkMaterialPolicy.clearCache();
-        NpcBlockProtectionPolicy.clearCache();
+        PacketDistributor.sendToServer(new ServerConfigSavePacket(
+                cityChunkPrice, blacklistProtection, logBlacklistSkippedBlocks,
+                populationGrowthIntervalTicks, populationGrowthMaxPerInterval,
+                farmAreaRadius, farmWorkIntervalTicks, farmActionsPerCycle,
+                pathMaxLoadedCitizenEntities, pathMaxActiveCitizens, pathMaxNewRequestsPerTick,
+                pathWorkerThreads, pathLocalRadiusBlocks, pathFarMovementTeleportDistance,
+                pathRepathCooldownTicks, pathCacheTtlTicks, pathDebug,
+                buildingIntegrityAutoDemolishThresholdPercent, buildingIntegrityCheckIntervalTicks,
+                buildingIntegrityRepairMoneyPerBlock, npcMaxLevel,
+                builderXpGain, builderXpPerBlock, plannerXpGain, plannerXpPerBlock,
+                plannerBlocksPerSecond, plannerMaxVolume,
+                plannerMoneyPerBlockRemove, plannerMoneyPerBlockFill, plannerMoneyPerBlockReplace,
+                plannerPauseAtNight, builderBlocksPerSecond, builderPauseAtNight,
+                logisticsTransferIntervalTicks, logisticsMaxChannelsPerTick, logisticsMaxTransfersPerTick,
+                logisticsChargeEnabled, logisticsFreeDistanceBlocks, logisticsBaseCost,
+                logisticsDistanceStepBlocks, logisticsStepCost,
+                logisticsMaxWarehouseContainers, logisticsMaxClientPorts,
+                workMode == WorkMode.CREATIVE, workMode == WorkMode.EXPERT,
+                materialCategoryMatching, materialWarningCooldownSeconds,
+                List.copyOf(allModeBlockBlacklist), List.copyOf(basicMaterials),
+                List.copyOf(materialCategoryGroups), List.copyOf(expertModeSkipList)
+        ));
     }
 
     List<String> allModeBlockBlacklist() {
