@@ -135,8 +135,11 @@ public class CitizenEntity extends PathfinderMob {
             return;
         }
         if (level() instanceof ServerLevel serverLevel) {
-            // 同 UUID 重复实体只保留一个，防止未加载区块中的旧实体回来后复制居民。
-            if (CitizenTeleportService.reconcileLoadedCitizenEntities(serverLevel, getUUID(), null) != this) {
+            // O(1) 快检：UUID map 里不是 this 则说明自己是多余副本，直接丢弃。
+            // 低频全扫由 reconcileLoadedCitizenEntities 在 spawn/teleport 路径触发。
+            CitizenEntity canonical = CitizenTeleportService.findCitizenEntity(serverLevel, getUUID());
+            if (canonical != null && canonical != this) {
+                discard();
                 return;
             }
             rescueFromWall(false);

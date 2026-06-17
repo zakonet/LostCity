@@ -153,6 +153,7 @@ dependencies {
     implementation "curse.maven:irisshaders-455508:6661598"
     compileOnly "curse.maven:xaeros-world-map-317780:8042208"
     localRuntime "org.xerial:sqlite-jdbc:3.46.1.0"
+    implementation "curse.maven:spark-361579:6225208"
     jarJar "org.xerial:sqlite-jdbc:3.46.1.0"
 
     // Unit testing: JUnit 5 platform used by the moddev unit test bootstrap.

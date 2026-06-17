@@ -14,7 +14,10 @@ import common.cn.kafei.simukraft.city.CityData;
 import common.cn.kafei.simukraft.city.CityManager;
 import common.cn.kafei.simukraft.city.CityPermissionInviteService;
 import common.cn.kafei.simukraft.city.CityService;
+import common.cn.kafei.simukraft.city.poi.CityPoiData;
 import common.cn.kafei.simukraft.city.poi.CityPoiManager;
+import common.cn.kafei.simukraft.city.poi.CityPoiService;
+import common.cn.kafei.simukraft.city.poi.CityPoiType;
 import common.cn.kafei.simukraft.commercial.CommercialBoxManager;
 import common.cn.kafei.simukraft.commercial.CommercialStockManager;
 import common.cn.kafei.simukraft.farmland.FarmlandBoxManager;
@@ -142,11 +145,51 @@ public final class SimuKraftCommand {
                                 .executes(context -> wanderCityCitizens(
                                         context.getSource(),
                                         IntegerArgumentType.getInteger(context, "radius")))))
+                .then(Commands.literal("matrix")
+                        .executes(context -> matrixHomeCityPath(context.getSource(), 3))
+                        .then(Commands.argument("spacing", IntegerArgumentType.integer(1, 16))
+                                .executes(context -> matrixHomeCityPath(
+                                        context.getSource(),
+                                        IntegerArgumentType.getInteger(context, "spacing")))))
                 .then(Commands.literal("status")
                         .executes(context -> pathStatus(context.getSource())))
                 .then(Commands.literal("clear")
                         .executes(context -> clearPathDebug(context.getSource()))));
         dispatcher.register(root);
+    }
+
+    private static int matrixHomeCityPath(CommandSourceStack source, int spacing) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.translatable("message.simukraft.path_debug.player_required"));
+            return 0;
+        }
+        ServerLevel level = player.serverLevel();
+        Optional<CityData> city = CityService.findPlayerCity(level, player.getUUID());
+        if (city.isEmpty()) {
+            source.sendFailure(Component.translatable("message.simukraft.command.city_required"));
+            return 0;
+        }
+        List<CitizenData> citizens = CitizenService.listCitizensByCity(level, city.get().cityId());
+        Vec3 center = player.position();
+        int cols = Math.max(1, (int) Math.ceil(Math.sqrt(citizens.size())));
+        int assigned = 0;
+        for (int i = 0; i < citizens.size(); i++) {
+            int row = i / cols;
+            int col = i % cols;
+            double x = center.x + (col - cols / 2.0D + 0.5D) * spacing;
+            double z = center.z + (row - cols / 2.0D + 0.5D) * spacing;
+            int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) x, (int) z);
+            BlockPos homePos = new BlockPos((int) x, y, (int) z);
+            CityPoiData home = CityPoiService.registerPoi(level, city.get().cityId(), homePos, CityPoiType.RESIDENTIAL, 1);
+            CitizenService.setHome(level, citizens.get(i).uuid(), home.poiId());
+            CitizenNavigationService.requestTestMove(level, citizens.get(i).uuid(), new Vec3(x, y, z), MovementIntent.RETURN_HOME);
+            assigned++;
+        }
+        final int count = assigned;
+        final int total = citizens.size();
+        source.sendSuccess(() -> Component.literal(String.format(Locale.ROOT, "matrix home: %d/%d NPCs assigned, %dx%d grid spacing=%d", count, total, cols, cols, spacing)), true);
+        return assigned > 0 ? Command.SINGLE_SUCCESS : 0;
     }
 
     // respondPermissionInvite: 处理聊天点击触发的城市权限邀请接受/拒绝命令。
