@@ -350,11 +350,7 @@ public final class PlannerWorkService {
         flushXp(level, citizen, taskRuntime);
         runtime.tasks.remove(citizen.uuid(), taskRuntime);
         IO_EXECUTOR.execute(() -> SimuSqliteStorage.deletePlanningTask(level, citizen.uuid()));
-        // 规划师完成任务后保留雇佣，转待命，等待下一个规划任务。
-        citizen.setWorkStatus(CitizenWorkStatus.IDLE);
-        citizen.setStatusLabel("规划完成，待命中");
-        citizen.setWorkNeedDetail("");
-        CitizenService.save(level, citizen.uuid());
+        CitizenEmploymentService.clearAfterJobFinished(level, citizen.uuid());
         SimuKraft.LOGGER.info("Simukraft: Planning task completed by {}", citizen.name());
     }
 

@@ -45,16 +45,16 @@ import java.util.UUID;
 public final class NpcHireScreen {
     private static final int CARD_TEXT_COLOR = SimuKraftUiTheme.CARD_TEXT_COLOR;
     private static final int MAX_NPC_PER_PAGE = 12;
-    private static final int CARD_GAP = 10;
+    private static final int CARD_GAP = 6;
     private static final int MIN_BUTTON_WIDTH = 50;
     private static final int MIN_BUTTON_HEIGHT = 20;
     private static final float TITLE_LEFT_RATIO = 0.153F;
     private static final float TITLE_TOP_RATIO = 0.038F;
     private static final float TITLE_WIDTH_RATIO = 0.70F;
     private static final float TITLE_HEIGHT_RATIO = 0.124F;
-    private static final float CARD_LEFT_RATIO = 0.068F;
+    private static final float CARD_LEFT_RATIO = 0.02F;
     private static final float CARD_TOP_RATIO = 0.168F;
-    private static final float CARD_WIDTH_RATIO = 0.864F;
+    private static final float CARD_WIDTH_RATIO = 0.96F;
     private static final float CARD_HEIGHT_RATIO = 0.728F;
     private static final float SELECTED_INFO_HEIGHT_RATIO = 0.04F;
     private static final float PAGER_LEFT_RATIO = 0.19F;
@@ -65,11 +65,11 @@ public final class NpcHireScreen {
     private static final float CONFIRM_TOP_RATIO = 0.874F;
     private static final float CONFIRM_WIDTH_RATIO = 0.16F;
     private static final float CONFIRM_HEIGHT_RATIO = 0.07F;
-    private static final int HEAD_SIZE = 34;
+    private static final int HEAD_SIZE = 26;
     private static final int PREFERRED_CARD_WIDTH = 180;
-    private static final int MIN_CARD_WIDTH = 160;
-    private static final int PREFERRED_CARD_HEIGHT = 80;
-    private static final int MIN_CARD_HEIGHT = 76;
+    private static final int MIN_CARD_WIDTH = 130;
+    private static final int PREFERRED_CARD_HEIGHT = 70;
+    private static final int MIN_CARD_HEIGHT = 62;
     private static UUID selectedNpcId;
     private static int currentPage;
     private static String searchText = "";
@@ -218,7 +218,7 @@ public final class NpcHireScreen {
                 layout.height(HEAD_SIZE);
             }));
 
-            int textLeft = HEAD_SIZE + 18;
+            int textLeft = HEAD_SIZE + 12;
             int textWidth = buttonWidth - textLeft - 10;
 
             card.addChild(infoLine(Component.literal(candidate.name()), textWidth, CARD_TEXT_COLOR).layout(layout -> {
@@ -231,24 +231,24 @@ public final class NpcHireScreen {
             card.addChild(infoLine(Component.translatable("work_status.idle"), textWidth, CARD_TEXT_COLOR).layout(layout -> {
                 layout.positionType(TaffyPosition.ABSOLUTE);
                 layout.left(textLeft);
-                layout.top(28);
+                layout.top(22);
                 layout.width(textWidth);
-                layout.height(14);
+                layout.height(11);
             }));
             card.addChild(levelBadge(candidate.skillLevel()).layout(layout -> {
                 layout.positionType(TaffyPosition.ABSOLUTE);
                 layout.left(textLeft);
-                layout.top(42);
+                layout.top(34);
                 layout.width(34);
-                layout.height(12);
+                layout.height(10);
             }));
 
             card.addChild(expBar(candidate, buttonWidth, buttonHeight).layout(layout -> {
                 layout.positionType(TaffyPosition.ABSOLUTE);
                 layout.left(8);
-                layout.top(buttonHeight - 18);
+                layout.top(buttonHeight - 16);
                 layout.width(buttonWidth - 16);
-                layout.height(10);
+                layout.height(8);
             }));
             wrapper.addChild(card);
             if (selected) {
@@ -378,7 +378,7 @@ public final class NpcHireScreen {
         int availableHeight = Math.max(MIN_CARD_HEIGHT, regionHeight - 8);
         int rows = Math.max(1, (availableHeight + CARD_GAP) / (MIN_CARD_HEIGHT + CARD_GAP));
         int cardHeight = Math.max(MIN_CARD_HEIGHT, Math.min(PREFERRED_CARD_HEIGHT, (availableHeight - (rows - 1) * CARD_GAP) / rows));
-        int perPage = Math.max(1, Math.min(MAX_NPC_PER_PAGE, columns * rows));
+        int perPage = Math.max(6, Math.min(MAX_NPC_PER_PAGE, columns * rows));
         return new GridMetrics(columns, rows, perPage, cardWidth, cardHeight);
     }
 

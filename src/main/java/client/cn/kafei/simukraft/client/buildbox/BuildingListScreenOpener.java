@@ -37,16 +37,16 @@ import java.util.Optional;
 public final class BuildingListScreenOpener {
     private static final int CARD_TEXT_COLOR = SimuKraftUiTheme.CARD_TEXT_COLOR;
     private static final int MAX_BUILDINGS_PER_PAGE = 12;
-    private static final int CARD_GAP = 10;
+    private static final int CARD_GAP = 6;
     private static final int MIN_BUTTON_WIDTH = 50;
     private static final int MIN_BUTTON_HEIGHT = 20;
     private static final float TITLE_LEFT_RATIO = 0.153F;
     private static final float TITLE_TOP_RATIO = 0.038F;
     private static final float TITLE_WIDTH_RATIO = 0.70F;
     private static final float TITLE_HEIGHT_RATIO = 0.124F;
-    private static final float CARD_LEFT_RATIO = 0.068F;
+    private static final float CARD_LEFT_RATIO = 0.02F;
     private static final float CARD_TOP_RATIO = 0.168F;
-    private static final float CARD_WIDTH_RATIO = 0.864F;
+    private static final float CARD_WIDTH_RATIO = 0.96F;
     private static final float CARD_HEIGHT_RATIO = 0.728F;
     private static final float SELECTED_INFO_HEIGHT_RATIO = 0.04F;
     private static final float PAGER_LEFT_RATIO = 0.19F;
@@ -58,9 +58,9 @@ public final class BuildingListScreenOpener {
     private static final float CONFIRM_WIDTH_RATIO = 0.16F;
     private static final float CONFIRM_HEIGHT_RATIO = 0.07F;
     private static final int PREFERRED_CARD_WIDTH = 180;
-    private static final int MIN_CARD_WIDTH = 160;
-    private static final int PREFERRED_CARD_HEIGHT = 80;
-    private static final int MIN_CARD_HEIGHT = 76;
+    private static final int MIN_CARD_WIDTH = 130;
+    private static final int PREFERRED_CARD_HEIGHT = 70;
+    private static final int MIN_CARD_HEIGHT = 62;
     private static int currentPage;
     private static String currentCategory;
     private static BlockPos currentBuildBoxPos;
@@ -229,7 +229,7 @@ public final class BuildingListScreenOpener {
 
         int infoLeft = 14;
         int infoWidth = buttonWidth - infoLeft - 8;
-        int infoY = 24;
+        int infoY = 20;
         card.addChild(infoLine(Component.translatable("gui.building.size", building.size()), infoWidth, CARD_TEXT_COLOR).layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.left(infoLeft);
@@ -240,14 +240,14 @@ public final class BuildingListScreenOpener {
         card.addChild(infoLine(Component.translatable("gui.building.price", building.amount()), infoWidth, CARD_TEXT_COLOR).layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.left(infoLeft);
-            layout.top(infoY + 12);
+            layout.top(infoY + 10);
             layout.width(infoWidth);
             layout.height(10);
         }));
         card.addChild(infoLine(Component.translatable("gui.building.author", building.author()), infoWidth, CARD_TEXT_COLOR).layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);
             layout.left(infoLeft);
-            layout.top(infoY + 24);
+            layout.top(infoY + 20);
             layout.width(infoWidth);
             layout.height(10);
         }));
@@ -353,7 +353,7 @@ public final class BuildingListScreenOpener {
         int availableHeight = Math.max(MIN_CARD_HEIGHT, regionHeight - 8);
         int rows = Math.max(1, (availableHeight + CARD_GAP) / (MIN_CARD_HEIGHT + CARD_GAP));
         int cardHeight = Math.max(MIN_CARD_HEIGHT, Math.min(PREFERRED_CARD_HEIGHT, (availableHeight - (rows - 1) * CARD_GAP) / rows));
-        int perPage = Math.max(1, Math.min(MAX_BUILDINGS_PER_PAGE, columns * rows));
+        int perPage = Math.max(6, Math.min(MAX_BUILDINGS_PER_PAGE, columns * rows));
         return new GridMetrics(columns, rows, perPage, cardWidth, cardHeight);
     }
 
