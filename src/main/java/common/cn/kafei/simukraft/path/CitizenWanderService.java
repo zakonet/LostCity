@@ -45,7 +45,7 @@ public final class CitizenWanderService {
                 continue;
             }
             Vec3 target = randomTarget(level, citizen.position(), DEFAULT_WANDER_RADIUS);
-            if (target != null && CitizenNavigationService.requestMove(level, citizen.getUUID(), target, MovementIntent.WALK)) {
+            if (target != null && CitizenNavigationService.requestMove(level, citizen.getUUID(), target, MovementIntent.WANDER)) {
                 markCooldown(level, citizen.getUUID(), AUTO_WANDER_COOLDOWN_TICKS);
                 requested++;
             }
@@ -65,7 +65,7 @@ public final class CitizenWanderService {
                 continue;
             }
             Vec3 target = randomTarget(level, citizen.position(), Math.max(MIN_WANDER_DISTANCE, radius));
-            if (target != null && CitizenNavigationService.requestTestMove(level, citizen.getUUID(), target, MovementIntent.WALK)) {
+            if (target != null && CitizenNavigationService.requestTestMove(level, citizen.getUUID(), target, MovementIntent.WANDER)) {
                 markCooldown(level, citizen.getUUID(), AUTO_WANDER_COOLDOWN_TICKS);
                 requested++;
             }

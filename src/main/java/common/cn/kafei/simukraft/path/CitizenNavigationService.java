@@ -92,6 +92,9 @@ public final class CitizenNavigationService {
         double distanceSqr = current.distanceToSqr(target);
         double farDistance = localPathDistanceLimit();
         if (distanceSqr >= farDistance * farDistance || !hasLoadedChunk(level, BlockPos.containing(target.x, target.y, target.z))) {
+            if (normalizedIntent == MovementIntent.WANDER) {
+                return false;
+            }
             return CitizenTeleportService.teleportCitizen(level, citizenId, target);
         }
 
@@ -403,9 +406,11 @@ public final class CitizenNavigationService {
                 runtime.cooldowns.remove(citizenId);
                 runtime.blockedSince.remove(citizenId);
                 if (result != null) {
-                    CitizenTeleportService.teleportCitizen(level, citizenId, result.target());
-                    if (ServerConfig.pathDebugEnabled()) {
-                        SimuKraft.LOGGER.info("Simukraft: NPC path failed for {}, teleporting to target: {}", citizenId, result.reason());
+                    if (running.cacheKey().intent() != MovementIntent.WANDER) {
+                        CitizenTeleportService.teleportCitizen(level, citizenId, result.target());
+                        if (ServerConfig.pathDebugEnabled()) {
+                            SimuKraft.LOGGER.info("Simukraft: NPC path failed for {}, teleporting to target: {}", citizenId, result.reason());
+                        }
                     }
                 }
             }
@@ -446,7 +451,9 @@ public final class CitizenNavigationService {
                 ActiveNavigation active = entry.getValue();
                 long blockedSince = runtime.blockedSince.computeIfAbsent(entry.getKey(), id -> level.getGameTime());
                 if (level.getGameTime() - blockedSince >= STALLED_TELEPORT_TICKS) {
-                    CitizenTeleportService.teleportCitizen(level, entry.getKey(), active.target);
+                    if (active.intent != MovementIntent.WANDER) {
+                        CitizenTeleportService.teleportCitizen(level, entry.getKey(), active.target);
+                    }
                     runtime.latestRequests.remove(entry.getKey());
                     runtime.cooldowns.remove(entry.getKey());
                     runtime.blockedSince.remove(entry.getKey());

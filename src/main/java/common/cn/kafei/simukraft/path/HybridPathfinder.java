@@ -191,14 +191,14 @@ final class HybridPathfinder {
                         && up.climbable()
                         && up.standY() - current.standY() <= 1.25D
                         && hasVerticalPassage(snapshot, current, up)) {
-                    output.add(new Neighbor(up, MovementMode.CLIMB, 2.0D + distance(current, up)));
+                    output.add(new Neighbor(up, MovementMode.CLIMB, 8.0D + distance(current, up)));
                 }
                 PathCell ladderBelow = snapshot.cell(current.x() + dx, current.y() - 1, current.z() + dz);
                 if (ladderBelow != null
                         && ladderBelow.climbable()
                         && current.standY() - ladderBelow.standY() <= 1.25D
                         && hasVerticalPassage(snapshot, current, ladderBelow)) {
-                    output.add(new Neighbor(ladderBelow, MovementMode.CLIMB, 2.0D + distance(current, ladderBelow)));
+                    output.add(new Neighbor(ladderBelow, MovementMode.CLIMB, 8.0D + distance(current, ladderBelow)));
                 }
                 for (int fall = 1; fall <= 3; fall++) {
                     PathCell down = snapshot.cell(current.x() + dx, current.y() - fall, current.z() + dz);
@@ -296,12 +296,12 @@ final class HybridPathfinder {
     private static void addClimbNeighbors(PathSnapshot snapshot, PathCell current, MovementIntent intent, List<Neighbor> output) {
         PathCell up = snapshot.cell(current.x(), current.y() + 1, current.z());
         if (up != null && (up.climbable() || up.water())) {
-            output.add(new Neighbor(up, up.water() ? MovementMode.SWIM : MovementMode.CLIMB, 2.0D));
+            output.add(new Neighbor(up, up.water() ? MovementMode.SWIM : MovementMode.CLIMB, up.water() ? 2.0D : 6.0D));
         }
         PathCell down = snapshot.cell(current.x(), current.y() - 1, current.z());
         if (down != null) {
             MovementMode downMode = down.water() ? MovementMode.SWIM : down.climbable() ? MovementMode.CLIMB : walkMode(intent);
-            output.add(new Neighbor(down, downMode, 2.0D));
+            output.add(new Neighbor(down, downMode, down.climbable() ? 6.0D : 2.0D));
         }
     }
 

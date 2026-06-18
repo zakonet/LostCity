@@ -16,7 +16,7 @@ import java.util.Optional;
 @SuppressWarnings("null")
 public final class CitizenWorkplaceMoveService {
     private static final double ARRIVED_DISTANCE_SQR = 4.0D;
-    private static final int[] WORKPLACE_Y_OFFSETS = {0, 1, -1};
+    private static final int[] WORKPLACE_Y_OFFSETS = {0, 1, -1, -2, -3};
     private static final int[][] WORKPLACE_STAND_OFFSETS = {
             {1, 0}, {-1, 0}, {0, 1}, {0, -1},
             {1, 1}, {1, -1}, {-1, 1}, {-1, -1},
@@ -109,8 +109,13 @@ public final class CitizenWorkplaceMoveService {
                 }
             }
         }
-        Vec3 topLanding = safeLanding(level, pos.above());
-        return Optional.of(topLanding != null ? topLanding : Vec3.atBottomCenterOf(pos.above()));
+        for (int yDown = 0; yDown >= -5; yDown--) {
+            Vec3 landing = safeLanding(level, pos.offset(0, yDown, 0));
+            if (landing != null) {
+                return Optional.of(landing);
+            }
+        }
+        return Optional.empty();
     }
 
     private static Vec3 safeLanding(ServerLevel level, BlockPos feet) {
