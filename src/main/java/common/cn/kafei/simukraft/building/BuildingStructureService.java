@@ -13,10 +13,15 @@ import net.minecraft.world.level.block.state.properties.Property;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @SuppressWarnings("null")
 public final class BuildingStructureService {
+    private static final Map<String, String> LEGACY_BLOCK_REMAPS = Map.of(
+            "minecraft:grass", "minecraft:short_grass"
+    );
+
     private BuildingStructureService() {
     }
 
@@ -102,6 +107,7 @@ public final class BuildingStructureService {
         if (name == null || name.isBlank()) {
             return null;
         }
+        name = LEGACY_BLOCK_REMAPS.getOrDefault(name, name);
         Block block = BuiltInRegistries.BLOCK.getOptional(ResourceLocation.parse(name)).orElse(null);
         if (block == null) {
             SimuKraft.LOGGER.warn("Simukraft: Missing block {} while loading structure", name);

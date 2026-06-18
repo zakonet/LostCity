@@ -2,6 +2,7 @@ package common.cn.kafei.simukraft.job;
 
 import common.cn.kafei.simukraft.building.BuilderConstructionService;
 import common.cn.kafei.simukraft.citizen.CitizenData;
+import common.cn.kafei.simukraft.citizen.CitizenHomeRestService;
 import common.cn.kafei.simukraft.citizen.CitizenService;
 import common.cn.kafei.simukraft.citizen.CitizenWorkStatus;
 import common.cn.kafei.simukraft.commercial.CommercialConstants;
@@ -57,8 +58,20 @@ public final class CitizenEmploymentService {
         }
         CityJobType safeJob = jobType != null ? jobType : CityJobType.OTHER;
         CitizenWorkStatus safeStatus = workStatus != null ? workStatus : CitizenWorkStatus.WORKING;
+        boolean restTime = CitizenHomeRestService.isRestTime(level);
+        CitizenData preHire = restTime ? CitizenService.findCitizen(level, citizenId).orElse(null) : null;
+        boolean wasResting = preHire != null && preHire.workStatusType() == CitizenWorkStatus.RESTING;
+        String savedLabel = wasResting ? preHire.statusLabel() : null;
+        String savedDetail = wasResting ? preHire.workNeedDetail() : null;
         assign(level, citizenId, safeJob, workplaceId, workplacePos, safeStatus, statusLabel);
-        CityJobMobilityService.teleportCitizenToWorkplace(level, citizenId, workplacePos, safeJob, safeStatus, statusLabel != null ? statusLabel : "");
+        if (!restTime) {
+            CityJobMobilityService.teleportCitizenToWorkplace(level, citizenId, workplacePos, safeJob, safeStatus, statusLabel != null ? statusLabel : "");
+        } else if (wasResting) {
+            preHire.setWorkStatus(CitizenWorkStatus.RESTING);
+            preHire.setStatusLabel(savedLabel != null ? savedLabel : "");
+            preHire.setWorkNeedDetail(savedDetail != null ? savedDetail : "");
+            CitizenService.save(level, citizenId);
+        }
     }
 
     // assign：只写职业和岗位，不主动移动实体，适合 POI 自动分配。

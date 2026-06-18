@@ -251,6 +251,9 @@ public final class BuilderConstructionService {
                 markWaitingForMaterials(level, citizen, taskRuntime, task, materialResult);
                 return;
             }
+            if (!level.isAreaLoaded(worldPos, 4)) {
+                break;
+            }
             level.setBlock(worldPos, targetState, 3);
             spawnBuildParticles(level, worldPos);
             addPendingBuilderXp(taskRuntime, 1);

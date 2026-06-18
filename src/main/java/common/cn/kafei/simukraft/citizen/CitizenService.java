@@ -135,11 +135,16 @@ public final class CitizenService {
                 return;
             }
             data.setJobType(CityJobType.UNEMPLOYED);
-            data.setWorkStatus(CitizenWorkStatus.IDLE);
             data.setWorkplaceId(null);
             data.setWorkplacePos(null);
-            data.setStatusLabel("");
-            data.setWorkNeedDetail("");
+            boolean nightRest = CitizenHomeRestService.isRestTime(level)
+                    && data.workStatusType() == CitizenWorkStatus.RESTING
+                    && CitizenHomeRestService.HOME_REST_MARKER.equals(data.workNeedDetail());
+            if (!nightRest) {
+                data.setWorkStatus(CitizenWorkStatus.IDLE);
+                data.setStatusLabel("");
+                data.setWorkNeedDetail("");
+            }
             manager.saveCitizenNow(citizenId);
             SimuSqliteStorage.clearCitizenEmployment(level, citizenId);
         });

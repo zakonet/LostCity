@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentMap;
 
 @SuppressWarnings("null")
 public final class CitizenHomeRestService {
-    private static final String HOME_REST_MARKER = "home_rest";
+    public static final String HOME_REST_MARKER = "home_rest";
     private static final int HOME_TARGET_SEARCH_RADIUS = 4;
     private static final int HOME_ANCHOR_SEARCH_RADIUS = 8;
     private static final int REST_START_TIME = 13000;
