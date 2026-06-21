@@ -19,6 +19,7 @@ public record ServerConfigSavePacket(
         double cityChunkPrice,
         boolean blacklistProtection,
         boolean logBlacklistSkippedBlocks,
+        boolean claimProtection,
         int populationGrowthIntervalTicks,
         int populationGrowthMaxPerInterval,
         int farmAreaRadius,
@@ -80,6 +81,7 @@ public record ServerConfigSavePacket(
         buf.writeDouble(p.cityChunkPrice);
         buf.writeBoolean(p.blacklistProtection);
         buf.writeBoolean(p.logBlacklistSkippedBlocks);
+        buf.writeBoolean(p.claimProtection);
         buf.writeVarInt(p.populationGrowthIntervalTicks);
         buf.writeVarInt(p.populationGrowthMaxPerInterval);
         buf.writeVarInt(p.farmAreaRadius);
@@ -132,7 +134,7 @@ public record ServerConfigSavePacket(
 
     public static ServerConfigSavePacket decode(RegistryFriendlyByteBuf buf) {
         return new ServerConfigSavePacket(
-                buf.readDouble(), buf.readBoolean(), buf.readBoolean(),
+                buf.readDouble(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean(),
                 buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
                 buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
                 buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readBoolean(),
@@ -154,6 +156,7 @@ public record ServerConfigSavePacket(
         ServerConfig.CITY_CHUNK_PRICE.set(p.cityChunkPrice);
         ServerConfig.ENABLE_BLACKLIST_PROTECTION.set(p.blacklistProtection);
         ServerConfig.LOG_BLACKLIST_SKIPPED_BLOCKS.set(p.logBlacklistSkippedBlocks);
+        ServerConfig.ENABLE_CLAIM_PROTECTION.set(p.claimProtection);
         ServerConfig.POPULATION_GROWTH_INTERVAL_TICKS.set(p.populationGrowthIntervalTicks);
         ServerConfig.POPULATION_GROWTH_MAX_PER_INTERVAL.set(p.populationGrowthMaxPerInterval);
         ServerConfig.FARM_AREA_RADIUS.set(p.farmAreaRadius);

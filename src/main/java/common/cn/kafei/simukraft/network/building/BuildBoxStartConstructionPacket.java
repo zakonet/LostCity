@@ -15,6 +15,7 @@ import common.cn.kafei.simukraft.citizen.CitizenWorkStatus;
 import common.cn.kafei.simukraft.city.CityService;
 import common.cn.kafei.simukraft.city.FinanceTransactionData;
 import common.cn.kafei.simukraft.city.group.CityGroupMessageService;
+import common.cn.kafei.simukraft.config.ServerConfig;
 import common.cn.kafei.simukraft.economy.EconomyService;
 import common.cn.kafei.simukraft.economy.FinanceLedgerService;
 import common.cn.kafei.simukraft.job.CitizenEmploymentService;
@@ -96,7 +97,7 @@ public record BuildBoxStartConstructionPacket(BlockPos buildBoxPos,
         }
         BuildingStructure structure = structureOptional.get();
         List<BuildingBlockData> placedBlocks = BuildingStructureService.resolvePlacedBlocks(structure, packet.origin(), packet.rotationDegrees());
-        if (!BuildingTerritoryValidator.blockBoundsInCity(level, cityId, placedBlocks)) {
+        if (ServerConfig.claimProtectionEnabled() && !BuildingTerritoryValidator.blockBoundsInCity(level, cityId, placedBlocks)) {
             InfoToastService.warning(player, Component.translatable("message.simukraft.construction.outside_city"));
             return;
         }

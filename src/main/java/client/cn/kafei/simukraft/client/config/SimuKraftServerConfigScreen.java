@@ -273,6 +273,8 @@ public final class SimuKraftServerConfigScreen {
                 SimuKraftConfigWidgets.switchControl(draft.blacklistProtection, value -> draft.blacklistProtection = value)));
         page.addChild(SimuKraftConfigWidgets.row(Component.translatable("config.simukraft.general.logBlacklistSkippedBlocks"),
                 SimuKraftConfigWidgets.switchControl(draft.logBlacklistSkippedBlocks, value -> draft.logBlacklistSkippedBlocks = value)));
+        page.addChild(SimuKraftConfigWidgets.row(Component.translatable("config.simukraft.general.enableClaimProtection"),
+                SimuKraftConfigWidgets.switchControl(draft.claimProtection, value -> draft.claimProtection = value)));
         page.addChild(SimuKraftConfigWidgets.section(Component.translatable("gui.simukraft.config.section.material_editors")));
         page.addChild(openMaterialEditorRow(Component.translatable("config.simukraft.materials.allModeBlockBlacklist"),
                 () -> Minecraft.getInstance().setScreen(SimuKraftMaterialConfigPage.createBlacklist(parent, draft))));

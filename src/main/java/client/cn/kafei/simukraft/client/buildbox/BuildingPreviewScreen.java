@@ -8,6 +8,7 @@ import client.cn.kafei.simukraft.client.input.SimuKraftKeyMappings;
 import client.cn.kafei.simukraft.client.toast.ClientInfoToast;
 import client.cn.kafei.simukraft.client.ui.SimuKraftUiTheme;
 import common.cn.kafei.simukraft.building.BuildingStructure;
+import common.cn.kafei.simukraft.config.ServerConfig;
 import common.cn.kafei.simukraft.network.building.BuildBoxStartConstructionPacket;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -116,7 +117,7 @@ public final class BuildingPreviewScreen extends Screen implements FreeCameraScr
             return true;
         }
         if (SimuKraftKeyMappings.matches(SimuKraftKeyMappings.PREVIEW_CONFIRM, keyCode, scanCode)) {
-            if (!BuildingBoundsRenderer.isEntireBuildingInCityTerritory()) {
+            if (ServerConfig.claimProtectionEnabled() && !BuildingBoundsRenderer.isEntireBuildingInCityTerritory()) {
                 if (this.minecraft != null && this.minecraft.player != null) {
                     ClientInfoToast.show(
                             Component.translatable("toast.simukraft.title"),

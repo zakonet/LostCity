@@ -475,6 +475,7 @@
     "config.simukraft.npc_leveling.builderXpPerBlock":  "建筑师每方块经验",
     "config.simukraft.general.enableBlacklistProtection":  "启用黑名单保护",
     "config.simukraft.general.logBlacklistSkippedBlocks":  "记录跳过的黑名单方块",
+    "config.simukraft.general.enableClaimProtection":  "启用领地限制",
     "config.simukraft.materials.enableCreativeMode":  "材料创造模式",
     "config.simukraft.materials.enableExpertMode":  "专家材料模式",
     "config.simukraft.materials.enableMaterialCategoryMatching":  "启用材料通类匹配",

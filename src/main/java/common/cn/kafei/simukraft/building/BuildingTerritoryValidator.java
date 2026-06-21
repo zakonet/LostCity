@@ -63,7 +63,7 @@ public final class BuildingTerritoryValidator {
         return cityChunks.contains(ChunkPos.asLong(pos.getX() >> 4, pos.getZ() >> 4));
     }
 
-    private static boolean boundsInChunks(int minX, int maxX, int minZ, int maxZ, Set<Long> cityChunks) {
+    public static boolean boundsInChunks(int minX, int maxX, int minZ, int maxZ, Set<Long> cityChunks) {
         int minChunkX = minX >> 4;
         int maxChunkX = maxX >> 4;
         int minChunkZ = minZ >> 4;

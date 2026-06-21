@@ -6,6 +6,7 @@ import common.cn.kafei.simukraft.city.CityManager;
 import common.cn.kafei.simukraft.city.poi.CityPoiService;
 import common.cn.kafei.simukraft.city.poi.CityPoiType;
 import common.cn.kafei.simukraft.building.ResidentialBedPoiService;
+import common.cn.kafei.simukraft.config.ServerConfig;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import common.cn.kafei.simukraft.registry.ModBlocks;
 import net.minecraft.core.BlockPos;
@@ -131,6 +132,9 @@ public final class CityPlacementRestrictionHandler {
             return false;
         }
         if (!isRestrictedBlock(block)) {
+            return false;
+        }
+        if (!ServerConfig.claimProtectionEnabled()) {
             return false;
         }
         return getPlacementCity(serverLevel, targetPos, player).isEmpty();

@@ -9,6 +9,7 @@ import common.cn.kafei.simukraft.building.BuildingBlockData;
 import common.cn.kafei.simukraft.building.BuildingStructure;
 import common.cn.kafei.simukraft.building.BuildingStructureService;
 import common.cn.kafei.simukraft.building.BuildingTerritoryValidator;
+import common.cn.kafei.simukraft.config.ServerConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -26,6 +27,10 @@ public final class BuildingPreviewManager {
     private static String buildingName = "";
     private static PreviewMesh cachedMesh = PreviewMesh.EMPTY;
     private static long previewRevision;
+    // 包围盒缓存：rebuildBlocks 时计算，offsetBlocks 时偏移，用于O(1)领地检查
+    private static int previewMinX, previewMaxX, previewMinZ, previewMaxZ;
+    // 累积偏移量：offsetBlocks 时只更新此值，getPreviewBlocks 懒应用
+    private static int accumDx, accumDy, accumDz;
 
     private BuildingPreviewManager() {
     }
@@ -94,11 +99,18 @@ public final class BuildingPreviewManager {
         buildingName = "";
         cachedMesh.close();
         cachedMesh = PreviewMesh.EMPTY;
+        accumDx = 0; accumDy = 0; accumDz = 0;
         previewRevision++;
     }
 
     public static List<PreviewBlockData> getPreviewBlocks() {
-        return List.copyOf(PREVIEW_BLOCKS);
+        if (accumDx == 0 && accumDy == 0 && accumDz == 0) {
+            return List.copyOf(PREVIEW_BLOCKS);
+        }
+        int dx = accumDx, dy = accumDy, dz = accumDz;
+        return PREVIEW_BLOCKS.stream()
+                .map(b -> new PreviewBlockData(b.pos().offset(dx, dy, dz), b.state(), b.packedLight()))
+                .toList();
     }
 
     public static BlockPos getPreviewOrigin() {
@@ -130,21 +142,27 @@ public final class BuildingPreviewManager {
     }
 
     private static void rebuildBlocks(BuildingStructure structure) {
+        accumDx = 0; accumDy = 0; accumDz = 0;
         PREVIEW_BLOCKS.clear();
         List<BuildingBlockData> blocks = BuildingStructureService.resolvePlacedBlocks(structure, previewOrigin, rotationDegrees);
+        previewMinX = Integer.MAX_VALUE; previewMaxX = Integer.MIN_VALUE;
+        previewMinZ = Integer.MAX_VALUE; previewMaxZ = Integer.MIN_VALUE;
         for (BuildingBlockData block : blocks) {
-            PREVIEW_BLOCKS.add(new PreviewBlockData(block.relativePos(), block.state(), 15728880));
+            BlockPos pos = block.relativePos();
+            PREVIEW_BLOCKS.add(new PreviewBlockData(pos, block.state(), 15728880));
+            if (pos.getX() < previewMinX) previewMinX = pos.getX();
+            if (pos.getX() > previewMaxX) previewMaxX = pos.getX();
+            if (pos.getZ() < previewMinZ) previewMinZ = pos.getZ();
+            if (pos.getZ() > previewMaxZ) previewMaxZ = pos.getZ();
         }
         previewRevision++;
         rebuildMesh();
     }
 
     private static void offsetBlocks(int dx, int dy, int dz) {
-        List<PreviewBlockData> snapshot = new ArrayList<>(PREVIEW_BLOCKS);
-        PREVIEW_BLOCKS.clear();
-        for (PreviewBlockData block : snapshot) {
-            PREVIEW_BLOCKS.add(new PreviewBlockData(block.pos().offset(dx, dy, dz), block.state(), block.packedLight()));
-        }
+        accumDx += dx; accumDy += dy; accumDz += dz;
+        previewMinX += dx; previewMaxX += dx;
+        previewMinZ += dz; previewMaxZ += dz;
         cachedMesh.offsetOrigin(dx, dy, dz);
         previewRevision++;
     }
@@ -160,13 +178,13 @@ public final class BuildingPreviewManager {
             return true;
         }
         ClientCityChunkCache chunkCache = ClientCityChunkCache.getInstance();
-        if (chunkCache.getCurrentCityId() == null) {
+        if (chunkCache.getCurrentCityId() == null || !ServerConfig.claimProtectionEnabled()) {
             return true;
         }
         List<BlockPos> positions = BuildingStructureService.resolvePlacedBlocks(structure, origin, rotation).stream()
                 .map(BuildingBlockData::relativePos)
                 .toList();
-        if (BuildingTerritoryValidator.positionBoundsInChunks(positions, chunkCache.getCurrentCityChunks())) {
+        if (!ServerConfig.claimProtectionEnabled() || BuildingTerritoryValidator.positionBoundsInChunks(positions, chunkCache.getCurrentCityChunks())) {
             return true;
         }
         notifyOutsideCity(notifyOnFailure);
@@ -179,13 +197,12 @@ public final class BuildingPreviewManager {
             return true;
         }
         ClientCityChunkCache chunkCache = ClientCityChunkCache.getInstance();
-        if (chunkCache.getCurrentCityId() == null) {
+        if (chunkCache.getCurrentCityId() == null || !ServerConfig.claimProtectionEnabled()) {
             return true;
         }
-        List<BlockPos> positions = PREVIEW_BLOCKS.stream()
-                .map(block -> block.pos().offset(dx, dy, dz))
-                .toList();
-        if (BuildingTerritoryValidator.positionBoundsInChunks(positions, chunkCache.getCurrentCityChunks())) {
+        if (BuildingTerritoryValidator.boundsInChunks(
+                previewMinX + dx, previewMaxX + dx, previewMinZ + dz, previewMaxZ + dz,
+                chunkCache.getCurrentCityChunks())) {
             return true;
         }
         notifyOutsideCity(notifyOnFailure);

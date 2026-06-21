@@ -475,6 +475,7 @@
     "config.simukraft.npc_leveling.builderXpPerBlock":  "Builder XP Per Block",
     "config.simukraft.general.enableBlacklistProtection":  "Enable Blacklist Protection",
     "config.simukraft.general.logBlacklistSkippedBlocks":  "Log Skipped Blacklist Blocks",
+    "config.simukraft.general.enableClaimProtection":  "Enable Claim Protection",
     "config.simukraft.materials.enableCreativeMode":  "Material Creative Mode",
     "config.simukraft.materials.enableExpertMode":  "Expert Material Mode",
     "config.simukraft.materials.enableMaterialCategoryMatching":  "Enable Material Category Matching",

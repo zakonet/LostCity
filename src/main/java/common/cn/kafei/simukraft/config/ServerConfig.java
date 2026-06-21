@@ -9,6 +9,7 @@ public final class ServerConfig {
     public static final ModConfigSpec.IntValue POPULATION_GROWTH_INTERVAL_TICKS;
     public static final ModConfigSpec.IntValue POPULATION_GROWTH_MAX_PER_INTERVAL;
     public static final ModConfigSpec.BooleanValue ENABLE_BLACKLIST_PROTECTION;
+    public static final ModConfigSpec.BooleanValue ENABLE_CLAIM_PROTECTION;
     public static final ModConfigSpec.BooleanValue LOG_BLACKLIST_SKIPPED_BLOCKS;
     public static final ModConfigSpec.DoubleValue BUILDER_BLOCKS_PER_SECOND;
     public static final ModConfigSpec.IntValue NPC_MAX_LEVEL;
@@ -74,6 +75,11 @@ public final class ServerConfig {
                 .comment("Whether skipped blacklist blocks are written to the server log.")
                 .translation("config.simukraft.general.logBlacklistSkippedBlocks")
                 .define("logSkippedBlocks", true);
+        ENABLE_CLAIM_PROTECTION = builder
+                .comment("Whether city claim territory protection is enabled.",
+                        "When disabled, players can place city blocks anywhere without owning a city or claiming chunks.")
+                .translation("config.simukraft.general.enableClaimProtection")
+                .define("enableClaimProtection", true);
         builder.pop();
         builder.push("population");
         POPULATION_GROWTH_INTERVAL_TICKS = builder.defineInRange("growthIntervalTicks", 24_000, 20, 2_400_000);
@@ -366,6 +372,10 @@ public final class ServerConfig {
 
     public static boolean builderPauseAtNight() {
         return BUILDER_PAUSE_AT_NIGHT.get();
+    }
+
+    public static boolean claimProtectionEnabled() {
+        return ENABLE_CLAIM_PROTECTION.get();
     }
 
     public static boolean materialsCreativeMode() {

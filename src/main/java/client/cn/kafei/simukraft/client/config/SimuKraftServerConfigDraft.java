@@ -13,6 +13,7 @@ final class SimuKraftServerConfigDraft {
     double cityChunkPrice;
     boolean blacklistProtection;
     boolean logBlacklistSkippedBlocks;
+    boolean claimProtection;
     int populationGrowthIntervalTicks;
     int populationGrowthMaxPerInterval;
     int farmAreaRadius;
@@ -76,6 +77,7 @@ final class SimuKraftServerConfigDraft {
         cityChunkPrice = ServerConfig.CITY_CHUNK_PRICE.get();
         blacklistProtection = ServerConfig.ENABLE_BLACKLIST_PROTECTION.get();
         logBlacklistSkippedBlocks = ServerConfig.LOG_BLACKLIST_SKIPPED_BLOCKS.get();
+        claimProtection = ServerConfig.ENABLE_CLAIM_PROTECTION.get();
         populationGrowthIntervalTicks = ServerConfig.POPULATION_GROWTH_INTERVAL_TICKS.get();
         populationGrowthMaxPerInterval = ServerConfig.POPULATION_GROWTH_MAX_PER_INTERVAL.get();
         farmAreaRadius = ServerConfig.FARM_AREA_RADIUS.get();
@@ -130,6 +132,7 @@ final class SimuKraftServerConfigDraft {
         cityChunkPrice = 10.0D;
         blacklistProtection = true;
         logBlacklistSkippedBlocks = true;
+        claimProtection = true;
         populationGrowthIntervalTicks = 24_000;
         populationGrowthMaxPerInterval = 1;
         farmAreaRadius = 3;
@@ -182,7 +185,7 @@ final class SimuKraftServerConfigDraft {
     /** saveToLive: 发包至服务端保存配置。 */
     void saveToLive() {
         PacketDistributor.sendToServer(new ServerConfigSavePacket(
-                cityChunkPrice, blacklistProtection, logBlacklistSkippedBlocks,
+                cityChunkPrice, blacklistProtection, logBlacklistSkippedBlocks, claimProtection,
                 populationGrowthIntervalTicks, populationGrowthMaxPerInterval,
                 farmAreaRadius, farmWorkIntervalTicks, farmActionsPerCycle,
                 pathMaxLoadedCitizenEntities, pathMaxActiveCitizens, pathMaxNewRequestsPerTick,
