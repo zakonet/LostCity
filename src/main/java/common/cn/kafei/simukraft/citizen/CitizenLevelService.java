@@ -292,6 +292,13 @@ public final class CitizenLevelService {
         return scope != null ? scope : ACTIVE_LEVEL_SCOPE;
     }
 
+    public static double blocksPerTick(CitizenData citizen, CityJobType jobType, double basePerSecond) {
+        CitizenSkillSnapshot skill = snapshot(citizen, jobType);
+        if (skill.maxLevel() <= 1) return Math.min(128.0D, basePerSecond / 20.0D);
+        double progress = (skill.level() - 1) / (double) (skill.maxLevel() - 1);
+        return Math.min(128.0D, basePerSecond * (1.0D + progress * 19.0D) / 20.0D);
+    }
+
     public record LevelUpdateResult(CitizenSkillSnapshot before, CitizenSkillSnapshot after) {
         private static LevelUpdateResult unchanged(CitizenSkillSnapshot snapshot) {
             return new LevelUpdateResult(snapshot, snapshot);

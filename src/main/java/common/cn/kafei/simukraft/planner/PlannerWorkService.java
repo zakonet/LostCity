@@ -6,7 +6,6 @@ import common.cn.kafei.simukraft.citizen.CitizenHomeRestService;
 import common.cn.kafei.simukraft.citizen.CitizenLevelService;
 import common.cn.kafei.simukraft.citizen.CitizenService;
 import common.cn.kafei.simukraft.citizen.CitizenSelfFeedingService;
-import common.cn.kafei.simukraft.citizen.CitizenSkillSnapshot;
 import common.cn.kafei.simukraft.citizen.CitizenTeleportService;
 import common.cn.kafei.simukraft.citizen.CitizenWorkStatus;
 import common.cn.kafei.simukraft.config.ServerConfig;
@@ -18,8 +17,13 @@ import common.cn.kafei.simukraft.path.MovementIntent;
 import common.cn.kafei.simukraft.protection.NpcBlockProtectionPolicy;
 import common.cn.kafei.simukraft.registry.ModBlocks;
 import common.cn.kafei.simukraft.storage.SimuSqliteStorage;
+import common.cn.kafei.simukraft.util.NpcWorkChunkLoadService;
 import common.cn.kafei.simukraft.util.SaveScopedCacheKey;
 import common.cn.kafei.simukraft.city.group.CityGroupMessageService;
+import common.cn.kafei.simukraft.city.group.CityUserGroup;
+import common.cn.kafei.simukraft.city.group.CityUserGroupService;
+import common.cn.kafei.simukraft.registry.ModSoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.Direction;
@@ -90,17 +94,16 @@ public final class PlannerWorkService {
         LevelRuntime runtime = runtime(level);
         runtime.hydrated = true;
         runtime.tasks.put(task.citizenId(), new TaskRuntime(task));
+        NpcWorkChunkLoadService.load(level, task.buildBoxPos());
         SimuSqliteStorage.savePlanningTask(level, task);
-        CitizenService.findCitizen(level, task.citizenId()).ifPresent(citizen ->
-                CityGroupMessageService.successToCity(level, task.cityId(),
-                        Component.translatable("message.simukraft.planner.task_started", citizen.name(), Component.translatable(task.operation().translationKey()))));
     }
 
     public static void cancelTask(ServerLevel level, UUID citizenId) {
         if (level == null || citizenId == null) {
             return;
         }
-        runtime(level).tasks.remove(citizenId);
+        TaskRuntime removed = runtime(level).tasks.remove(citizenId);
+        if (removed != null) NpcWorkChunkLoadService.release(level, removed.task.buildBoxPos());
         IO_EXECUTOR.execute(() -> SimuSqliteStorage.deletePlanningTask(level, citizenId));
     }
 
@@ -151,6 +154,7 @@ public final class PlannerWorkService {
         TaskRuntime removed = runtime(level).tasks.remove(citizenId);
         IO_EXECUTOR.execute(() -> SimuSqliteStorage.deletePlanningTask(level, citizenId));
         if (removed != null) {
+            NpcWorkChunkLoadService.release(level, removed.task.buildBoxPos());
             CitizenService.findCitizen(level, citizenId)
                     .filter(citizen -> !citizen.dead())
                     .ifPresent(citizen -> flushXp(level, citizen, removed));
@@ -170,6 +174,7 @@ public final class PlannerWorkService {
             CitizenService.findCitizen(level, taskRuntime.task.citizenId())
                     .filter(citizen -> !citizen.dead())
                     .ifPresent(citizen -> flushXp(level, citizen, taskRuntime));
+            NpcWorkChunkLoadService.release(level, taskRuntime.task.buildBoxPos());
             PlanningTaskData paused = taskRuntime.task.withStatus(PlanningTaskStatus.PAUSED_OFFLINE.id(), System.currentTimeMillis());
             waitForPendingSave(taskRuntime);
             SimuSqliteStorage.savePlanningTask(level, paused);
@@ -360,10 +365,13 @@ public final class PlannerWorkService {
 
     private static void completeTask(ServerLevel level, CitizenData citizen, LevelRuntime runtime, TaskRuntime taskRuntime) {
         flushXp(level, citizen, taskRuntime);
+        NpcWorkChunkLoadService.release(level, taskRuntime.task.buildBoxPos());
         runtime.tasks.remove(citizen.uuid(), taskRuntime);
         IO_EXECUTOR.execute(() -> SimuSqliteStorage.deletePlanningTask(level, citizen.uuid()));
         CityGroupMessageService.successToCity(level, taskRuntime.task.cityId(),
                 Component.translatable("message.simukraft.planner.task_completed", citizen.name(), Component.translatable(taskRuntime.task.operation().translationKey())));
+        CityUserGroupService.forEach(level, CityUserGroup.mayors(taskRuntime.task.cityId()),
+                p -> p.playNotifySound(ModSoundEvents.CONSTRUCTION_COMPLETE.get(), SoundSource.PLAYERS, 1.0F, 1.0F));
         CitizenEmploymentService.clearAfterJobFinished(level, citizen.uuid());
         SimuKraft.LOGGER.info("Simukraft: Planning task completed by {}", citizen.name());
     }
@@ -386,7 +394,9 @@ public final class PlannerWorkService {
             PlanningTaskData resumed = status == PlanningTaskStatus.PAUSED_OFFLINE
                     ? task.withStatus(PlanningTaskStatus.PLANNING.id(), System.currentTimeMillis())
                     : task;
-            runtime.tasks.putIfAbsent(resumed.citizenId(), new TaskRuntime(resumed));
+            if (runtime.tasks.putIfAbsent(resumed.citizenId(), new TaskRuntime(resumed)) == null) {
+                NpcWorkChunkLoadService.load(level, resumed.buildBoxPos());
+            }
             restorePlannerEmployment(level, resumed);
         }
     }
@@ -429,14 +439,7 @@ public final class PlannerWorkService {
     }
 
     private static double plannerBlocksPerTick(CitizenData citizen) {
-        double base = ServerConfig.plannerBlocksPerSecond();
-        CitizenSkillSnapshot skill = CitizenLevelService.snapshot(citizen, CityJobType.PLANNER);
-        if (skill.maxLevel() <= 1) {
-            return Math.min(128.0D, base / 20.0D);
-        }
-        double progress = (skill.level() - 1) / (double) (skill.maxLevel() - 1);
-        double perSecond = base * (1.0D + progress * 19.0D);
-        return Math.min(128.0D, perSecond / 20.0D);
+        return CitizenLevelService.blocksPerTick(citizen, CityJobType.PLANNER, ServerConfig.plannerBlocksPerSecond());
     }
 
     private static boolean shouldRest(ServerLevel level) {
@@ -555,7 +558,7 @@ public final class PlannerWorkService {
     private static void persistAsync(ServerLevel level, TaskRuntime rt, PlanningTaskData snap) {
         if (rt.saveInFlight) return;
         rt.saveInFlight = true;
-        CompletableFuture.runAsync(() -> SimuSqliteStorage.savePlanningTask(level, snap), IO_EXECUTOR)
+        rt.saveFuture = CompletableFuture.runAsync(() -> SimuSqliteStorage.savePlanningTask(level, snap), IO_EXECUTOR)
                 .whenComplete((v, ex) -> {
                     rt.saveInFlight = false;
                     if (ex != null) SimuKraft.LOGGER.error("Simukraft: Failed to save planning task {}", snap.taskId(), ex);
@@ -564,9 +567,8 @@ public final class PlannerWorkService {
     }
 
     private static void waitForPendingSave(TaskRuntime rt) {
-        for (int i = 0; rt != null && rt.saveInFlight && i < 50; i++) {
-            try { Thread.sleep(10); } catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
-        }
+        if (rt == null || rt.saveFuture == null || rt.saveFuture.isDone()) return;
+        try { rt.saveFuture.join(); } catch (Exception e) { Thread.currentThread().interrupt(); }
     }
 
     private static LevelRuntime runtime(ServerLevel level) {
@@ -596,6 +598,7 @@ public final class PlannerWorkService {
         private long nextRetryTick;
         private final AtomicInteger pendingXp = new AtomicInteger();
         volatile boolean saveInFlight;
+        volatile CompletableFuture<Void> saveFuture;
 
         private TaskRuntime(PlanningTaskData task) {
             this.task = task;

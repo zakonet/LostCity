@@ -7,7 +7,6 @@ import common.cn.kafei.simukraft.citizen.CitizenHousingService;
 import common.cn.kafei.simukraft.citizen.CitizenLevelService;
 import common.cn.kafei.simukraft.citizen.CitizenService;
 import common.cn.kafei.simukraft.citizen.CitizenSelfFeedingService;
-import common.cn.kafei.simukraft.citizen.CitizenSkillSnapshot;
 import common.cn.kafei.simukraft.citizen.CitizenWorkplaceMoveService;
 import common.cn.kafei.simukraft.citizen.CitizenWorkStatus;
 import common.cn.kafei.simukraft.city.poi.CityPoiManager;
@@ -24,13 +23,14 @@ import common.cn.kafei.simukraft.material.NpcWorkMaterialService;
 import common.cn.kafei.simukraft.protection.NpcBlockProtectionPolicy;
 import common.cn.kafei.simukraft.registry.ModBlocks;
 import common.cn.kafei.simukraft.storage.SimuSqliteStorage;
+import common.cn.kafei.simukraft.util.NpcWorkChunkLoadService;
 import common.cn.kafei.simukraft.util.SaveScopedCacheKey;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.Comparator;
@@ -99,6 +99,7 @@ public final class BuilderConstructionService {
         SimuSqliteStorage.saveBuildingTask(level, task);
         taskRuntime.lastSavedAt = task.updatedAt();
         taskRuntime.lastSavedIndex = task.currentBlockIndex();
+        NpcWorkChunkLoadService.load(level, task.buildBoxPos());
         primeStructureLoad(task);
     }
 
@@ -108,6 +109,7 @@ public final class BuilderConstructionService {
         }
         TaskRuntime removed = runtime(level).tasksByCitizen.remove(citizenId);
         waitForPendingSave(removed);
+        if (removed != null) NpcWorkChunkLoadService.release(level, removed.task.buildBoxPos());
         IO_EXECUTOR.execute(() -> SimuSqliteStorage.deleteBuildingTask(level, citizenId));
     }
 
@@ -143,10 +145,11 @@ public final class BuilderConstructionService {
         TaskRuntime removed = runtime(level).tasksByCitizen.remove(citizenId);
         if (removed != null) {
             waitForPendingSave(removed);
+            NpcWorkChunkLoadService.release(level, removed.task.buildBoxPos());
             CitizenService.findCitizen(level, citizenId)
                     .filter(citizen -> !citizen.dead())
                     .ifPresent(citizen -> flushPendingBuilderXp(level, citizen, removed));
-            BuildingTaskData interrupted = withStatus(removed.task, BuildingTaskStatus.INTERRUPTED);
+        BuildingTaskData interrupted = removed.task.withStatus(BuildingTaskStatus.INTERRUPTED);
             IO_EXECUTOR.execute(() -> {
                 SimuSqliteStorage.saveBuildingTask(level, interrupted);
                 SimuSqliteStorage.deleteBuildingTask(level, citizenId);
@@ -180,8 +183,9 @@ public final class BuilderConstructionService {
             CitizenService.findCitizen(level, taskRuntime.task.citizenId())
                     .filter(citizen -> !citizen.dead())
                     .ifPresent(citizen -> flushPendingBuilderXp(level, citizen, taskRuntime));
+            NpcWorkChunkLoadService.release(level, taskRuntime.task.buildBoxPos());
             // 服务器关闭时统一标记离线暂停，避免重进游戏后任务被当作正在施工。
-            BuildingTaskData paused = withStatus(taskRuntime.task, BuildingTaskStatus.PAUSED_OFFLINE);
+            BuildingTaskData paused = taskRuntime.task.withStatus(BuildingTaskStatus.PAUSED_OFFLINE);
             taskRuntime.task = paused;
             SimuSqliteStorage.saveBuildingTask(level, paused);
         });
@@ -212,13 +216,19 @@ public final class BuilderConstructionService {
         if (BuildingTaskStatus.from(task.status()).isPaused()) {
             task = resumeTask(level, citizen, taskRuntime);
         }
-        if (BuildingTaskStatus.from(task.status()) == BuildingTaskStatus.WAITING_MATERIALS) {
+        if (taskRuntime.chestCloseAtTick > 0 && level.getGameTime() >= taskRuntime.chestCloseAtTick) {
+            playChestAnimation(level, taskRuntime, false);
+            taskRuntime.chestCloseAtTick = 0;
+        }
+        BuildingTaskStatus currentStatus = BuildingTaskStatus.from(task.status());
+        if (currentStatus == BuildingTaskStatus.WAITING_MATERIALS) {
             if (level.getGameTime() < taskRuntime.nextMaterialRetryTick) {
                 syncCitizenTaskState(level, citizen, taskRuntime, task, null);
                 return;
             }
             taskRuntime.materialCache.markDirty();
         }
+        boolean wasWaiting = currentStatus == BuildingTaskStatus.WAITING_MATERIALS;
         CachedStructure cached = resolveCached(task);
         if (cached == null || cached.blocks().isEmpty()) {
             syncCitizenTaskState(level, citizen, taskRuntime, task, null);
@@ -251,6 +261,11 @@ public final class BuilderConstructionService {
                 markWaitingForMaterials(level, citizen, taskRuntime, task, materialResult);
                 return;
             }
+            if (wasWaiting) {
+                playChestAnimation(level, taskRuntime, true);
+                taskRuntime.chestCloseAtTick = level.getGameTime() + 20;
+                wasWaiting = false;
+            }
             if (!level.isAreaLoaded(worldPos, 4)) {
                 break;
             }
@@ -263,8 +278,7 @@ public final class BuilderConstructionService {
         if (index == task.currentBlockIndex()) {
             return;
         }
-        long now = System.currentTimeMillis();
-        BuildingTaskData updated = new BuildingTaskData(task.taskId(), task.citizenId(), task.cityId(), task.dimensionId(), task.buildBoxPos(), task.category(), task.buildingFileName(), task.displayName(), task.amount(), task.structureFileName(), task.origin(), task.rotationDegrees(), index, task.totalBlocks(), index >= cached.blocks().size() ? BuildingTaskStatus.COMPLETED.id() : BuildingTaskStatus.BUILDING.id(), task.createdAt(), now, task.poiDefinitions());
+        BuildingTaskData updated = task.withProgress(index, index >= cached.blocks().size() ? BuildingTaskStatus.COMPLETED : BuildingTaskStatus.BUILDING);
         taskRuntime.task = updated;
         taskRuntime.dirty = true;
         taskRuntime.missingMaterialName = "";
@@ -297,6 +311,7 @@ public final class BuilderConstructionService {
         ResidentialBedPoiService.addRecordedBeds(level, placedBuilding);
         ConstructionCompletionNotificationService.notifyCompleted(level, citizen, task);
         flushPendingBuilderXp(level, citizen, taskRuntime);
+        NpcWorkChunkLoadService.release(level, task.buildBoxPos());
         runtime.tasksByCitizen.remove(citizen.uuid(), taskRuntime);
         UUID citizenUuid = citizen.uuid();
         IO_EXECUTOR.execute(() -> SimuSqliteStorage.deleteBuildingTask(level, citizenUuid));
@@ -321,10 +336,11 @@ public final class BuilderConstructionService {
             loadFuture.join().forEach(task -> {
                 boolean restoredFromOfflinePause = BuildingTaskStatus.from(task.status()) == BuildingTaskStatus.PAUSED_OFFLINE;
                 BuildingTaskData resumed = restoredFromOfflinePause
-                        ? withStatus(task, BuildingTaskStatus.BUILDING)
+                        ? task.withStatus(BuildingTaskStatus.BUILDING)
                         : task;
                 TaskRuntime taskRuntime = new TaskRuntime(resumed);
                 TaskRuntime existing = runtime.tasksByCitizen.putIfAbsent(resumed.citizenId(), taskRuntime);
+                if (existing == null) NpcWorkChunkLoadService.load(level, resumed.buildBoxPos());
                 primeStructureLoad(resumed);
                 restoreBuilderEmployment(level, resumed);
                 if (existing == null && restoredFromOfflinePause && !shouldRest(level)) {
@@ -399,6 +415,16 @@ public final class BuilderConstructionService {
         }
     }
 
+    private static void playChestAnimation(ServerLevel level, TaskRuntime taskRuntime, boolean open) {
+        int viewerCount = open ? 1 : 0;
+        for (BlockPos pos : taskRuntime.materialCache.getContainerPositions()) {
+            BlockState state = level.getBlockState(pos);
+            if (state.getBlock() instanceof ChestBlock) {
+                level.blockEvent(pos, state.getBlock(), 1, viewerCount);
+            }
+        }
+    }
+
     private static void spawnBuildParticles(ServerLevel level, BlockPos pos) {
         if (level == null || pos == null) {
             return;
@@ -427,14 +453,7 @@ public final class BuilderConstructionService {
     }
 
     private static double builderBlocksPerTick(CitizenData citizen) {
-        double baseBlocksPerSecond = ServerConfig.builderBlocksPerSecond();
-        CitizenSkillSnapshot skill = CitizenLevelService.snapshot(citizen, CityJobType.BUILDER);
-        if (skill.maxLevel() <= 1) {
-            return Math.min(128.0D, baseBlocksPerSecond / 20.0D);
-        }
-        double progress = (skill.level() - 1) / (double) (skill.maxLevel() - 1);
-        double blocksPerSecond = baseBlocksPerSecond * (1.0D + progress * 19.0D);
-        return Math.min(128.0D, blocksPerSecond / 20.0D);
+        return CitizenLevelService.blocksPerTick(citizen, CityJobType.BUILDER, ServerConfig.builderBlocksPerSecond());
     }
 
     private static boolean shouldPersist(TaskRuntime taskRuntime, BuildingTaskData task) {
@@ -451,7 +470,7 @@ public final class BuilderConstructionService {
                 && statusLabel.equals(citizen.statusLabel())) {
             return;
         }
-        BuildingTaskData paused = withStatus(task, status);
+        BuildingTaskData paused = task.withStatus(status);
         taskRuntime.task = paused;
         taskRuntime.dirty = true;
         taskRuntime.lastPhaseKey = status.id();
@@ -463,7 +482,7 @@ public final class BuilderConstructionService {
     }
 
     private static BuildingTaskData resumeTask(ServerLevel level, CitizenData citizen, TaskRuntime taskRuntime) {
-        BuildingTaskData resumed = withStatus(taskRuntime.task, BuildingTaskStatus.BUILDING);
+        BuildingTaskData resumed = taskRuntime.task.withStatus(BuildingTaskStatus.BUILDING);
         taskRuntime.task = resumed;
         taskRuntime.dirty = true;
         taskRuntime.lastPhaseKey = "";
@@ -472,29 +491,6 @@ public final class BuilderConstructionService {
         persistTaskAsync(level, taskRuntime, resumed);
         CitizenWorkplaceMoveService.returnToWorkplace(level, citizen);
         return resumed;
-    }
-
-    private static BuildingTaskData withStatus(BuildingTaskData task, BuildingTaskStatus status) {
-        return new BuildingTaskData(
-                task.taskId(),
-                task.citizenId(),
-                task.cityId(),
-                task.dimensionId(),
-                task.buildBoxPos(),
-                task.category(),
-                task.buildingFileName(),
-                task.displayName(),
-                task.amount(),
-                task.structureFileName(),
-                task.origin(),
-                task.rotationDegrees(),
-                task.currentBlockIndex(),
-                task.totalBlocks(),
-                status.id(),
-                task.createdAt(),
-                System.currentTimeMillis(),
-                task.poiDefinitions()
-        );
     }
 
     private static boolean shouldRest(ServerLevel level) {
@@ -650,27 +646,7 @@ public final class BuilderConstructionService {
             return;
         }
         taskRuntime.materialCache.markDirty();
-        long now = System.currentTimeMillis();
-        BuildingTaskData waitingTask = new BuildingTaskData(
-                task.taskId(),
-                task.citizenId(),
-                task.cityId(),
-                task.dimensionId(),
-                task.buildBoxPos(),
-                task.category(),
-                task.buildingFileName(),
-                task.displayName(),
-                task.amount(),
-                task.structureFileName(),
-                task.origin(),
-                task.rotationDegrees(),
-                task.currentBlockIndex(),
-                task.totalBlocks(),
-                BuildingTaskStatus.WAITING_MATERIALS.id(),
-                task.createdAt(),
-                now,
-                task.poiDefinitions()
-        );
+        BuildingTaskData waitingTask = task.withStatus(BuildingTaskStatus.WAITING_MATERIALS);
         taskRuntime.task = waitingTask;
         taskRuntime.dirty = true;
         taskRuntime.missingMaterialName = BuilderMaterialService.describe(materialResult.requested());
@@ -717,7 +693,7 @@ public final class BuilderConstructionService {
     private static BlockPos resolvePoiPosition(List<BuildingBlockData> sourceBlocks, BuildingPoiDefinition poi, BlockPos origin, int rotationDegrees) {
         if (poi.poiType() == CityPoiType.RESIDENTIAL) {
             for (BuildingBlockData block : sourceBlocks) {
-                if (isResidentialBed(block.state())) {
+                if (CitizenHomeRestService.isResidentialBedHead(block.state())) {
                     return origin.offset(BuildingTransform.rotatePosition(block.relativePos(), rotationDegrees));
                 }
             }
@@ -756,7 +732,7 @@ public final class BuilderConstructionService {
 
     private static List<BuildingPoiInstance> resolveResidentialBedInstances(List<BuildingBlockData> placedBlocks) {
         return placedBlocks.stream()
-                .filter(block -> isResidentialBed(block.state()))
+                .filter(block -> CitizenHomeRestService.isResidentialBedHead(block.state()))
                 .map(block -> block.relativePos().immutable())
                 .distinct()
                 .map(pos -> new BuildingPoiInstance(
@@ -773,13 +749,6 @@ public final class BuilderConstructionService {
             return List.of();
         }
         return resolveResidentialBedInstances(building.blocks());
-    }
-
-    private static boolean isResidentialBed(BlockState state) {
-        // 住宅容量只统计建造流程放下的红床床头，避免一张床的床尾重复算容量。
-        return state.is(Blocks.RED_BED)
-                && (!state.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.BED_PART)
-                || state.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.BED_PART) == net.minecraft.world.level.block.state.properties.BedPart.HEAD);
     }
 
     private static boolean isResidentialCategory(String category) {
@@ -817,6 +786,7 @@ public final class BuilderConstructionService {
         private volatile String lastPhaseKey = "";
         private volatile String missingMaterialName = "";
         private volatile long nextMaterialRetryTick;
+        private volatile long chestCloseAtTick;
         private double buildProgressAccumulator;
         private final AtomicInteger pendingBuilderXp = new AtomicInteger();
 

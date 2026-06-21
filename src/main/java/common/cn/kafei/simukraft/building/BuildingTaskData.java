@@ -23,4 +23,12 @@ public record BuildingTaskData(UUID taskId,
                                long createdAt,
                                long updatedAt,
                                List<BuildingPoiDefinition> poiDefinitions) {
+
+    public BuildingTaskData withStatus(BuildingTaskStatus status) {
+        return new BuildingTaskData(taskId, citizenId, cityId, dimensionId, buildBoxPos, category, buildingFileName, displayName, amount, structureFileName, origin, rotationDegrees, currentBlockIndex, totalBlocks, status.id(), createdAt, System.currentTimeMillis(), poiDefinitions);
+    }
+
+    public BuildingTaskData withProgress(int index, BuildingTaskStatus status) {
+        return new BuildingTaskData(taskId, citizenId, cityId, dimensionId, buildBoxPos, category, buildingFileName, displayName, amount, structureFileName, origin, rotationDegrees, index, totalBlocks, status.id(), createdAt, System.currentTimeMillis(), poiDefinitions);
+    }
 }

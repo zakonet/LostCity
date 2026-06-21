@@ -76,6 +76,10 @@ public final class WorkMaterialCache {
         inventoryDirty = true;
     }
 
+    public List<BlockPos> getContainerPositions() {
+        return List.copyOf(cachedContainerPositions);
+    }
+
     public boolean tracksContainer(ServerLevel level, BlockPos containerPos) {
         if (level == null || containerPos == null) {
             return false;

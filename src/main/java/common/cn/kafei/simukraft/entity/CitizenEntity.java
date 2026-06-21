@@ -130,6 +130,11 @@ public class CitizenEntity extends PathfinderMob {
     }
 
     @Override
+    public void handlePortal() {
+        // NPC 不允许通过任何传送门（下界门、末地门、折跃门等）
+    }
+
+    @Override
     public void tick() {
         super.tick();
         syncClientWorkSwingPulse();
@@ -152,6 +157,10 @@ public class CitizenEntity extends PathfinderMob {
             rescueFromWall(false);
             // 实体每 tick 确保自己有 CitizenData，数据缺失时会自动补全。
             CitizenData data = CitizenService.ensureCitizen(serverLevel, this);
+            if (!serverLevel.dimension().location().toString().equals(data.dimensionId())) {
+                discard();
+                return;
+            }
             CitizenDroppedFoodService.tryEatNearbyFood(serverLevel, this, data);
         }
     }

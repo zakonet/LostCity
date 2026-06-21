@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 
 public final class CityUserGroupService {
     private CityUserGroupService() {
@@ -42,6 +43,11 @@ public final class CityUserGroupService {
                         .thenComparing(CityMemberData::playerName))
                 .forEach(member -> addOnlinePlayer(server, uniquePlayerIds, players, member.playerId()));
         return List.copyOf(players);
+    }
+
+    // forEach: 对城市用户组的每个在线玩家执行操作。
+    public static void forEach(ServerLevel level, CityUserGroup group, Consumer<ServerPlayer> action) {
+        onlinePlayers(level, group).forEach(action);
     }
 
     // addOnlinePlayer: 将去重后的在线玩家加入用户组快照。

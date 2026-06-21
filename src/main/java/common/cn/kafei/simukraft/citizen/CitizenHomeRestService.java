@@ -54,6 +54,9 @@ public final class CitizenHomeRestService {
             if (level.getGameTime() % 20L == 0L) {
                 restoreHomeRestingCitizens(level);
             }
+            if (level.getGameTime() % 100L == 0L) {
+                retryBlockedWorkNavigation(level);
+            }
             return;
         }
         if (level.getGameTime() % 40L != 0L) {
@@ -97,6 +100,16 @@ public final class CitizenHomeRestService {
         }
     }
 
+    private static void retryBlockedWorkNavigation(ServerLevel level) {
+        for (CitizenData citizen : CitizenManager.get(level).allCitizens()) {
+            if (citizen.dead() || citizen.workplaceId() == null
+                    || citizen.jobType() == CityJobType.UNEMPLOYED
+                    || citizen.workStatusType() != CitizenWorkStatus.WORKING) continue;
+            if (CitizenNavigationService.isNavigating(level, citizen.uuid())) continue;
+            CitizenWorkplaceMoveService.returnToWorkplace(level, citizen);
+        }
+    }
+
     private static boolean moveOrTeleportHome(ServerLevel level, CitizenData citizen, Vec3 homeTarget) {
         CitizenEntity entity = CitizenTeleportService.findCitizenEntity(level, citizen.uuid());
         if (entity != null && CitizenNavigationService.requestMove(level, citizen.uuid(), homeTarget, MovementIntent.RETURN_HOME)) {
@@ -127,7 +140,7 @@ public final class CitizenHomeRestService {
             citizen.setStatusLabel("");
             citizen.setWorkNeedDetail("");
             manager.saveCitizenNow(citizen.uuid());
-            CitizenEntity entity = CitizenTeleportService.findCitizenEntity(level, citizen.uuid());
+            CitizenEntity entity = entityToWake;
             if (entity != null) {
                 manager.syncEntity(entity);
             }
@@ -344,7 +357,7 @@ public final class CitizenHomeRestService {
         return state.getCollisionShape(level, pos).isEmpty();
     }
 
-    private static boolean isResidentialBedHead(BlockState state) {
+    public static boolean isResidentialBedHead(BlockState state) {
         return state.is(Blocks.RED_BED)
                 && (!state.hasProperty(BlockStateProperties.BED_PART) || state.getValue(BlockStateProperties.BED_PART) == BedPart.HEAD);
     }

@@ -74,7 +74,7 @@ public final class CitizenTeleportService {
             citizenEntity.moveTo(landing.x, landing.y, landing.z, level.random.nextFloat() * 360.0F, 0.0F);
             if (level.getEntity(data.uuid()) instanceof CitizenEntity existing && !existing.isRemoved()) {
                 citizenEntity = existing;
-            } else {
+            } else if (level.getEntity(data.uuid()) == null) {
                 level.addFreshEntity(citizenEntity);
             }
             CitizenManager.get(level).syncEntity(citizenEntity);

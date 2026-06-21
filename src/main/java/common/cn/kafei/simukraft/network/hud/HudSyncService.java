@@ -80,8 +80,7 @@ public final class HudSyncService {
 
     // syncToCityGroup: 立即同步城市用户组内所有在线玩家的 HUD。
     public static void syncToCityGroup(ServerLevel level, UUID cityId, boolean force) {
-        CityUserGroupService.onlinePlayers(level, CityUserGroup.members(cityId))
-                .forEach(player -> syncToPlayer(player, force));
+        CityUserGroupService.forEach(level, CityUserGroup.members(cityId), player -> syncToPlayer(player, force));
     }
 
     // syncResolvedGroup: 同步已经解析好的用户组快照，供成员移除等场景使用。

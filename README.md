@@ -23,6 +23,15 @@ LDLib/LDLib2 UI
 
 ## 最近同步
 
+2026-06-21：
+
+- 代码精简重构：提取跨服务共用逻辑，消除冗余。
+  - `CitizenLevelService` 新增 `blocksPerTick(citizen, jobType, basePerSecond)`，建筑师和规划师的等级速度公式合并到此方法，不再各自维护一份。
+  - `CitizenHomeRestService.isResidentialBedHead` 改为 `public static`，`BuilderConstructionService` 直接复用，删除内部重复的 `isResidentialBed` 方法。
+  - `BuildingTaskData`（record）新增 `withStatus(status)` 和 `withProgress(index, status)` 实例方法，替代多处 18 参数完整构造器调用；`BuilderConstructionService` 内部的同名私有静态工具方法一并删除。
+  - `PlannerWorkService.waitForPendingSave` 由 sleep 轮询改为 `CompletableFuture.join()`，与 `BuilderConstructionService` 行为对齐；`TaskRuntime` 新增 `saveFuture` 字段。
+  - `CitizenHomeRestService.restoreHomeRestingCitizens` 修复同一居民调用两次 `findCitizenEntity` 的冗余。
+
 2026-06-17：
 
 - NPC 夜间回家后会在床上进入横卧姿势（`Pose.SLEEPING`）；一床一人，玩家右键床可唤醒；已到床边才躺，不在途中进入卧姿；醒来定位到预先计算的安全落点，不卡头。
