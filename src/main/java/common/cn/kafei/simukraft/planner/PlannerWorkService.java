@@ -12,6 +12,7 @@ import common.cn.kafei.simukraft.config.ServerConfig;
 import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.job.CityJobType;
 import common.cn.kafei.simukraft.material.GenericContainerAccess;
+import common.cn.kafei.simukraft.material.WorkContainerService;
 import common.cn.kafei.simukraft.path.CitizenNavigationService;
 import common.cn.kafei.simukraft.path.MovementIntent;
 import common.cn.kafei.simukraft.protection.NpcBlockProtectionPolicy;
@@ -26,13 +27,11 @@ import common.cn.kafei.simukraft.registry.ModSoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -124,11 +123,11 @@ public final class PlannerWorkService {
         if (level == null || task == null) {
             return 0;
         }
-        BlockPos chestPos = resolveTaskChest(level, task);
+        List<BlockPos> chestPositions = resolveTaskChests(level, task);
         int count = 0;
         for (int index = 0; index < task.totalBlocks(); index++) {
             BlockPos pos = task.blockAt(index);
-            if (level.isLoaded(pos) && isTargetCell(level, task, pos, chestPos)) {
+            if (level.isLoaded(pos) && isTargetCell(level, task, pos, chestPositions)) {
                 count++;
             }
         }
@@ -219,7 +218,7 @@ public final class PlannerWorkService {
             return;
         }
 
-        BlockPos chestPos = resolveTaskChest(level, task);
+        List<BlockPos> chestPositions = resolveTaskChests(level, task);
         citizenEntity.setHasActiveVisualTask(true);
         int budget = consumeBudget(taskRuntime, citizen);
         int index = Math.max(0, task.currentIndex());
@@ -235,7 +234,7 @@ public final class PlannerWorkService {
                 index++;
                 continue;
             }
-            CellResult result = applyCell(level, task, pos, chestPos);
+            CellResult result = applyCell(level, task, pos, chestPositions);
             if (result == CellResult.WAITING) {
                 waiting = true;
                 break;
@@ -278,26 +277,26 @@ public final class PlannerWorkService {
         }
     }
 
-    private static CellResult applyCell(ServerLevel level, PlanningTaskData task, BlockPos pos, BlockPos chestPos) {
+    private static CellResult applyCell(ServerLevel level, PlanningTaskData task, BlockPos pos, List<BlockPos> chestPositions) {
         return switch (task.operation()) {
-            case REMOVE -> applyRemove(level, pos, chestPos, task.buildBoxPos());
-            case FILL -> applyFill(level, pos, chestPos, task.fillBlockId());
-            case REPLACE -> applyReplace(level, pos, chestPos, task.effectiveReplacementMap(), task.buildBoxPos());
+            case REMOVE -> applyRemove(level, pos, chestPositions, task.buildBoxPos());
+            case FILL -> applyFill(level, pos, chestPositions, task.fillBlockId());
+            case REPLACE -> applyReplace(level, pos, chestPositions, task.effectiveReplacementMap(), task.buildBoxPos());
         };
     }
 
     // isTargetCell：只做判定不改世界，用于创建任务时计算真实目标总数。
-    private static boolean isTargetCell(ServerLevel level, PlanningTaskData task, BlockPos pos, BlockPos chestPos) {
+    private static boolean isTargetCell(ServerLevel level, PlanningTaskData task, BlockPos pos, List<BlockPos> chestPositions) {
         return switch (task.operation()) {
-            case REMOVE -> isRemoveTarget(level, pos, task.buildBoxPos(), chestPos);
+            case REMOVE -> isRemoveTarget(level, pos, task.buildBoxPos(), chestPositions);
             case FILL -> isFillTarget(level, pos, task.fillBlockId());
-            case REPLACE -> isReplaceTarget(level, pos, task.effectiveReplacementMap(), task.buildBoxPos(), chestPos);
+            case REPLACE -> isReplaceTarget(level, pos, task.effectiveReplacementMap(), task.buildBoxPos(), chestPositions);
         };
     }
 
-    private static boolean isRemoveTarget(ServerLevel level, BlockPos pos, BlockPos boxPos, BlockPos chestPos) {
+    private static boolean isRemoveTarget(ServerLevel level, BlockPos pos, BlockPos boxPos, List<BlockPos> chestPositions) {
         BlockState state = level.getBlockState(pos);
-        return !state.isAir() && !isProtected(level, pos, state, boxPos, chestPos);
+        return !state.isAir() && !isProtected(level, pos, state, boxPos, chestPositions);
     }
 
     private static boolean isFillTarget(ServerLevel level, BlockPos pos, String fillBlockId) {
@@ -305,27 +304,27 @@ public final class PlannerWorkService {
         return (state.isAir() || state.canBeReplaced()) && resolveBlock(fillBlockId) != null;
     }
 
-    private static boolean isReplaceTarget(ServerLevel level, BlockPos pos, Map<String, String> replacementMap, BlockPos boxPos, BlockPos chestPos) {
+    private static boolean isReplaceTarget(ServerLevel level, BlockPos pos, Map<String, String> replacementMap, BlockPos boxPos, List<BlockPos> chestPositions) {
         if (replacementMap == null || replacementMap.isEmpty()) {
             return false;
         }
         BlockState state = level.getBlockState(pos);
         String sourceBlockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
         String targetBlockId = replacementMap.get(sourceBlockId);
-        return targetBlockId != null && resolveBlock(targetBlockId) != null && !isProtected(level, pos, state, boxPos, chestPos);
+        return targetBlockId != null && resolveBlock(targetBlockId) != null && !isProtected(level, pos, state, boxPos, chestPositions);
     }
 
-    private static CellResult applyRemove(ServerLevel level, BlockPos pos, BlockPos chestPos, BlockPos boxPos) {
+    private static CellResult applyRemove(ServerLevel level, BlockPos pos, List<BlockPos> chestPositions, BlockPos boxPos) {
         BlockState state = level.getBlockState(pos);
-        if (state.isAir() || isProtected(level, pos, state, boxPos, chestPos)) {
+        if (state.isAir() || isProtected(level, pos, state, boxPos, chestPositions)) {
             return CellResult.SKIPPED;
         }
-        harvestInto(level, chestPos, pos, state);
+        harvestInto(level, chestPositions, pos, state);
         level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
         return CellResult.PROCESSED;
     }
 
-    private static CellResult applyFill(ServerLevel level, BlockPos pos, BlockPos chestPos, String fillBlockId) {
+    private static CellResult applyFill(ServerLevel level, BlockPos pos, List<BlockPos> chestPositions, String fillBlockId) {
         BlockState state = level.getBlockState(pos);
         if (!state.isAir() && !state.canBeReplaced()) {
             return CellResult.SKIPPED;
@@ -334,31 +333,31 @@ public final class PlannerWorkService {
         if (block == null) {
             return CellResult.SKIPPED;
         }
-        if (!consumeBlockItem(level, chestPos, block)) {
+        if (!consumeBlockItem(level, chestPositions, block)) {
             return CellResult.WAITING;
         }
         level.setBlock(pos, block.defaultBlockState(), 3);
         return CellResult.PROCESSED;
     }
 
-    private static CellResult applyReplace(ServerLevel level, BlockPos pos, BlockPos chestPos, Map<String, String> replacementMap, BlockPos boxPos) {
+    private static CellResult applyReplace(ServerLevel level, BlockPos pos, List<BlockPos> chestPositions, Map<String, String> replacementMap, BlockPos boxPos) {
         if (replacementMap == null || replacementMap.isEmpty()) {
             return CellResult.SKIPPED;
         }
         BlockState state = level.getBlockState(pos);
         String sourceBlockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
         String targetBlockId = replacementMap.get(sourceBlockId);
-        if (targetBlockId == null || isProtected(level, pos, state, boxPos, chestPos)) {
+        if (targetBlockId == null || isProtected(level, pos, state, boxPos, chestPositions)) {
             return CellResult.SKIPPED;
         }
         Block target = resolveBlock(targetBlockId);
         if (target == null) {
             return CellResult.SKIPPED;
         }
-        if (!consumeBlockItem(level, chestPos, target)) {
+        if (!consumeBlockItem(level, chestPositions, target)) {
             return CellResult.WAITING;
         }
-        harvestInto(level, chestPos, pos, state);
+        harvestInto(level, chestPositions, pos, state);
         level.setBlock(pos, target.defaultBlockState(), 3);
         return CellResult.PROCESSED;
     }
@@ -468,57 +467,24 @@ public final class PlannerWorkService {
         CitizenLevelService.addExperience(level, citizen.uuid(), CityJobType.PLANNER, xp);
     }
 
-    private static void harvestInto(ServerLevel level, BlockPos chestPos, BlockPos pos, BlockState state) {
-        List<ItemStack> drops = Block.getDrops(state, level, pos, level.getBlockEntity(pos));
-        for (ItemStack drop : drops) {
-            if (drop.isEmpty()) {
-                continue;
-            }
-            ItemStack leftover = chestPos != null ? GenericContainerAccess.insert(level, chestPos, drop) : drop;
-            if (!leftover.isEmpty()) {
-                Block.popResource(level, pos, leftover);
-            }
-        }
+    private static void harvestInto(ServerLevel level, List<BlockPos> chestPositions, BlockPos pos, BlockState state) {
+        WorkContainerService.depositDropsOrDrop(level, chestPositions, Block.getDrops(state, level, pos, level.getBlockEntity(pos)), pos);
     }
 
-    private static boolean consumeBlockItem(ServerLevel level, BlockPos chestPos, Block block) {
-        if (chestPos == null) {
+    private static boolean consumeBlockItem(ServerLevel level, List<BlockPos> chestPositions, Block block) {
+        if (chestPositions.isEmpty()) {
             return false;
         }
         Item item = block.asItem();
         if (item == net.minecraft.world.item.Items.AIR) {
             return false;
         }
-        List<GenericContainerAccess.SlotSnapshot> slots = GenericContainerAccess.snapshotSlots(level, chestPos);
-        for (GenericContainerAccess.SlotSnapshot slot : slots) {
-            if (slot.stack().getItem() == item) {
-                return GenericContainerAccess.consumeSingleItemAtSlot(level, chestPos, slot.slot(), slot.access(), slot.side(), item);
-            }
-        }
-        return false;
+        return WorkContainerService.consumeItem(level, chestPositions, item);
     }
 
-    private static BlockPos resolveTaskChest(ServerLevel level, PlanningTaskData task) {
-        BlockPos selected = task.materialChestPos();
-        if (selected == null) {
-            return resolveAdjacentChest(level, task.buildBoxPos());
-        }
-        if (!level.isLoaded(selected)) {
-            return selected;
-        }
-        return GenericContainerAccess.isContainer(level, selected)
-                ? GenericContainerAccess.canonicalContainerPos(level, selected)
-                : selected;
-    }
-
-    private static BlockPos resolveAdjacentChest(ServerLevel level, BlockPos boxPos) {
-        for (Direction direction : Direction.values()) {
-            BlockPos candidate = boxPos.relative(direction);
-            if (level.isLoaded(candidate) && GenericContainerAccess.isContainer(level, candidate)) {
-                return GenericContainerAccess.canonicalContainerPos(level, candidate);
-            }
-        }
-        return null;
+    // resolveTaskChests: 规划任务使用选中箱优先，其它紧贴建筑盒容器备用。
+    private static List<BlockPos> resolveTaskChests(ServerLevel level, PlanningTaskData task) {
+        return WorkContainerService.orderedAdjacentContainers(level, task.buildBoxPos(), task.materialChestPos());
     }
 
     private static Block resolveBlock(String blockId) {
@@ -533,8 +499,8 @@ public final class PlannerWorkService {
     }
 
     // 保护：不拆基岩、建筑盒、绑定的箱子，避免规划师自毁工作区或吃掉材料箱。
-    private static boolean isProtected(ServerLevel level, BlockPos pos, BlockState state, BlockPos boxPos, BlockPos chestPos) {
-        if (pos.equals(boxPos) || (chestPos != null && pos.equals(chestPos))) {
+    private static boolean isProtected(ServerLevel level, BlockPos pos, BlockState state, BlockPos boxPos, List<BlockPos> chestPositions) {
+        if (pos.equals(boxPos) || chestPositions.contains(pos)) {
             return true;
         }
         if (state.is(Blocks.BEDROCK)) {

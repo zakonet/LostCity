@@ -47,6 +47,31 @@ public final class CitizenBedSleepService {
         return true;
     }
 
+    /** restoreSleeping: 重进游戏后重建床占用缓存，并把仍在睡觉的 NPC 重新贴回床面。 */
+    public static boolean restoreSleeping(ServerLevel level, CitizenEntity entity, @Nullable Vec3 wakeupPos) {
+        if (level == null || entity == null || !entity.isSleeping()) {
+            return false;
+        }
+        BlockPos bedHeadPos = entity.getSleepingPos().orElse(null);
+        if (bedHeadPos == null || !level.getBlockState(bedHeadPos).is(Blocks.RED_BED)) {
+            return false;
+        }
+        String levelKey = SaveScopedCacheKey.levelKey(level);
+        UUID uuid = entity.getUUID();
+        ConcurrentMap<BlockPos, UUID> beds = OCCUPIED_BEDS.computeIfAbsent(levelKey, k -> new ConcurrentHashMap<>());
+        UUID existing = beds.get(bedHeadPos);
+        if (existing != null && !existing.equals(uuid)) {
+            return false;
+        }
+        beds.put(bedHeadPos, uuid);
+        CITIZEN_BED.computeIfAbsent(levelKey, k -> new ConcurrentHashMap<>()).put(uuid, bedHeadPos);
+        if (wakeupPos != null) {
+            CITIZEN_WAKEUP_POS.computeIfAbsent(levelKey, k -> new ConcurrentHashMap<>()).put(uuid, wakeupPos);
+        }
+        entity.startSleeping(bedHeadPos);
+        return true;
+    }
+
     /** wakeUp：停止睡眠并将实体定位到预计算的安全落点，避免卡头。 */
     public static void wakeUp(ServerLevel level, CitizenEntity entity, @Nullable Vec3 fallbackPos) {
         String levelKey = SaveScopedCacheKey.levelKey(level);

@@ -9,10 +9,8 @@ import net.minecraft.world.item.ItemStack;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -110,15 +108,7 @@ public final class WorkMaterialCache {
     }
 
     private List<BlockPos> discoverAdjacentContainers(ServerLevel level) {
-        Set<BlockPos> positions = new LinkedHashSet<>();
-        for (Direction direction : Direction.values()) {
-            BlockPos adjacentPos = workBlockPos.relative(direction);
-            if (!GenericContainerAccess.isContainer(level, adjacentPos)) {
-                continue;
-            }
-            positions.add(GenericContainerAccess.canonicalContainerPos(level, adjacentPos));
-        }
-        return List.copyOf(positions);
+        return WorkContainerService.adjacentContainers(level, workBlockPos);
     }
 
     private void refreshInventoryIfNeeded(ServerLevel level, boolean forceRefresh) {

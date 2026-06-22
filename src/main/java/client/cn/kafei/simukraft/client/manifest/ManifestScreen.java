@@ -35,6 +35,7 @@ public final class ManifestScreen extends Screen {
     private static final int CHECKBOX_SIZE = 9;
     private static final int CHECKBOX_GAP = 4;
     private static final int ROW_HEIGHT = 18;
+    private static final int MATERIAL_FRAME_TITLE_GAP = 4;
     private static final int BOARD_COLOR = 0xFF594233;
     private static final int BOARD_BORDER_COLOR = 0xFF251810;
     private static final int PAPER_COLOR = 0xFFF7E7C5;
@@ -51,6 +52,7 @@ public final class ManifestScreen extends Screen {
     private final InteractionHand hand;
     private final List<RowBounds> rowBounds = new ArrayList<>();
     private List<ManifestItem.MaterialEntry> materials = List.of();
+    private List<ManifestItem.ProductGroup> productGroups = List.of();
     private PageButton forwardButton;
     private PageButton backButton;
     private int currentPage;
@@ -167,12 +169,16 @@ public final class ManifestScreen extends Screen {
         guiGraphics.drawCenteredString(font, title, layout.pageX() + layout.pageWidth() / 2, titleY, TEXT_COLOR);
         guiGraphics.drawString(font, Component.translatable("screen.simukraft.manifest.building", ManifestItem.getBuildingName(manifestStack)),
                 layout.contentX(), titleY + 16, MUTED_TEXT_COLOR, false);
-        guiGraphics.drawString(font, Component.translatable("screen.simukraft.manifest.progress",
-                        ManifestItem.getProgressCurrent(manifestStack), ManifestItem.getProgressTotal(manifestStack)),
-                layout.contentX(), titleY + 29, MUTED_TEXT_COLOR, false);
         guiGraphics.drawString(font, Component.literal((currentPage + 1) + "/" + pageCount()),
                 layout.pageRight() - layout.contentPadding() - 22, layout.pageY() + 10, MUTED_TEXT_COLOR, false);
 
+        if (!productGroups.isEmpty()) {
+            renderMaterialFrame(guiGraphics, layout, Component.translatable(productFrameTitleKey()));
+            renderProductGroup(guiGraphics, layout, productGroups.get(currentPage));
+            return;
+        }
+
+        renderMaterialFrame(guiGraphics, layout, Component.translatable("screen.simukraft.manifest.material_header"));
         if (materials.isEmpty()) {
             guiGraphics.drawCenteredString(font, Component.translatable("screen.simukraft.manifest.empty"),
                     layout.pageX() + layout.pageWidth() / 2, layout.listTop(), CHECKED_TEXT_COLOR);
@@ -206,7 +212,100 @@ public final class ManifestScreen extends Screen {
             int lineY = y + 10;
             guiGraphics.fill(textX, lineY, layout.contentRight(), lineY + 1, CHECKED_TEXT_COLOR);
         }
-        rowBounds.add(new RowBounds(entry.index(), layout.contentX(), y, layout.contentWidth(), ROW_HEIGHT));
+        if (entry.index() >= 0) {
+            rowBounds.add(new RowBounds(entry.index(), layout.contentX(), y, layout.contentWidth(), ROW_HEIGHT));
+        }
+    }
+
+    /** renderMaterialFrame: 绘制材料列表区域的小标题和边框。 */
+    private void renderMaterialFrame(GuiGraphics guiGraphics, PageLayout layout, Component title) {
+        int left = layout.contentX() - 5;
+        int right = layout.contentRight() + 5;
+        int top = layout.listFrameTop();
+        int bottom = layout.listFrameBottom();
+        guiGraphics.fill(left, top, right, top + 1, PAPER_EDGE_COLOR);
+        guiGraphics.fill(left, bottom - 1, right, bottom, PAPER_EDGE_COLOR);
+        guiGraphics.fill(left, top, left + 1, bottom, PAPER_EDGE_COLOR);
+        guiGraphics.fill(right - 1, top, right, bottom, PAPER_EDGE_COLOR);
+
+        int titleX = left + 9;
+        int titleY = top - 4;
+        int titleRight = titleX + font.width(title) + MATERIAL_FRAME_TITLE_GAP * 2;
+        guiGraphics.fill(titleX - MATERIAL_FRAME_TITLE_GAP, top, titleRight, top + 1, PAPER_COLOR);
+        guiGraphics.drawString(font, title, titleX, titleY, MUTED_TEXT_COLOR, false);
+    }
+
+    /** renderProductGroup: 绘制“需要物品 -> 商品”的控制箱清单页。 */
+    private void renderProductGroup(GuiGraphics guiGraphics, PageLayout layout, ManifestItem.ProductGroup group) {
+        int left = layout.contentX() + 4;
+        int right = layout.contentRight() - 4;
+        int width = Math.max(1, right - left);
+        int top = layout.listTop();
+        int bottom = layout.listFrameBottom() - 8;
+        int productRows = Math.max(1, Math.min(group.products().size(), 3));
+        int productTop = Math.max(top + 92, bottom - productRows * ROW_HEIGHT - 6);
+        int middleY = top + (productTop - top) / 2;
+        int materialRows = Math.max(1, (middleY - top - 26) / ROW_HEIGHT);
+
+        Component requiredTitle = Component.translatable(requiredTitleKey());
+        guiGraphics.drawCenteredString(font, requiredTitle, left + width / 2, top, MUTED_TEXT_COLOR);
+        renderEntryRows(guiGraphics, group.materials(), left + 7, top + 18, width - 14, materialRows, false);
+
+        renderDownArrow(guiGraphics, left + width / 2, middleY - 13);
+
+        Component productTitle = Component.translatable(productTitleKey());
+        guiGraphics.drawCenteredString(font, productTitle, left + width / 2, middleY + 6, MUTED_TEXT_COLOR);
+        renderEntryRows(guiGraphics, group.products(), left + 7, productTop, width - 14, productRows, false);
+    }
+
+    private void renderDownArrow(GuiGraphics guiGraphics, int centerX, int top) {
+        centerX -= 1;
+        guiGraphics.fill(centerX - 1, top, centerX + 1, top + 10, MUTED_TEXT_COLOR);
+        guiGraphics.hLine(centerX - 4, centerX + 4, top + 10, MUTED_TEXT_COLOR);
+        guiGraphics.hLine(centerX - 3, centerX + 3, top + 11, MUTED_TEXT_COLOR);
+        guiGraphics.hLine(centerX - 2, centerX + 2, top + 12, MUTED_TEXT_COLOR);
+        guiGraphics.hLine(centerX - 1, centerX + 1, top + 13, MUTED_TEXT_COLOR);
+    }
+
+    private void renderEntryRows(GuiGraphics guiGraphics,
+                                 List<ManifestItem.MaterialEntry> entries,
+                                 int x,
+                                 int y,
+                                 int width,
+                                 int maxRows,
+                                 boolean checkable) {
+        int rows = Math.min(entries.size(), maxRows);
+        for (int i = 0; i < rows; i++) {
+            renderEntryRow(guiGraphics, entries.get(i), x, y + i * ROW_HEIGHT, width, checkable);
+        }
+        if (entries.size() > rows) {
+            guiGraphics.drawCenteredString(font, Component.literal("..."), x + width / 2, y + rows * ROW_HEIGHT + 3, MUTED_TEXT_COLOR);
+        }
+    }
+
+    private void renderEntryRow(GuiGraphics guiGraphics, ManifestItem.MaterialEntry entry, int x, int y, int width, boolean checkable) {
+        int currentX = x;
+        int color = checkable && entry.checked() ? CHECKED_TEXT_COLOR : TEXT_COLOR;
+        if (checkable) {
+            int checkboxY = y + (ROW_HEIGHT - CHECKBOX_SIZE) / 2;
+            renderCheckbox(guiGraphics, currentX, checkboxY, entry.checked(), color);
+            currentX += CHECKBOX_SIZE + CHECKBOX_GAP;
+        }
+        int iconY = y + (ROW_HEIGHT - ITEM_ICON_SIZE) / 2;
+        guiGraphics.renderItem(materialStack(entry.itemId()), currentX, iconY);
+        currentX += ITEM_ICON_SIZE + 5;
+        String countText = checkable ? countText(entry) : "x" + entry.count();
+        int countWidth = font.width(countText);
+        int countX = x + width - countWidth;
+        int nameWidth = Math.max(1, countX - currentX - 8);
+        guiGraphics.drawString(font, fitText(materialName(entry.itemId()).getString(), nameWidth), currentX, y + 5, color, false);
+        guiGraphics.drawString(font, countText, countX, y + 5, color, false);
+        if (checkable && entry.checked()) {
+            guiGraphics.fill(currentX, y + 10, x + width, y + 11, CHECKED_TEXT_COLOR);
+        }
+        if (checkable && entry.index() >= 0) {
+            rowBounds.add(new RowBounds(entry.index(), x, y, width, ROW_HEIGHT));
+        }
     }
 
     private void renderCheckbox(GuiGraphics guiGraphics, int x, int y, boolean checked, int color) {
@@ -267,13 +366,35 @@ public final class ManifestScreen extends Screen {
 
     private void refreshMaterials() {
         materials = ManifestItem.getMaterials(manifestStack);
+        productGroups = ManifestItem.getProductGroups(manifestStack);
         currentPage = Mth.clamp(currentPage, 0, Math.max(0, pageCount() - 1));
         updateButtonVisibility();
     }
 
     private int pageCount() {
+        if (!productGroups.isEmpty()) {
+            return productGroups.size();
+        }
         int perPage = pageLayout().itemsPerPage();
         return Math.max(1, (materials.size() + perPage - 1) / perPage);
+    }
+
+    private String productTitleKey() {
+        return "industrial".equals(ManifestItem.getSourceType(manifestStack))
+                ? "screen.simukraft.manifest.produced_products"
+                : "screen.simukraft.manifest.sold_products";
+    }
+
+    private String productFrameTitleKey() {
+        return "industrial".equals(ManifestItem.getSourceType(manifestStack))
+                ? "screen.simukraft.manifest.recipe_header"
+                : "screen.simukraft.manifest.product_header";
+    }
+
+    private String requiredTitleKey() {
+        return "industrial".equals(ManifestItem.getSourceType(manifestStack))
+                ? "screen.simukraft.manifest.input_materials"
+                : "screen.simukraft.manifest.required_items";
     }
 
     private PageLayout pageLayout() {
@@ -293,8 +414,10 @@ public final class ManifestScreen extends Screen {
         int boardWidth = pageWidth + boardPadding * 2;
         int boardHeight = pageHeight + boardPadding + boardTopExtra;
         int contentPadding = clamp(Math.round(pageWidth * 0.090F), 13, 20);
-        int listTop = pageY + clamp(Math.round(pageHeight * 0.270F), 55, 76);
-        int listBottom = pageY + pageHeight - 28;
+        int listFrameTop = pageY + clamp(Math.round(pageHeight * 0.255F), 52, 72);
+        int listTop = listFrameTop + 14;
+        int listBottom = pageY + pageHeight - 32;
+        int listFrameBottom = listBottom + 5;
         int itemsPerPage = Math.max(1, (listBottom - listTop) / ROW_HEIGHT);
         int clipWidth = clamp(Math.round(pageWidth * 0.440F), 72, 110);
         int clipHeight = clamp(Math.round(pageHeight * 0.070F), 16, 22);
@@ -302,7 +425,7 @@ public final class ManifestScreen extends Screen {
         int clipY = boardY + 5;
         int buttonY = pageY + pageHeight - PAGE_BUTTON_HEIGHT - 7;
         return new PageLayout(pageX, pageY, pageWidth, pageHeight, boardX, boardY, boardWidth, boardHeight,
-                contentPadding, listTop, itemsPerPage, clipX, clipY, clipWidth, clipHeight, buttonY);
+                contentPadding, listFrameTop, listTop, listFrameBottom, itemsPerPage, clipX, clipY, clipWidth, clipHeight, buttonY);
     }
 
     private Component materialName(String itemId) {
@@ -358,7 +481,9 @@ public final class ManifestScreen extends Screen {
                               int boardWidth,
                               int boardHeight,
                               int contentPadding,
+                              int listFrameTop,
                               int listTop,
+                              int listFrameBottom,
                               int itemsPerPage,
                               int clipX,
                               int clipY,

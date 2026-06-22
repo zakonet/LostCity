@@ -29,6 +29,18 @@ public final class BuildingStructureService {
         return BuildingCatalog.findBuilding(category, buildingFileName).flatMap(BuildingStructureService::loadStructure);
     }
 
+    /** loadStructure: 按建筑任务保存的结构文件优先加载，避免恢复施工或清单材料时读错建筑。 */
+    public static Optional<BuildingStructure> loadStructure(BuildingTaskData task) {
+        if (task == null) {
+            return Optional.empty();
+        }
+        Optional<BuildingStructure> byStructureFile = BuildingCatalog.findBuildingByStructureFile(task.category(), task.structureFileName())
+                .flatMap(BuildingStructureService::loadStructure);
+        return byStructureFile.isPresent()
+                ? byStructureFile
+                : loadStructure(task.category(), task.buildingFileName());
+    }
+
     public static Optional<BuildingStructure> loadStructure(BuildingCatalog.BuildingDefinition definition) {
         if (definition == null) {
             return Optional.empty();

@@ -79,6 +79,16 @@ public final class CitizenHomeRestService {
                 continue;
             }
             Vec3 homeTarget = homeTargets.computeIfAbsent(home.poiId(), ignored -> resolveHomeTarget(level, home.pos()));
+            CitizenEntity sleepingEntity = CitizenTeleportService.findCitizenEntity(level, citizen.uuid());
+            if (sleepingEntity != null && sleepingEntity.isSleeping()) {
+                if (!restedCitizens.contains(citizen.uuid())) {
+                    CitizenBedSleepService.restoreSleeping(level, sleepingEntity, homeTarget);
+                }
+                citizen.setWorkStatus(CitizenWorkStatus.RESTING);
+                citizen.setWorkNeedDetail(HOME_REST_MARKER);
+                restedCitizens.add(citizen.uuid());
+                continue;
+            }
             if (restedCitizens.contains(citizen.uuid())) {
                 CitizenTeleportService.reconcileLoadedCitizenEntities(level, citizen.uuid(), homeTarget);
                 CitizenEntity entity = CitizenTeleportService.findCitizenEntity(level, citizen.uuid());

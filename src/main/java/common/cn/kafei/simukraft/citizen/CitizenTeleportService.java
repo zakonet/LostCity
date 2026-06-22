@@ -36,6 +36,9 @@ public final class CitizenTeleportService {
         if (citizenEntity == null) {
             return false;
         }
+        if (citizenEntity.isSleeping()) {
+            return false;
+        }
         Vec3 landing = boundedLandingTarget(level, target);
         if (landing == null) {
             return false;
@@ -64,6 +67,9 @@ public final class CitizenTeleportService {
         }
         // 先合并已加载的同 UUID 实体；找不到时才按居民数据补生成实体。
         CitizenEntity citizenEntity = reconcileLoadedCitizenEntities(level, data.uuid(), landing);
+        if (citizenEntity != null && citizenEntity.isSleeping()) {
+            return false;
+        }
         if (citizenEntity == null) {
             citizenEntity = ModEntities.CITIZEN.get().create(level);
             if (citizenEntity == null) {
@@ -90,6 +96,9 @@ public final class CitizenTeleportService {
     // teleportCitizenToNearbySafePosition：NPC 卡进方块时，搜索半径 2 内最近的安全脚底点并救出。
     public static boolean teleportCitizenToNearbySafePosition(ServerLevel level, CitizenEntity citizenEntity) {
         if (level == null || citizenEntity == null || citizenEntity.isRemoved()) {
+            return false;
+        }
+        if (citizenEntity.isSleeping()) {
             return false;
         }
         Vec3 landing = nearestSafeLandingAround(level, citizenEntity);

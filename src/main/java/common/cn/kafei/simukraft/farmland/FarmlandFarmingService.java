@@ -9,6 +9,7 @@ import common.cn.kafei.simukraft.citizen.CitizenWorkStatus;
 import common.cn.kafei.simukraft.config.ServerConfig;
 import common.cn.kafei.simukraft.entity.CitizenEntity;
 import common.cn.kafei.simukraft.material.GenericContainerAccess;
+import common.cn.kafei.simukraft.material.WorkContainerService;
 import common.cn.kafei.simukraft.path.CitizenNavigationService;
 import common.cn.kafei.simukraft.path.MovementIntent;
 import common.cn.kafei.simukraft.registry.ModBlocks;
@@ -115,8 +116,8 @@ public final class FarmlandFarmingService {
             return;
         }
 
-        BlockPos chestPos = FarmlandBoxService.resolveAdjacentChest(level, boxPos);
-        if (chestPos == null) {
+        List<BlockPos> chestPositions = FarmlandBoxService.resolveAdjacentChests(level, boxPos);
+        if (chestPositions.isEmpty()) {
             clearActiveTarget(boxRuntime);
             setFarmerStatus(level, farmer, boxRuntime, "等待仓储箱: " + cropLabel(data.crop()), CitizenWorkStatus.WORKING, "missing_chest");
             boxRuntime.setVisual(ItemStack.EMPTY, false);
@@ -124,9 +125,9 @@ public final class FarmlandFarmingService {
             return;
         }
 
-        FarmlandWorkTarget target = resolveTarget(level, data, chestPos, boxRuntime);
+        FarmlandWorkTarget target = resolveTarget(level, data, chestPositions, boxRuntime);
         if (target == null) {
-            String phaseKey = hasSeedlessPlantingWork(level, data, chestPos) ? "missing_seed" : "waiting_growth";
+            String phaseKey = hasSeedlessPlantingWork(level, data, chestPositions) ? "missing_seed" : "waiting_growth";
             String label = "missing_seed".equals(phaseKey)
                     ? "等待种子: " + cropLabel(data.crop())
                     : "等待作物成熟: " + cropLabel(data.crop());
@@ -144,7 +145,7 @@ public final class FarmlandFarmingService {
             return;
         }
 
-        FarmlandWorkResult result = applyTarget(level, data, chestPos, target);
+        FarmlandWorkResult result = applyTarget(level, data, chestPositions, target);
         if (result == FarmlandWorkResult.PROCESSED) {
             farmerEntity.triggerWorkSwing(InteractionHand.MAIN_HAND);
             clearActiveTarget(boxRuntime);
@@ -159,20 +160,20 @@ public final class FarmlandFarmingService {
         }
     }
 
-    private static FarmlandWorkTarget resolveTarget(ServerLevel level, FarmlandBoxData data, BlockPos chestPos, BoxRuntime boxRuntime) {
+    private static FarmlandWorkTarget resolveTarget(ServerLevel level, FarmlandBoxData data, List<BlockPos> chestPositions, BoxRuntime boxRuntime) {
         FarmlandWorkTarget active = boxRuntime.activeTarget;
-        if (active != null && needsWork(level, data, chestPos, active.phase(), active.cropPos())) {
+        if (active != null && needsWork(level, data, chestPositions, active.phase(), active.cropPos())) {
             return active;
         }
         clearActiveTarget(boxRuntime);
         for (FarmlandWorkPhase phase : FarmlandWorkPhase.ORDERED) {
-            if (phase == FarmlandWorkPhase.PLANT && !hasSeed(level, chestPos, data.crop())) {
+            if (phase == FarmlandWorkPhase.PLANT && !hasSeed(level, chestPositions, data.crop())) {
                 continue;
             }
-            if (phase == FarmlandWorkPhase.BONEMEAL && !hasBoneMeal(level, chestPos)) {
+            if (phase == FarmlandWorkPhase.BONEMEAL && !hasBoneMeal(level, chestPositions)) {
                 continue;
             }
-            FarmlandWorkTarget target = findTarget(level, data, chestPos, boxRuntime, phase);
+            FarmlandWorkTarget target = findTarget(level, data, chestPositions, boxRuntime, phase);
             if (target != null) {
                 boxRuntime.activeTarget = target;
                 return target;
@@ -181,7 +182,7 @@ public final class FarmlandFarmingService {
         return null;
     }
 
-    private static FarmlandWorkTarget findTarget(ServerLevel level, FarmlandBoxData data, BlockPos chestPos, BoxRuntime boxRuntime, FarmlandWorkPhase phase) {
+    private static FarmlandWorkTarget findTarget(ServerLevel level, FarmlandBoxData data, List<BlockPos> chestPositions, BoxRuntime boxRuntime, FarmlandWorkPhase phase) {
         FarmlandPlot plot = data.plot();
         int cells = scanCellCount(plot, phase);
         int start = boxRuntime.cursor(phase);
@@ -191,7 +192,7 @@ public final class FarmlandFarmingService {
             if (isSkippedBoxCell(data.boxPos(), cropPos) || !level.isLoaded(cropPos)) {
                 continue;
             }
-            if (needsWork(level, data, chestPos, phase, cropPos)) {
+            if (needsWork(level, data, chestPositions, phase, cropPos)) {
                 boxRuntime.setCursor(phase, index + 1);
                 return new FarmlandWorkTarget(phase, cropPos.immutable());
             }
@@ -214,24 +215,24 @@ public final class FarmlandFarmingService {
                 || phase == FarmlandWorkPhase.BONEMEAL || phase == FarmlandWorkPhase.HARVEST;
     }
 
-    private static boolean needsWork(ServerLevel level, FarmlandBoxData data, BlockPos chestPos, FarmlandWorkPhase phase, BlockPos cropPos) {
+    private static boolean needsWork(ServerLevel level, FarmlandBoxData data, List<BlockPos> chestPositions, FarmlandWorkPhase phase, BlockPos cropPos) {
         return switch (phase) {
-            case DIG_WATER -> needsWaterWork(level, data, chestPos, cropPos);
+            case DIG_WATER -> needsWaterWork(level, data, chestPositions, cropPos);
             case TILL -> needsTillWork(level, data, cropPos);
             case PLANT -> needsPlantWork(level, data, cropPos);
-            case BONEMEAL -> needsBonemealWork(level, data, chestPos, cropPos);
+            case BONEMEAL -> needsBonemealWork(level, data, chestPositions, cropPos);
             case HARVEST -> needsHarvestWork(level, data, cropPos);
         };
     }
 
-    private static boolean needsWaterWork(ServerLevel level, FarmlandBoxData data, BlockPos chestPos, BlockPos cropPos) {
+    private static boolean needsWaterWork(ServerLevel level, FarmlandBoxData data, List<BlockPos> chestPositions, BlockPos cropPos) {
         FarmlandPlot plot = data.plot();
         if (!FarmlandWorkGeometry.isWaterTrough(plot, cropPos)) {
             return false;
         }
         BlockPos soilPos = cropPos.below();
-        if (isProtected(level, cropPos, level.getBlockState(cropPos), data.boxPos(), chestPos)
-                || isProtected(level, soilPos, level.getBlockState(soilPos), data.boxPos(), chestPos)) {
+        if (isProtected(level, cropPos, level.getBlockState(cropPos), data.boxPos(), chestPositions)
+                || isProtected(level, soilPos, level.getBlockState(soilPos), data.boxPos(), chestPositions)) {
             return false;
         }
         BlockState cropState = level.getBlockState(cropPos);
@@ -271,29 +272,29 @@ public final class FarmlandFarmingService {
         return crop.isOwnPlant(cropState) && crop.isMatureFull(cropState);
     }
 
-    private static FarmlandWorkResult applyTarget(ServerLevel level, FarmlandBoxData data, BlockPos chestPos, FarmlandWorkTarget target) {
+    private static FarmlandWorkResult applyTarget(ServerLevel level, FarmlandBoxData data, List<BlockPos> chestPositions, FarmlandWorkTarget target) {
         return switch (target.phase()) {
-            case DIG_WATER -> applyWaterWork(level, data, chestPos, target.cropPos());
+            case DIG_WATER -> applyWaterWork(level, data, chestPositions, target.cropPos());
             case TILL -> applyTillWork(level, data, target.cropPos());
-            case PLANT -> applyPlantWork(level, data, chestPos, target.cropPos());
-            case BONEMEAL -> applyBonemealWork(level, data, chestPos, target.cropPos());
-            case HARVEST -> applyHarvestWork(level, data, chestPos, target.cropPos());
+            case PLANT -> applyPlantWork(level, data, chestPositions, target.cropPos());
+            case BONEMEAL -> applyBonemealWork(level, data, chestPositions, target.cropPos());
+            case HARVEST -> applyHarvestWork(level, data, chestPositions, target.cropPos());
         };
     }
 
-    private static FarmlandWorkResult applyWaterWork(ServerLevel level, FarmlandBoxData data, BlockPos chestPos, BlockPos cropPos) {
-        if (!needsWaterWork(level, data, chestPos, cropPos)) {
+    private static FarmlandWorkResult applyWaterWork(ServerLevel level, FarmlandBoxData data, List<BlockPos> chestPositions, BlockPos cropPos) {
+        if (!needsWaterWork(level, data, chestPositions, cropPos)) {
             return FarmlandWorkResult.SKIPPED;
         }
         BlockPos soilPos = cropPos.below();
         BlockState cropState = level.getBlockState(cropPos);
         if (!cropState.isAir()) {
-            harvestBlock(level, chestPos, cropPos, cropState);
+            harvestBlock(level, chestPositions, cropPos, cropState);
         }
         BlockState soilState = level.getBlockState(soilPos);
         if (!soilState.is(Blocks.WATER)) {
             if (!soilState.isAir()) {
-                harvestBlock(level, chestPos, soilPos, soilState);
+                harvestBlock(level, chestPositions, soilPos, soilState);
             }
             level.setBlock(soilPos, Blocks.WATER.defaultBlockState(), 3);
         }
@@ -308,39 +309,39 @@ public final class FarmlandFarmingService {
         return FarmlandWorkResult.PROCESSED;
     }
 
-    private static FarmlandWorkResult applyPlantWork(ServerLevel level, FarmlandBoxData data, BlockPos chestPos, BlockPos cropPos) {
+    private static FarmlandWorkResult applyPlantWork(ServerLevel level, FarmlandBoxData data, List<BlockPos> chestPositions, BlockPos cropPos) {
         if (!needsPlantWork(level, data, cropPos)) {
             return FarmlandWorkResult.SKIPPED;
         }
         FarmCrop crop = data.crop();
-        if (!consumeSeed(level, chestPos, crop)) {
+        if (!consumeSeed(level, chestPositions, crop)) {
             return FarmlandWorkResult.WAITING_SEED;
         }
         level.setBlock(cropPos, crop.plantState(), 3);
         return FarmlandWorkResult.PROCESSED;
     }
 
-    private static FarmlandWorkResult applyHarvestWork(ServerLevel level, FarmlandBoxData data, BlockPos chestPos, BlockPos cropPos) {
+    private static FarmlandWorkResult applyHarvestWork(ServerLevel level, FarmlandBoxData data, List<BlockPos> chestPositions, BlockPos cropPos) {
         if (!needsHarvestWork(level, data, cropPos)) {
             return FarmlandWorkResult.SKIPPED;
         }
         FarmCrop crop = data.crop();
         BlockState cropState = level.getBlockState(cropPos);
         if (crop.isStem()) {
-            return harvestProduceAround(level, chestPos, crop, cropPos) ? FarmlandWorkResult.PROCESSED : FarmlandWorkResult.SKIPPED;
+            return harvestProduceAround(level, chestPositions, crop, cropPos) ? FarmlandWorkResult.PROCESSED : FarmlandWorkResult.SKIPPED;
         }
-        harvestBlock(level, chestPos, cropPos, cropState);
-        replantAfterHarvest(level, chestPos, crop, cropPos);
+        harvestBlock(level, chestPositions, cropPos, cropState);
+        replantAfterHarvest(level, chestPositions, crop, cropPos);
         return FarmlandWorkResult.PROCESSED;
     }
 
-    private static void replantAfterHarvest(ServerLevel level, BlockPos chestPos, FarmCrop crop, BlockPos cropPos) {
+    private static void replantAfterHarvest(ServerLevel level, List<BlockPos> chestPositions, FarmCrop crop, BlockPos cropPos) {
         if (crop == null || crop.isStem() || !crop.shouldPlantAt(cropPos.getX(), cropPos.getZ())) {
             return;
         }
         BlockState cropState = level.getBlockState(cropPos);
         BlockState soilState = level.getBlockState(cropPos.below());
-        if (isCropCellFree(cropState) && soilState.is(Blocks.FARMLAND) && consumeSeed(level, chestPos, crop)) {
+        if (isCropCellFree(cropState) && soilState.is(Blocks.FARMLAND) && consumeSeed(level, chestPositions, crop)) {
             level.setBlock(cropPos, crop.plantState(), 3);
         }
     }
@@ -355,8 +356,8 @@ public final class FarmlandFarmingService {
         return false;
     }
 
-    private static boolean hasSeedlessPlantingWork(ServerLevel level, FarmlandBoxData data, BlockPos chestPos) {
-        if (hasSeed(level, chestPos, data.crop())) {
+    private static boolean hasSeedlessPlantingWork(ServerLevel level, FarmlandBoxData data, List<BlockPos> chestPositions) {
+        if (hasSeed(level, chestPositions, data.crop())) {
             return false;
         }
         FarmlandPlot plot = data.plot();
@@ -370,75 +371,53 @@ public final class FarmlandFarmingService {
         return false;
     }
 
-    private static boolean needsBonemealWork(ServerLevel level, FarmlandBoxData data, BlockPos chestPos, BlockPos cropPos) {
+    private static boolean needsBonemealWork(ServerLevel level, FarmlandBoxData data, List<BlockPos> chestPositions, BlockPos cropPos) {
         FarmCrop crop = data.crop();
         if (crop == null || FarmlandWorkGeometry.isWaterTrough(data.plot(), cropPos)) return false;
         BlockState state = level.getBlockState(cropPos);
         if (!crop.isOwnPlant(state) || crop.isMatureFull(state)) return false;
         return state.getBlock() instanceof BonemealableBlock b
                 && b.isValidBonemealTarget(level, cropPos, state)
-                && hasBoneMeal(level, chestPos);
+                && hasBoneMeal(level, chestPositions);
     }
 
-    private static FarmlandWorkResult applyBonemealWork(ServerLevel level, FarmlandBoxData data, BlockPos chestPos, BlockPos cropPos) {
-        if (!needsBonemealWork(level, data, chestPos, cropPos)) return FarmlandWorkResult.SKIPPED;
-        if (!consumeBoneMeal(level, chestPos)) return FarmlandWorkResult.SKIPPED;
+    private static FarmlandWorkResult applyBonemealWork(ServerLevel level, FarmlandBoxData data, List<BlockPos> chestPositions, BlockPos cropPos) {
+        if (!needsBonemealWork(level, data, chestPositions, cropPos)) return FarmlandWorkResult.SKIPPED;
+        if (!consumeBoneMeal(level, chestPositions)) return FarmlandWorkResult.SKIPPED;
         BlockState state = level.getBlockState(cropPos);
         ((BonemealableBlock) state.getBlock()).performBonemeal(level, level.getRandom(), cropPos, state);
         return FarmlandWorkResult.PROCESSED;
     }
 
-    private static boolean hasBoneMeal(ServerLevel level, BlockPos chestPos) {
-        if (chestPos == null) return false;
-        for (GenericContainerAccess.SlotSnapshot slot : GenericContainerAccess.snapshotSlots(level, chestPos)) {
-            if (slot.stack().getItem() == Items.BONE_MEAL) return true;
-        }
-        return false;
+    private static boolean hasBoneMeal(ServerLevel level, List<BlockPos> chestPositions) {
+        return WorkContainerService.hasItem(level, chestPositions, Items.BONE_MEAL);
     }
 
-    private static boolean consumeBoneMeal(ServerLevel level, BlockPos chestPos) {
-        if (chestPos == null) return false;
-        for (GenericContainerAccess.SlotSnapshot slot : GenericContainerAccess.snapshotSlots(level, chestPos)) {
-            if (slot.stack().getItem() == Items.BONE_MEAL) {
-                return GenericContainerAccess.consumeSingleItemAtSlot(level, chestPos, slot.slot(), slot.access(), slot.side(), Items.BONE_MEAL);
-            }
-        }
-        return false;
+    private static boolean consumeBoneMeal(ServerLevel level, List<BlockPos> chestPositions) {
+        return WorkContainerService.consumeItem(level, chestPositions, Items.BONE_MEAL);
     }
 
-    private static boolean hasSeed(ServerLevel level, BlockPos chestPos, FarmCrop crop) {
-        if (chestPos == null || crop == null) {
+    private static boolean hasSeed(ServerLevel level, List<BlockPos> chestPositions, FarmCrop crop) {
+        if (crop == null) {
             return false;
         }
-        List<GenericContainerAccess.SlotSnapshot> slots = GenericContainerAccess.snapshotSlots(level, chestPos);
-        for (GenericContainerAccess.SlotSnapshot slot : slots) {
-            if (slot.stack().getItem() == crop.seed()) {
-                return true;
-            }
-        }
-        return false;
+        return WorkContainerService.hasItem(level, chestPositions, crop.seed());
     }
 
-    private static boolean consumeSeed(ServerLevel level, BlockPos chestPos, FarmCrop crop) {
-        if (chestPos == null || crop == null) {
+    private static boolean consumeSeed(ServerLevel level, List<BlockPos> chestPositions, FarmCrop crop) {
+        if (crop == null) {
             return false;
         }
-        List<GenericContainerAccess.SlotSnapshot> slots = GenericContainerAccess.snapshotSlots(level, chestPos);
-        for (GenericContainerAccess.SlotSnapshot slot : slots) {
-            if (slot.stack().getItem() == crop.seed()) {
-                return GenericContainerAccess.consumeSingleItemAtSlot(level, chestPos, slot.slot(), slot.access(), slot.side(), crop.seed());
-            }
-        }
-        return false;
+        return WorkContainerService.consumeItem(level, chestPositions, crop.seed());
     }
 
-    private static void harvestBlock(ServerLevel level, BlockPos chestPos, BlockPos pos, BlockState state) {
+    private static void harvestBlock(ServerLevel level, List<BlockPos> chestPositions, BlockPos pos, BlockState state) {
         List<ItemStack> drops = Block.getDrops(state, level, pos, level.getBlockEntity(pos));
         level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
-        depositDrops(level, chestPos, drops, pos);
+        depositDrops(level, chestPositions, drops, pos);
     }
 
-    private static boolean harvestProduceAround(ServerLevel level, BlockPos chestPos, FarmCrop crop, BlockPos stemPos) {
+    private static boolean harvestProduceAround(ServerLevel level, List<BlockPos> chestPositions, FarmCrop crop, BlockPos stemPos) {
         boolean harvested = false;
         for (Direction direction : Direction.Plane.HORIZONTAL) {
             BlockPos producePos = stemPos.relative(direction);
@@ -447,7 +426,7 @@ public final class FarmlandFarmingService {
             }
             BlockState produceState = level.getBlockState(producePos);
             if (crop.isProduce(produceState)) {
-                harvestBlock(level, chestPos, producePos, produceState);
+                harvestBlock(level, chestPositions, producePos, produceState);
                 harvested = true;
             }
         }
@@ -464,16 +443,8 @@ public final class FarmlandFarmingService {
         return false;
     }
 
-    private static void depositDrops(ServerLevel level, BlockPos chestPos, List<ItemStack> drops, BlockPos fallbackPos) {
-        for (ItemStack drop : drops) {
-            if (drop.isEmpty()) {
-                continue;
-            }
-            ItemStack leftover = chestPos != null ? GenericContainerAccess.insert(level, chestPos, drop) : drop;
-            if (!leftover.isEmpty()) {
-                Block.popResource(level, fallbackPos, leftover);
-            }
-        }
+    private static void depositDrops(ServerLevel level, List<BlockPos> chestPositions, List<ItemStack> drops, BlockPos fallbackPos) {
+        WorkContainerService.depositDropsOrDrop(level, chestPositions, drops, fallbackPos);
     }
 
     private static void setFarmerStatus(ServerLevel level, CitizenData farmer, BoxRuntime boxRuntime, String label, CitizenWorkStatus status, String phaseKey) {
@@ -507,8 +478,8 @@ public final class FarmlandFarmingService {
         return cropPos.getX() == boxPos.getX() && cropPos.getZ() == boxPos.getZ();
     }
 
-    private static boolean isProtected(ServerLevel level, BlockPos pos, BlockState state, BlockPos boxPos, BlockPos chestPos) {
-        if (pos.equals(boxPos) || (chestPos != null && pos.equals(chestPos))) {
+    private static boolean isProtected(ServerLevel level, BlockPos pos, BlockState state, BlockPos boxPos, List<BlockPos> chestPositions) {
+        if (pos.equals(boxPos) || chestPositions.contains(pos)) {
             return true;
         }
         if (state.is(Blocks.BEDROCK)) {

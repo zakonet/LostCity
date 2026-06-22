@@ -4,12 +4,12 @@ import common.cn.kafei.simukraft.citizen.CitizenData;
 import common.cn.kafei.simukraft.city.CityChunkManager;
 import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.job.CityJobType;
-import common.cn.kafei.simukraft.material.GenericContainerAccess;
+import common.cn.kafei.simukraft.material.WorkContainerService;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -167,13 +167,12 @@ public final class FarmlandBoxService {
      * 自动检测仓储箱：只认紧贴农田盒六个面的容器，按固定方向顺序取第一个，其它位置一律不考虑。
      */
     public static BlockPos resolveAdjacentChest(ServerLevel level, BlockPos boxPos) {
-        for (Direction direction : Direction.values()) {
-            BlockPos candidate = boxPos.relative(direction);
-            if (level.isLoaded(candidate) && GenericContainerAccess.isContainer(level, candidate)) {
-                return GenericContainerAccess.canonicalContainerPos(level, candidate);
-            }
-        }
-        return null;
+        return WorkContainerService.firstAdjacentContainer(level, boxPos);
+    }
+
+    // resolveAdjacentChests: 返回农田盒六面紧贴容器列表，农民运行时按顺序切换。
+    public static List<BlockPos> resolveAdjacentChests(ServerLevel level, BlockPos boxPos) {
+        return WorkContainerService.adjacentContainers(level, boxPos);
     }
 
     public enum ToggleResult {

@@ -26,8 +26,20 @@ public final class BuildingCatalog {
             return Optional.empty();
         }
         String normalizedName = stripExtension(buildingFileName);
-        return listBuildings(category).stream()
+        Optional<BuildingDefinition> byMetaFile = listBuildings(category).stream()
                 .filter(candidate -> stripExtension(candidate.metaFileName()).equalsIgnoreCase(normalizedName))
+                .findFirst();
+        return byMetaFile.isPresent() ? byMetaFile : findBuildingByStructureFile(category, buildingFileName);
+    }
+
+    /** findBuildingByStructureFile: 通过结构文件名查找建筑定义，用于兼容已保存任务和外部建筑包。 */
+    public static Optional<BuildingDefinition> findBuildingByStructureFile(String category, String structureFileName) {
+        if (structureFileName == null || structureFileName.isBlank()) {
+            return Optional.empty();
+        }
+        String normalizedName = stripExtension(structureFileName);
+        return listBuildings(category).stream()
+                .filter(candidate -> stripExtension(candidate.structureFileName()).equalsIgnoreCase(normalizedName))
                 .findFirst();
     }
 

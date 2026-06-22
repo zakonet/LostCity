@@ -54,6 +54,9 @@ public final class ManifestItem extends Item {
     private static final String TAG_SOURCE_TYPE = "SourceType";
     private static final String TAG_PROGRESS_CURRENT = "ProgressCurrent";
     private static final String TAG_PROGRESS_TOTAL = "ProgressTotal";
+    private static final String TAG_PRODUCT_GROUPS = "ProductGroups";
+    private static final String TAG_PRODUCTS = "Products";
+    private static final String TAG_INDEX = "Index";
 
     public ManifestItem() {
         super(new Item.Properties().stacksTo(1));
@@ -75,14 +78,27 @@ public final class ManifestItem extends Item {
         if (player == null || !player.isShiftKeyDown()) {
             return InteractionResult.PASS;
         }
+        BlockPos clickedPos = context.getClickedPos();
         BlockState state = level.getBlockState(context.getClickedPos());
-        if (!isBuildBox(state)) {
-            return InteractionResult.PASS;
+        if (isBuildBox(state)) {
+            if (level instanceof ServerLevel serverLevel && player instanceof ServerPlayer serverPlayer) {
+                fillFromBuildBox(context.getItemInHand(), serverLevel, clickedPos, serverPlayer);
+            }
+            return InteractionResult.sidedSuccess(level.isClientSide());
         }
-        if (level instanceof ServerLevel serverLevel) {
-            fillFromBuildBox(context.getItemInHand(), serverLevel, context.getClickedPos(), (ServerPlayer) player);
+        if (isCommercialControlBox(state)) {
+            if (level instanceof ServerLevel serverLevel && player instanceof ServerPlayer serverPlayer) {
+                fillFromCommercialControlBox(context.getItemInHand(), serverLevel, clickedPos, serverPlayer);
+            }
+            return InteractionResult.sidedSuccess(level.isClientSide());
         }
-        return InteractionResult.sidedSuccess(level.isClientSide());
+        if (isIndustrialControlBox(state)) {
+            if (level instanceof ServerLevel serverLevel && player instanceof ServerPlayer serverPlayer) {
+                fillFromIndustrialControlBox(context.getItemInHand(), serverLevel, clickedPos, serverPlayer);
+            }
+            return InteractionResult.sidedSuccess(level.isClientSide());
+        }
+        return InteractionResult.PASS;
     }
 
     @Override
@@ -100,6 +116,16 @@ public final class ManifestItem extends Item {
         return state.is(ModBlocks.BUILD_BOX.get());
     }
 
+    /** isCommercialControlBox: 判断方块是否为商业控制箱。 */
+    private static boolean isCommercialControlBox(BlockState state) {
+        return state.is(ModBlocks.COMMERCIAL_CONTROL_BOX.get());
+    }
+
+    /** isIndustrialControlBox: 判断方块是否为工业控制箱。 */
+    private static boolean isIndustrialControlBox(BlockState state) {
+        return state.is(ModBlocks.INDUSTRIAL_CONTROL_BOX.get());
+    }
+
     private static void fillFromBuildBox(ItemStack stack, ServerLevel level, BlockPos buildBoxPos, ServerPlayer player) {
         UUID buildTaskOwner = findBuildTaskOwner(level, buildBoxPos);
         if (buildTaskOwner == null) {
@@ -113,7 +139,7 @@ public final class ManifestItem extends Item {
             return;
         }
 
-        Optional<BuildingStructure> structureOptional = BuildingStructureService.loadStructure(task.category(), task.buildingFileName());
+        Optional<BuildingStructure> structureOptional = BuildingStructureService.loadStructure(task);
         if (structureOptional.isEmpty()) {
             InfoToastService.warning(player, Component.translatable("message.simukraft.manifest.no_building"));
             return;
@@ -130,12 +156,43 @@ public final class ManifestItem extends Item {
         }
 
         CompoundTag tag = customTag(stack);
-        tag.putString(TAG_BUILDING_NAME, structure.displayName());
+        tag.putString(TAG_BUILDING_NAME, displayName(task.displayName(), structure.displayName(), task.buildingFileName()));
         tag.putString(TAG_SOURCE_TYPE, "build");
         tag.putLong(TAG_BUILD_BOX_POS, buildBoxPos.asLong());
         tag.putInt(TAG_PROGRESS_CURRENT, currentIndex);
         tag.putInt(TAG_PROGRESS_TOTAL, Math.max(0, task.totalBlocks()));
         writeMaterials(tag, materialSnapshot.required(), materialSnapshot.available());
+        tag.remove(TAG_PRODUCT_GROUPS);
+        applyCustomTag(stack, tag);
+        InfoToastService.success(player, Component.translatable("message.simukraft.manifest.filled"));
+    }
+
+    /** fillFromCommercialControlBox: 从商业控制箱填充清单材料。 */
+    private static void fillFromCommercialControlBox(ItemStack stack, ServerLevel level, BlockPos controlBoxPos, ServerPlayer player) {
+        fillFromControlBoxSnapshot(stack, player, ManifestControlBoxSnapshotService.commercial(level, controlBoxPos));
+    }
+
+    /** fillFromIndustrialControlBox: 从工业控制箱填充当前配方清单材料。 */
+    private static void fillFromIndustrialControlBox(ItemStack stack, ServerLevel level, BlockPos controlBoxPos, ServerPlayer player) {
+        fillFromControlBoxSnapshot(stack, player, ManifestControlBoxSnapshotService.industrial(level, controlBoxPos));
+    }
+
+    /** fillFromControlBoxSnapshot: 将控制箱材料快照写入清单 NBT。 */
+    private static void fillFromControlBoxSnapshot(ItemStack stack, ServerPlayer player, ManifestControlBoxSnapshotService.FillResult result) {
+        if (!result.success()) {
+            InfoToastService.warning(player, result.warning());
+            return;
+        }
+
+        ManifestControlBoxSnapshotService.Snapshot snapshot = result.snapshot();
+        CompoundTag tag = customTag(stack);
+        tag.putString(TAG_BUILDING_NAME, snapshot.buildingName());
+        tag.putString(TAG_SOURCE_TYPE, snapshot.sourceType());
+        tag.putLong(TAG_BUILD_BOX_POS, snapshot.sourcePos().asLong());
+        tag.putInt(TAG_PROGRESS_CURRENT, snapshot.progressCurrent());
+        tag.putInt(TAG_PROGRESS_TOTAL, snapshot.progressTotal());
+        writeMaterials(tag, snapshot.materials(), snapshot.availableMaterials());
+        writeProductGroups(tag, snapshot.productGroups());
         applyCustomTag(stack, tag);
         InfoToastService.success(player, Component.translatable("message.simukraft.manifest.filled"));
     }
@@ -148,9 +205,27 @@ public final class ManifestItem extends Item {
                 .toList();
     }
 
+    /** displayName: 选择清单标题，优先使用任务持久化的建筑名。 */
+    private static String displayName(String primary, String secondary, String fallback) {
+        if (primary != null && !primary.isBlank()) {
+            return primary;
+        }
+        if (secondary != null && !secondary.isBlank()) {
+            return secondary;
+        }
+        return fallback != null ? fallback : "";
+    }
+
     private static Map<String, Integer> countAdjacentContainerItems(ServerLevel level, BlockPos buildBoxPos) {
+        return countContainerItems(level, adjacentContainers(level, buildBoxPos));
+    }
+
+    private static Map<String, Integer> countContainerItems(ServerLevel level, Iterable<BlockPos> containerPositions) {
         Map<String, Integer> items = new LinkedHashMap<>();
-        for (BlockPos containerPos : adjacentContainers(level, buildBoxPos)) {
+        if (containerPositions == null) {
+            return items;
+        }
+        for (BlockPos containerPos : containerPositions) {
             for (GenericContainerAccess.SlotSnapshot snapshot : GenericContainerAccess.snapshotSlots(level, containerPos)) {
                 ItemStack stack = snapshot.stack();
                 if (stack.isEmpty() || stack.getItem() == Items.AIR) {
@@ -191,6 +266,71 @@ public final class ManifestItem extends Item {
         tag.put(TAG_CHECKED, checkedList);
     }
 
+    /** writeProductGroups: 写入“材料到商品”的清单分组，保留材料全局勾选索引。 */
+    private static void writeProductGroups(@Nonnull CompoundTag tag,
+                                           @Nonnull List<ManifestControlBoxSnapshotService.ProductGroup> productGroups) {
+        if (productGroups.isEmpty()) {
+            tag.remove(TAG_PRODUCT_GROUPS);
+            return;
+        }
+        ListTag groupsList = new ListTag();
+        for (ManifestControlBoxSnapshotService.ProductGroup group : productGroups) {
+            CompoundTag groupTag = new CompoundTag();
+            groupTag.put(TAG_PRODUCTS, materialList(group.products(), Map.of(), -1));
+            groupTag.put(TAG_MATERIALS, groupMaterialsList(group.materials(), tag.getList(TAG_MATERIALS, Tag.TAG_COMPOUND)));
+            if (!groupTag.getList(TAG_PRODUCTS, Tag.TAG_COMPOUND).isEmpty()
+                    && !groupTag.getList(TAG_MATERIALS, Tag.TAG_COMPOUND).isEmpty()) {
+                groupsList.add(groupTag);
+            }
+        }
+        if (groupsList.isEmpty()) {
+            tag.remove(TAG_PRODUCT_GROUPS);
+        } else {
+            tag.put(TAG_PRODUCT_GROUPS, groupsList);
+        }
+    }
+
+    private static ListTag materialList(Map<String, Integer> materials, Map<String, Integer> availableMaterials, int index) {
+        ListTag materialsList = new ListTag();
+        materials.forEach((itemId, count) -> {
+            CompoundTag materialTag = new CompoundTag();
+            materialTag.putString("Item", itemId);
+            materialTag.putInt("Count", count);
+            if (index >= 0) {
+                materialTag.putInt(TAG_INDEX, index);
+            }
+            materialTag.putInt(TAG_AVAILABLE, Math.min(count, Math.max(0, availableMaterials.getOrDefault(itemId, 0))));
+            materialsList.add(materialTag);
+        });
+        return materialsList;
+    }
+
+    private static ListTag groupMaterialsList(Map<String, Integer> materials, ListTag flatMaterials) {
+        ListTag materialsList = new ListTag();
+        materials.forEach((itemId, count) -> {
+            int index = findMaterialIndex(flatMaterials, itemId);
+            CompoundTag materialTag = new CompoundTag();
+            materialTag.putString("Item", itemId);
+            materialTag.putInt("Count", count);
+            materialTag.putInt(TAG_INDEX, index);
+            if (index >= 0 && index < flatMaterials.size()) {
+                CompoundTag flatTag = flatMaterials.getCompound(index);
+                materialTag.putInt(TAG_AVAILABLE, flatTag.contains(TAG_AVAILABLE) ? flatTag.getInt(TAG_AVAILABLE) : 0);
+            }
+            materialsList.add(materialTag);
+        });
+        return materialsList;
+    }
+
+    private static int findMaterialIndex(ListTag flatMaterials, String itemId) {
+        for (int i = 0; i < flatMaterials.size(); i++) {
+            if (flatMaterials.getCompound(i).getString("Item").equals(itemId)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     private static boolean hasData(ItemStack stack) {
         return !stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).isEmpty();
     }
@@ -211,6 +351,39 @@ public final class ManifestItem extends Item {
             boolean checked = i < checkedList.size() && Boolean.parseBoolean(checkedList.getString(i));
             int available = materialTag.contains(TAG_AVAILABLE) ? materialTag.getInt(TAG_AVAILABLE) : (checked ? count : 0);
             result.add(new MaterialEntry(itemId, count, Math.min(count, Math.max(0, available)), checked, i));
+        }
+        return result;
+    }
+
+    @Nonnull
+    public static List<ProductGroup> getProductGroups(@Nonnull ItemStack stack) {
+        List<ProductGroup> result = new ArrayList<>();
+        CompoundTag tag = customTag(stack);
+        if (tag.isEmpty() || !tag.contains(TAG_PRODUCT_GROUPS)) {
+            return result;
+        }
+        ListTag groupsList = tag.getList(TAG_PRODUCT_GROUPS, Tag.TAG_COMPOUND);
+        ListTag checkedList = tag.getList(TAG_CHECKED, Tag.TAG_STRING);
+        for (int i = 0; i < groupsList.size(); i++) {
+            CompoundTag groupTag = groupsList.getCompound(i);
+            List<MaterialEntry> products = readEntries(groupTag.getList(TAG_PRODUCTS, Tag.TAG_COMPOUND), checkedList, false);
+            List<MaterialEntry> groupMaterials = readEntries(groupTag.getList(TAG_MATERIALS, Tag.TAG_COMPOUND), checkedList, true);
+            if (!products.isEmpty() || !groupMaterials.isEmpty()) {
+                result.add(new ProductGroup(products, groupMaterials));
+            }
+        }
+        return result;
+    }
+
+    private static List<MaterialEntry> readEntries(ListTag entriesList, ListTag checkedList, boolean useStoredIndex) {
+        List<MaterialEntry> result = new ArrayList<>();
+        for (int i = 0; i < entriesList.size(); i++) {
+            CompoundTag entryTag = entriesList.getCompound(i);
+            int index = useStoredIndex && entryTag.contains(TAG_INDEX) ? entryTag.getInt(TAG_INDEX) : -1;
+            boolean checked = index >= 0 && index < checkedList.size() && Boolean.parseBoolean(checkedList.getString(index));
+            int count = entryTag.getInt("Count");
+            int available = entryTag.contains(TAG_AVAILABLE) ? entryTag.getInt(TAG_AVAILABLE) : (checked ? count : 0);
+            result.add(new MaterialEntry(entryTag.getString("Item"), count, Math.min(count, Math.max(0, available)), checked, index));
         }
         return result;
     }
@@ -288,4 +461,12 @@ public final class ManifestItem extends Item {
 
     public record MaterialEntry(@Nonnull String itemId, int count, int available, boolean checked, int index) {
     }
+
+    public record ProductGroup(@Nonnull List<MaterialEntry> products, @Nonnull List<MaterialEntry> materials) {
+        public ProductGroup {
+            products = List.copyOf(products);
+            materials = List.copyOf(materials);
+        }
+    }
+
 }

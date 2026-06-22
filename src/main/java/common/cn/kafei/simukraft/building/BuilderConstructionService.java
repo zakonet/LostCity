@@ -563,7 +563,7 @@ public final class BuilderConstructionService {
     }
 
     private static CachedStructure loadStructure(BuildingTaskData task) {
-        Optional<BuildingStructure> structureOptional = BuildingStructureService.loadStructure(task.category(), task.buildingFileName());
+        Optional<BuildingStructure> structureOptional = BuildingStructureService.loadStructure(task);
         if (structureOptional.isEmpty()) {
             return null;
         }
@@ -585,7 +585,10 @@ public final class BuilderConstructionService {
 
     private static String structureKey(BuildingTaskData task) {
         // 同一个建筑文件放在不同原点/旋转时，世界坐标不同，必须使用不同缓存键。
-        return task.category() + ":" + task.buildingFileName() + ":" + task.origin().toShortString() + ":" + task.rotationDegrees();
+        String structureName = task.structureFileName() == null || task.structureFileName().isBlank()
+                ? task.buildingFileName()
+                : task.structureFileName();
+        return task.category() + ":" + structureName + ":" + task.origin().toShortString() + ":" + task.rotationDegrees();
     }
 
     private static void syncCitizenTaskState(ServerLevel level, CitizenData citizen, TaskRuntime taskRuntime, BuildingTaskData task, CachedStructure cached) {

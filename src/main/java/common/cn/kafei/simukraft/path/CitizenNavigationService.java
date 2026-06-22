@@ -88,6 +88,9 @@ public final class CitizenNavigationService {
         if (citizen == null) {
             return false;
         }
+        if (citizen.isSleeping()) {
+            return false;
+        }
         Vec3 current = citizen.position();
         double distanceSqr = current.distanceToSqr(target);
         double farDistance = localPathDistanceLimit();
@@ -362,6 +365,10 @@ public final class CitizenNavigationService {
             if (citizen == null) {
                 continue;
             }
+            if (citizen.isSleeping()) {
+                clearRuntimeNavigation(level, runtime, citizenId, citizen, true);
+                continue;
+            }
             if (!level.isPositionEntityTicking(citizen.blockPosition())) {
                 continue;
             }
@@ -425,6 +432,10 @@ public final class CitizenNavigationService {
         if (citizen == null) {
             return;
         }
+        if (citizen.isSleeping()) {
+            clearRuntimeNavigation(level, runtime, result.citizenId(), citizen, true);
+            return;
+        }
         runtime.active.put(result.citizenId(), new ActiveNavigation(result));
     }
 
@@ -433,6 +444,11 @@ public final class CitizenNavigationService {
             Map.Entry<UUID, ActiveNavigation> entry = iterator.next();
             CitizenEntity citizen = CitizenTeleportService.findCitizenEntity(level, entry.getKey());
             if (citizen == null) {
+                iterator.remove();
+                continue;
+            }
+            if (citizen.isSleeping()) {
+                clearRuntimeNavigation(level, runtime, entry.getKey(), citizen, false);
                 iterator.remove();
                 continue;
             }
@@ -469,6 +485,22 @@ public final class CitizenNavigationService {
                 runtime.blockedSince.remove(entry.getKey());
             }
         }
+    }
+
+    private static void clearRuntimeNavigation(ServerLevel level, LevelRuntime runtime, UUID citizenId, CitizenEntity citizen, boolean removeActive) {
+        if (removeActive) {
+            runtime.active.remove(citizenId);
+        }
+        runtime.latestRequests.remove(citizenId);
+        runtime.pending.remove(citizenId);
+        runtime.queuedCitizenIds.remove(citizenId);
+        runtime.blockedSince.remove(citizenId);
+        runtime.cooldowns.remove(citizenId);
+        if (citizen != null) {
+            citizen.getNavigation().stop();
+            citizen.getMoveControl().setWantedPosition(citizen.getX(), citizen.getY(), citizen.getZ(), 0.0D);
+        }
+        PathCrowdCoordinator.clear(level, citizenId);
     }
 
     private static LevelRuntime runtime(ServerLevel level) {
@@ -870,6 +902,9 @@ public final class CitizenNavigationService {
         }
 
         private ActiveTickResult tick(ServerLevel level, CitizenEntity citizen, LevelRuntime runtime) {
+            if (citizen.isSleeping()) {
+                return ActiveTickResult.COMPLETE;
+            }
             if (waypoints.isEmpty()) {
                 return ActiveTickResult.COMPLETE;
             }
