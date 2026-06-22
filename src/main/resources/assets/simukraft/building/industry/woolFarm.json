@@ -39,12 +39,12 @@
         { "type": "set_held_item", "item": "minecraft:shears" },
         { "type": "move_to_entity", "entityType": "minecraft:sheep", "range": 1.5 },
         { "type": "shear_entities", "entityType": "minecraft:sheep", "output": "output", "count": 1, "ticks": 40, "swing": true },
-        { "type": "require_drops", "radius": 8, "point": "machine" },
+        { "type": "require_drops", "radius": 8, "point": "machine", "timeoutTicks": 200 },
         { "type": "set_held_item", "item": "minecraft:white_wool" },
         { "type": "move_to_container", "container": "output", "range": 1.2 },
         { "type": "look_at_container", "container": "output" },
         { "type": "inspect_container", "ticks": 20, "container": "output" },
-        { "type": "collect_drops", "output": "output", "radius": 8, "point": "machine" }
+        { "type": "collect_drops", "output": "output", "radius": 8, "point": "machine", "timeoutTicks": 200 }
       ],
       "materials": [],
       "products": [

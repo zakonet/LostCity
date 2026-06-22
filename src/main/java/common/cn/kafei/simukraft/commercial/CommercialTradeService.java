@@ -9,6 +9,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -318,14 +319,10 @@ public final class CommercialTradeService {
     }
 
     private static void giveItem(ServerPlayer player, ItemStack stack) {
-        if (stack.isEmpty()) {
-            return;
-        }
-        ItemStack remaining = stack.copy();
-        boolean inserted = player.getInventory().add(remaining);
-        if (!inserted || !remaining.isEmpty()) {
-            player.drop(remaining, false);
-        }
+        if (stack.isEmpty()) return;
+        ItemEntity drop = new ItemEntity(player.serverLevel(), player.getX(), player.getY(), player.getZ(), stack, 0, 0, 0);
+        drop.setNoPickUpDelay();
+        player.serverLevel().addFreshEntity(drop);
     }
 
     public record TradeResult(boolean success, Component message, ItemStack carriedStack) {

@@ -178,6 +178,14 @@ public final class IndustrialWorkService {
         } else if (result == StepResult.WAITING_MOVE) {
             boxRuntime.nextTick = gameTime + MOVE_RETRY_TICKS;
         } else if (result == StepResult.WAITING_RETRY) {
+            if (step.timeoutTicks() > 0) {
+                if (boxRuntime.timeoutStartAt == 0L) boxRuntime.timeoutStartAt = gameTime;
+                if (gameTime - boxRuntime.timeoutStartAt >= step.timeoutTicks()) {
+                    advanceStep(manager, data, recipe, boxRuntime);
+                    boxRuntime.nextTick = gameTime + 1L;
+                    return;
+                }
+            }
             boxRuntime.nextTick = gameTime + IDLE_RETRY_TICKS;
         }
     }
@@ -893,11 +901,13 @@ public final class IndustrialWorkService {
         private long nextTick;
         private int activeStep = Integer.MIN_VALUE;
         private long stepStartedAt;
+        private long timeoutStartAt;
         private boolean swingDone;
 
         private void reset() {
             activeStep = Integer.MIN_VALUE;
             stepStartedAt = 0L;
+            timeoutStartAt = 0L;
             swingDone = false;
         }
 

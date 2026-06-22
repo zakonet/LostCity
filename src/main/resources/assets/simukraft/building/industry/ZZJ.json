@@ -52,12 +52,12 @@
         { "type": "look_at", "point": "machine" },
         { "type": "use_item", "ticks": 20, "swing": true },
         { "type": "slaughter_entities", "entityType": "minecraft:pig", "count": 1, "radius": 8, "point": "machine" },
-        { "type": "require_drops", "radius": 8, "point": "machine" },
+        { "type": "require_drops", "radius": 8, "point": "machine", "timeoutTicks": 200 },
         { "type": "set_held_item", "item": "minecraft:porkchop" },
         { "type": "move_to_container", "container": "output", "range": 1.2 },
         { "type": "look_at_container", "container": "output" },
         { "type": "inspect_container", "ticks": 20, "container": "output" },
-        { "type": "collect_drops", "output": "output", "radius": 8, "point": "machine" }
+        { "type": "collect_drops", "output": "output", "radius": 8, "point": "machine", "timeoutTicks": 200 }
       ],
       "materials": [
         { "item": "minecraft:carrot", "count": 2, "consume": true }
