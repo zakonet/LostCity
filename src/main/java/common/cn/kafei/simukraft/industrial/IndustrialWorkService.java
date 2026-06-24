@@ -73,6 +73,8 @@ public final class IndustrialWorkService {
     public static void clearServerCaches(MinecraftServer server) {
         String serverKey = SaveScopedCacheKey.serverKey(server).toLowerCase(Locale.ROOT);
         RUNTIMES.keySet().removeIf(key -> key.startsWith(serverKey + "|"));
+        IndustrialBlockClusterHarvestService.clearServerCaches(server);
+        IndustrialControlBoxViewSyncService.clearServerCaches(server);
     }
 
     // tryAutoStartStoppedBox：重进后自动恢复可工作的工业盒，但保留手动暂停/解雇/中断的停机语义。
@@ -116,6 +118,7 @@ public final class IndustrialWorkService {
             return;
         }
         if (!IndustrialControlBoxService.isIndustrialControlBox(level, data.boxPos())) {
+            IndustrialCarriedItemService.dropAndClear(level, manager, data, data.boxPos());
             manager.remove(data.boxPos());
             boxRuntime.reset();
             return;
@@ -187,6 +190,9 @@ public final class IndustrialWorkService {
                 }
             }
             boxRuntime.nextTick = gameTime + IDLE_RETRY_TICKS;
+        } else {
+            boxRuntime.timeoutStartAt = 0L;
+            boxRuntime.nextTick = gameTime + 1L;
         }
     }
 
@@ -250,6 +256,8 @@ public final class IndustrialWorkService {
                     "gui.simukraft.industrial.status.destroying_block", step);
             case "require_block", "wait_for_block", "find_block", "check_block" -> requireBlock(manager, data,
                     IndustrialBlockActionService.requireBlock(level, building, definition, step), step);
+            case "harvest_block_clusters", "harvest_blocks" -> harvestBlockClusters(level, manager, data, building, definition, worker, entity, step);
+            case "deposit_carried_items", "store_carried_items", "put_carried_items" -> depositCarriedItems(level, manager, data, boxRuntime, building, definition, step, gameTime);
             case "insert_item", "store_item", "put_item" -> insertItem(level, manager, data, boxRuntime, building, definition, step, gameTime);
             case "fill_item", "fill_slot", "refill_item", "refill_slot" -> fillItem(manager, data, entity, step,
                     IndustrialItemFillService.fill(level, building, definition, step, entity.position()));
@@ -264,6 +272,113 @@ public final class IndustrialWorkService {
                 yield StepResult.WAITING_RETRY;
             }
         };
+    }
+
+    private static StepResult harvestBlockClusters(ServerLevel level,
+                                                   IndustrialBoxManager manager,
+                                                   IndustrialBoxData data,
+                                                   PlacedBuildingRecord building,
+                                                   IndustrialDefinition definition,
+                                                   CitizenData worker,
+                                                   CitizenEntity entity,
+                                                   IndustrialDefinition.StepDefinition step) {
+        IndustrialBlockClusterHarvestService.ActionResult result = IndustrialBlockClusterHarvestService.execute(
+                level, manager, data, building, definition, step, entity, worker.uuid());
+        return switch (result) {
+            case HARVESTED -> {
+                if (!"gui.simukraft.industrial.status.harvesting_trees".equals(data.statusKey())
+                        || data.statusText().isBlank()) {
+                    setStatus(manager, data, "gui.simukraft.industrial.status.harvesting_trees", "");
+                }
+                yield StepResult.WAITING;
+            }
+            case PLANTED -> {
+                setStatus(manager, data, "gui.simukraft.industrial.status.planting_sapling", "");
+                yield StepResult.WAITING;
+            }
+            case MOVING -> {
+                if (!"gui.simukraft.industrial.status.moving".equals(data.statusKey())
+                        || data.statusText().isBlank()) {
+                    setStatus(manager, data, "gui.simukraft.industrial.status.moving", "");
+                }
+                yield StepResult.WAITING_MOVE;
+            }
+            case SCANNING -> {
+                if (!"gui.simukraft.industrial.status.harvesting_blocks".equals(data.statusKey())
+                        || data.statusText().isBlank()) {
+                    setStatus(manager, data, "gui.simukraft.industrial.status.harvesting_blocks", "");
+                }
+                yield StepResult.WAITING;
+            }
+            case AREA_EMPTY -> {
+                setStatus(manager, data, "gui.simukraft.industrial.status.waiting_trees", "");
+                yield StepResult.PROGRESSED;
+            }
+            case CARRY_FULL -> {
+                setStatus(manager, data, "gui.simukraft.industrial.status.carry_full", "");
+                yield StepResult.PROGRESSED;
+            }
+            case MISSING_INPUTS -> {
+                setStatus(manager, data, "gui.simukraft.industrial.status.missing_inputs", step.plantItemTag());
+                yield StepResult.WAITING_RETRY;
+            }
+            case BLOCKED -> {
+                if (!"gui.simukraft.industrial.status.block_action_blocked".equals(data.statusKey())
+                        || data.statusText().isBlank()) {
+                    setStatus(manager, data, "gui.simukraft.industrial.status.block_action_blocked", step.type());
+                }
+                yield StepResult.WAITING_RETRY;
+            }
+            case INVALID_STEP -> {
+                setStatus(manager, data, "gui.simukraft.industrial.status.invalid_step", step.type());
+                yield StepResult.WAITING_RETRY;
+            }
+        };
+    }
+
+    private static StepResult depositCarriedItems(ServerLevel level,
+                                                  IndustrialBoxManager manager,
+                                                  IndustrialBoxData data,
+                                                  BoxRuntime boxRuntime,
+                                                  PlacedBuildingRecord building,
+                                                  IndustrialDefinition definition,
+                                                  IndustrialDefinition.StepDefinition step,
+                                                  long gameTime) {
+        String containerId = containerName(step.container(), step.output(), "output");
+        List<BlockPos> containers = IndustrialControlBoxService.resolveContainerPositions(building, definition, containerId);
+        if (containers.isEmpty()) {
+            setStatus(manager, data, "gui.simukraft.industrial.status.missing_container", containerId);
+            return StepResult.WAITING_RETRY;
+        }
+        if (!IndustrialCarriedItemService.hasItems(data)) {
+            IndustrialCarriedItemService.clear(manager, data);
+            setStatus(manager, data, "gui.simukraft.industrial.status.running", "");
+            return StepResult.PROGRESSED;
+        }
+        int stepKey = Objects.hash(data.currentStep(), step.type(), containerId);
+        if (boxRuntime.activeStep != stepKey) {
+            boxRuntime.activeStep = stepKey;
+            boxRuntime.stepStartedAt = gameTime;
+            setContainersOpen(level, containers, true);
+            setStatus(manager, data, "gui.simukraft.industrial.status.depositing_carried_items", "");
+            return StepResult.WAITING;
+        }
+        if (gameTime - boxRuntime.stepStartedAt < Math.max(1, step.ticks())) {
+            return StepResult.WAITING;
+        }
+        IndustrialCarriedItemService.DepositResult result = IndustrialCarriedItemService.depositToContainers(level, manager, data, containers);
+        if (result == IndustrialCarriedItemService.DepositResult.SUCCESS) {
+            setContainersOpen(level, containers, false);
+            setStatus(manager, data, "gui.simukraft.industrial.status.running", "");
+            return StepResult.PROGRESSED;
+        }
+        setContainersOpen(level, containers, false);
+        setStatus(manager, data,
+                result == IndustrialCarriedItemService.DepositResult.MISSING_CONTAINER
+                        ? "gui.simukraft.industrial.status.missing_container"
+                        : "gui.simukraft.industrial.status.output_full",
+                containerId);
+        return StepResult.WAITING_RETRY;
     }
 
     private static StepResult fillItem(IndustrialBoxManager manager,
@@ -733,6 +848,7 @@ public final class IndustrialWorkService {
         data.setStatusKey(statusKey);
         data.setStatusText(safeText);
         manager.persist(data);
+        IndustrialControlBoxViewSyncService.syncStatusIfChanged(manager.level(), data);
     }
 
     private static void setCitizenStatus(ServerLevel level, CitizenData worker, String statusKey, String needDetail) {

@@ -13,6 +13,7 @@ public record IndustrialDefinition(String id,
                                    String heldItem,
                                    Map<String, PointDefinition> points,
                                    Map<String, ContainerDefinition> containers,
+                                   WorkAreaDefinition workArea,
                                    List<RecipeDefinition> recipes,
                                    SpawnEntityDefinition spawnEntity,
                                    Path sourcePath) {
@@ -35,6 +36,18 @@ public record IndustrialDefinition(String id,
     }
 
     public record ContainerDefinition(String id, String type, List<BlockPos> positions) {
+    }
+
+    public record WorkAreaDefinition(String type,
+                                     int radius,
+                                     int startOffset,
+                                     int minYOffset,
+                                     int maxYOffset,
+                                     boolean excludeBuilding,
+                                     int scanColumnsPerTick) {
+        public static WorkAreaDefinition none() {
+            return new WorkAreaDefinition("building", 0, 0, 0, 0, true, 64);
+        }
     }
 
     public record RecipeDefinition(String id,
@@ -148,6 +161,15 @@ public record IndustrialDefinition(String id,
                                  int slot,
                                  int targetCount,
                                  int thresholdCount,
+                                 String targetBlockTag,
+                                 String attachedBlockTag,
+                                 String supportBlockTag,
+                                 String plantItemTag,
+                                 int minAttachedBlocks,
+                                 int maxClusterBlocks,
+                                 int maxBlocksPerTick,
+                                 int maxCarryStacks,
+                                 boolean untilAreaEmpty,
                                  boolean inputsOverride,
                                  boolean outputsOverride,
                                  List<InputRequirement> inputs,
@@ -156,6 +178,10 @@ public record IndustrialDefinition(String id,
             item = item != null ? item : "";
             itemSpec = itemSpec != null ? itemSpec : IndustrialItemStackSpec.of(item, "");
             itemSpecs = itemSpecs != null ? List.copyOf(itemSpecs) : List.of();
+            targetBlockTag = targetBlockTag != null ? targetBlockTag : "";
+            attachedBlockTag = attachedBlockTag != null ? attachedBlockTag : "";
+            supportBlockTag = supportBlockTag != null ? supportBlockTag : "";
+            plantItemTag = plantItemTag != null ? plantItemTag : "";
         }
 
         public List<String> items() {

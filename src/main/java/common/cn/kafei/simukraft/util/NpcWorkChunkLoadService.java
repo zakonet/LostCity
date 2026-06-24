@@ -14,6 +14,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * 维持 NPC 工作区块强制加载：任务开始时注册 Ticket，任务结束时释放。
  * 同一区块被多个任务引用时，只在最后一个任务结束后才真正移除 Ticket。
  */
+
+@SuppressWarnings("null")
 public final class NpcWorkChunkLoadService {
     private static final int TICKET_DISTANCE = 2;
     private static final ConcurrentMap<String, AtomicInteger> REF_COUNTS = new ConcurrentHashMap<>();

@@ -86,12 +86,13 @@ public final class IndustrialDefinitionLoader {
         String heldItem = string(root, "heldItem", "");
         Map<String, IndustrialDefinition.PointDefinition> points = parsePoints(root.getAsJsonObject("points"), errors);
         Map<String, IndustrialDefinition.ContainerDefinition> containers = parseContainers(root.getAsJsonObject("containers"), errors);
+        IndustrialDefinition.WorkAreaDefinition workArea = parseWorkArea(root.getAsJsonObject("workArea"));
         List<IndustrialDefinition.RecipeDefinition> recipes = parseRecipes(root.getAsJsonArray("recipes"), errors);
         IndustrialDefinition.SpawnEntityDefinition spawnEntity = parseSpawnEntity(root.getAsJsonObject("spawnEntity"));
         if (recipes.isEmpty()) {
             errors.add("missing_recipes");
         }
-        IndustrialDefinition definition = new IndustrialDefinition(id, name, jobType, jobName, heldItem, Map.copyOf(points), Map.copyOf(containers), List.copyOf(recipes), spawnEntity, path);
+        IndustrialDefinition definition = new IndustrialDefinition(id, name, jobType, jobName, heldItem, Map.copyOf(points), Map.copyOf(containers), workArea, List.copyOf(recipes), spawnEntity, path);
         return new LoadResult(definition, List.copyOf(errors), path);
     }
 
@@ -190,6 +191,21 @@ public final class IndustrialDefinitionLoader {
             ));
         }
         return recipes;
+    }
+
+    private static IndustrialDefinition.WorkAreaDefinition parseWorkArea(JsonObject object) {
+        if (object == null) {
+            return IndustrialDefinition.WorkAreaDefinition.none();
+        }
+        return new IndustrialDefinition.WorkAreaDefinition(
+                string(object, "type", "building_outer_rect"),
+                Math.max(0, integer(object, "radius", 0)),
+                Math.max(0, integer(object, "startOffset", integer(object, "start_offset", 0))),
+                integer(object, "minYOffset", integer(object, "min_y_offset", -8)),
+                integer(object, "maxYOffset", integer(object, "max_y_offset", 24)),
+                bool(object, "excludeBuilding", bool(object, "exclude_building", true)),
+                Math.max(1, integer(object, "scanColumnsPerTick", integer(object, "scan_columns_per_tick", 64)))
+        );
     }
 
     private static List<IndustrialDefinition.InputRequirement> parseInputs(JsonArray array, List<String> errors, String context) {
@@ -350,6 +366,15 @@ public final class IndustrialDefinitionLoader {
                 integer(object, "slot", -1),
                 Math.max(0, integer(object, "targetCount", integer(object, "target", integer(object, "fillTo", 0)))),
                 integer(object, "thresholdCount", integer(object, "threshold", -1)),
+                stringAny(object, "", "targetBlockTag", "target_block_tag", "blockTag", "block_tag"),
+                stringAny(object, "", "attachedBlockTag", "attached_block_tag"),
+                stringAny(object, "", "supportBlockTag", "support_block_tag"),
+                stringAny(object, "", "plantItemTag", "plant_item_tag"),
+                Math.max(0, integer(object, "minAttachedBlocks", integer(object, "min_attached_blocks", 0))),
+                Math.max(1, integer(object, "maxClusterBlocks", integer(object, "max_cluster_blocks", 96))),
+                Math.max(1, integer(object, "maxBlocksPerTick", integer(object, "max_blocks_per_tick", 16))),
+                Math.max(1, integer(object, "maxCarryStacks", integer(object, "max_carry_stacks", 18))),
+                bool(object, "untilAreaEmpty", bool(object, "until_area_empty", false)),
                 object.has("inputs"),
                 object.has("outputs"),
                 parseInputs(object.getAsJsonArray("inputs"), errors, context + ":inputs"),

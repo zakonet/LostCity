@@ -182,8 +182,9 @@ public final class CitizenNavigationService {
         runtime.pending.remove(citizenId);
         ActiveNavigation active = runtime.active.remove(citizenId);
         CitizenEntity citizen = CitizenTeleportService.findCitizenEntity(level, citizenId);
-        if (active != null && citizen != null) {
+        if (citizen != null) {
             citizen.getNavigation().stop();
+            citizen.getMoveControl().setWantedPosition(citizen.getX(), citizen.getY(), citizen.getZ(), 0.0D);
         }
         PathCrowdCoordinator.clear(level, citizenId);
     }

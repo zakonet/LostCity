@@ -21,6 +21,7 @@ final class IndustrialItemSpecJsonParser {
         }
         IndustrialItemStackSpec spec = IndustrialItemStackSpec.of(
                 string(object, "item", ""),
+                stringAny(object, "", "tag", "itemTag", "item_tag"),
                 string(object, "potion", ""),
                 stringAny(object, "", "itemStack", "itemString", "stack"),
                 componentText(object, "customData", "nbt"),
@@ -41,7 +42,7 @@ final class IndustrialItemSpecJsonParser {
             IndustrialItemStackSpec spec;
             if (element != null && element.isJsonPrimitive()) {
                 String text = element.getAsString();
-                spec = text.contains("[") ? IndustrialItemStackSpec.itemStack(text) : IndustrialItemStackSpec.of(text, "");
+                spec = IndustrialItemStackSpec.fromSerialized(text);
                 validate(spec, errors, context + ":" + i);
             } else {
                 spec = parse(asObject(element), errors, context + ":" + i);
@@ -77,7 +78,7 @@ final class IndustrialItemSpecJsonParser {
             return;
         }
         String baseItem = spec.displayItemId();
-        if (!baseItem.isBlank()) {
+        if (!baseItem.isBlank() && !baseItem.startsWith("#")) {
             try {
                 boolean exists = BuiltInRegistries.ITEM.getOptional(ResourceLocation.parse(baseItem)).isPresent();
                 if (!exists) {

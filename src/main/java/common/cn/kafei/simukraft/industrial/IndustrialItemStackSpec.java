@@ -18,6 +18,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -34,6 +35,7 @@ import java.util.List;
 
 @SuppressWarnings("null")
 public record IndustrialItemStackSpec(String itemId,
+                                      String itemTag,
                                       String potionId,
                                       String itemStackText,
                                       String customDataText,
@@ -43,6 +45,7 @@ public record IndustrialItemStackSpec(String itemId,
 
     public IndustrialItemStackSpec {
         itemId = safe(itemId);
+        itemTag = safe(itemTag);
         potionId = safe(potionId);
         itemStackText = safe(itemStackText);
         customDataText = safe(customDataText);
@@ -51,24 +54,25 @@ public record IndustrialItemStackSpec(String itemId,
     }
 
     public static IndustrialItemStackSpec empty() {
-        return new IndustrialItemStackSpec("", "", "", "", List.of(), List.of());
+        return new IndustrialItemStackSpec("", "", "", "", "", List.of(), List.of());
     }
 
     public static IndustrialItemStackSpec of(String itemId, String potionId) {
-        return new IndustrialItemStackSpec(itemId, potionId, "", "", List.of(), List.of());
+        return new IndustrialItemStackSpec(itemId, "", potionId, "", "", List.of(), List.of());
     }
 
     public static IndustrialItemStackSpec itemStack(String itemStackText) {
-        return new IndustrialItemStackSpec("", "", itemStackText, "", List.of(), List.of());
+        return new IndustrialItemStackSpec("", "", "", itemStackText, "", List.of(), List.of());
     }
 
     public static IndustrialItemStackSpec of(String itemId,
+                                             String itemTag,
                                              String potionId,
                                              String itemStackText,
                                              String customDataText,
                                              List<EnchantmentSpec> enchantments,
                                              List<EnchantmentSpec> storedEnchantments) {
-        return new IndustrialItemStackSpec(itemId, potionId, itemStackText, customDataText, enchantments, storedEnchantments);
+        return new IndustrialItemStackSpec(itemId, itemTag, potionId, itemStackText, customDataText, enchantments, storedEnchantments);
     }
 
     public static IndustrialItemStackSpec fromSerialized(String text) {
@@ -77,12 +81,16 @@ public record IndustrialItemStackSpec(String itemId,
             return empty();
         }
         if (!value.startsWith("{")) {
+            if (value.startsWith("#")) {
+                return new IndustrialItemStackSpec("", value.substring(1), "", "", "", List.of(), List.of());
+            }
             return value.contains("[") ? itemStack(value) : of(value, "");
         }
         try {
             JsonObject object = JsonParser.parseString(value).getAsJsonObject();
             return new IndustrialItemStackSpec(
                     string(object, "item", ""),
+                    stringAny(object, "", "tag", "itemTag", "item_tag"),
                     string(object, "potion", ""),
                     string(object, "itemStack", ""),
                     string(object, "customData", string(object, "nbt", "")),
@@ -95,11 +103,12 @@ public record IndustrialItemStackSpec(String itemId,
     }
 
     public boolean isEmpty() {
-        return itemId.isBlank() && itemStackText.isBlank();
+        return itemId.isBlank() && itemTag.isBlank() && itemStackText.isBlank();
     }
 
     public boolean hasComplexConstraints() {
         return !itemStackText.isBlank()
+                || (!itemTag.isBlank() && !itemId.isBlank())
                 || !customDataText.isBlank()
                 || !enchantments.isEmpty()
                 || !storedEnchantments.isEmpty()
@@ -125,6 +134,9 @@ public record IndustrialItemStackSpec(String itemId,
             }
             return stack;
         }
+        if (!itemTag.isBlank() && itemId.isBlank()) {
+            return ItemStack.EMPTY;
+        }
         Item item = itemById(itemId);
         if (item == Items.AIR) {
             return ItemStack.EMPTY;
@@ -149,13 +161,19 @@ public record IndustrialItemStackSpec(String itemId,
         }
         if (!itemStackText.isBlank()) {
             return matchesParsedStack(stack, registries)
+                    && matchesItemTag(stack)
                     && matchesPotion(stack, registries)
                     && matchesCustomData(stack)
                     && matchesEnchantments(stack, registries, DataComponents.ENCHANTMENTS, enchantments)
                     && matchesEnchantments(stack, registries, DataComponents.STORED_ENCHANTMENTS, storedEnchantments);
         }
-        Item item = itemById(itemId);
-        if (item == Items.AIR || stack.getItem() != item) {
+        if (!itemId.isBlank()) {
+            Item item = itemById(itemId);
+            if (item == Items.AIR || stack.getItem() != item) {
+                return false;
+            }
+        }
+        if (!matchesItemTag(stack)) {
             return false;
         }
         return matchesPotion(stack, registries)
@@ -165,9 +183,13 @@ public record IndustrialItemStackSpec(String itemId,
     }
 
     public String serialized() {
-        if (!itemStackText.isBlank() && itemId.isBlank() && potionId.isBlank()
+        if (!itemStackText.isBlank() && itemId.isBlank() && itemTag.isBlank() && potionId.isBlank()
                 && customDataText.isBlank() && enchantments.isEmpty() && storedEnchantments.isEmpty()) {
             return itemStackText;
+        }
+        if (itemId.isBlank() && !itemTag.isBlank() && potionId.isBlank() && itemStackText.isBlank()
+                && customDataText.isBlank() && enchantments.isEmpty() && storedEnchantments.isEmpty()) {
+            return "#" + itemTag;
         }
         if (!hasComplexConstraints()) {
             return itemId;
@@ -175,6 +197,9 @@ public record IndustrialItemStackSpec(String itemId,
         JsonObject object = new JsonObject();
         if (!itemId.isBlank()) {
             object.addProperty("item", itemId);
+        }
+        if (!itemTag.isBlank()) {
+            object.addProperty("tag", itemTag);
         }
         if (!potionId.isBlank()) {
             object.addProperty("potion", potionId);
@@ -201,6 +226,9 @@ public record IndustrialItemStackSpec(String itemId,
     public String displayItemId() {
         if (!itemId.isBlank()) {
             return itemId;
+        }
+        if (!itemTag.isBlank()) {
+            return "#" + itemTag;
         }
         int componentStart = itemStackText.indexOf('[');
         return componentStart >= 0 ? itemStackText.substring(0, componentStart) : itemStackText;
@@ -238,6 +266,18 @@ public record IndustrialItemStackSpec(String itemId,
                 }
             }
             return true;
+        } catch (Exception exception) {
+            return false;
+        }
+    }
+
+    private boolean matchesItemTag(ItemStack stack) {
+        if (itemTag.isBlank()) {
+            return true;
+        }
+        try {
+            ResourceLocation id = ResourceLocation.parse(itemTag);
+            return stack.is(TagKey.create(Registries.ITEM, id));
         } catch (Exception exception) {
             return false;
         }
@@ -408,6 +448,16 @@ public record IndustrialItemStackSpec(String itemId,
         } catch (Exception exception) {
             return fallback;
         }
+    }
+
+    private static String stringAny(JsonObject object, String fallback, String... keys) {
+        for (String key : keys) {
+            String value = string(object, key, "");
+            if (!value.isBlank()) {
+                return value;
+            }
+        }
+        return fallback;
     }
 
     private static int integer(JsonObject object, String key, int fallback) {

@@ -78,6 +78,7 @@ public final class IndustrialControlBoxService {
         if (definition == null || definition.recipeById(recipeId) == null) {
             return false;
         }
+        settleCarriedItems(level, manager, data, building, definition);
         IndustrialMachineOperationService.abort(level, data, "recipe_changed");
         data.setSelectedRecipeId(recipeId);
         data.setCurrentStep(0);
@@ -92,6 +93,9 @@ public final class IndustrialControlBoxService {
         IndustrialBoxManager manager = IndustrialBoxManager.get(level);
         IndustrialBoxData data = manager.getOrCreate(boxPos);
         if (data.running()) {
+            PlacedBuildingRecord building = resolveBuilding(level, boxPos);
+            IndustrialDefinition definition = IndustrialDefinitionLoader.loadForBuilding(building).definition();
+            settleCarriedItems(level, manager, data, building, definition);
             IndustrialMachineOperationService.abort(level, data, "manual_pause");
             data.setRunning(false);
             data.setMachineState("");
@@ -139,6 +143,9 @@ public final class IndustrialControlBoxService {
             common.cn.kafei.simukraft.citizen.CitizenJobVisualService.clearMainHandOverride(worker.uuid());
         }
         IndustrialBoxData data = IndustrialBoxManager.get(level).getOrCreate(boxPos);
+        PlacedBuildingRecord building = resolveBuilding(level, boxPos);
+        IndustrialDefinition definition = IndustrialDefinitionLoader.loadForBuilding(building).definition();
+        settleCarriedItems(level, IndustrialBoxManager.get(level), data, building, definition);
         IndustrialMachineOperationService.abort(level, data, "industrial_fired");
         CitizenEmploymentService.fireAssigned(level,
                 CitizenEmploymentService.workplaceId(IndustrialConstants.HIRE_SOURCE_TYPE, IndustrialConstants.HIRE_ROLE, boxPos),
@@ -162,6 +169,9 @@ public final class IndustrialControlBoxService {
             if (!citizenId.equals(assigned)) {
                 continue;
             }
+            PlacedBuildingRecord building = resolveBuilding(level, data.boxPos());
+            IndustrialDefinition definition = IndustrialDefinitionLoader.loadForBuilding(building).definition();
+            settleCarriedItems(level, IndustrialBoxManager.get(level), data, building, definition);
             IndustrialMachineOperationService.abort(level, data, reason);
             data.setRunning(false);
             data.setMachineState("");
@@ -246,6 +256,7 @@ public final class IndustrialControlBoxService {
         }
         boolean changed = false;
         if (building != null && !building.buildingId().toString().equals(data.buildingId())) {
+            settleCarriedItems(level, null, data, building, definition);
             IndustrialMachineOperationService.abort(level, data, "building_changed");
             data.setBuildingId(building.buildingId().toString());
             data.setSpawnEntityDone(false);
@@ -253,6 +264,7 @@ public final class IndustrialControlBoxService {
         }
         if (definition != null) {
             if (!definition.id().equals(data.definitionId())) {
+                settleCarriedItems(level, null, data, building, definition);
                 IndustrialMachineOperationService.abort(level, data, "definition_changed");
                 data.setDefinitionId(definition.id());
                 data.setSpawnEntityDone(false);
@@ -279,6 +291,24 @@ public final class IndustrialControlBoxService {
         }
         worker.setJobIdRaw(jobType);
         CitizenService.save(level, worker.uuid());
+    }
+
+    private static void settleCarriedItems(ServerLevel level,
+                                           IndustrialBoxManager manager,
+                                           IndustrialBoxData data,
+                                           PlacedBuildingRecord building,
+                                           IndustrialDefinition definition) {
+        if (level == null || data == null || !IndustrialCarriedItemService.hasItems(data)) {
+            return;
+        }
+        IndustrialBoxManager safeManager = manager != null ? manager : IndustrialBoxManager.get(level);
+        IndustrialDefinition safeDefinition = definition != null ? definition : IndustrialDefinitionLoader.loadForBuilding(building).definition();
+        List<BlockPos> outputs = IndustrialControlBoxService.resolveContainerPositions(building, safeDefinition, "output");
+        if (!outputs.isEmpty()
+                && IndustrialCarriedItemService.depositToContainers(level, safeManager, data, outputs) == IndustrialCarriedItemService.DepositResult.SUCCESS) {
+            return;
+        }
+        IndustrialCarriedItemService.dropAndClear(level, safeManager, data, data.boxPos());
     }
 
     private static String selectedRecipeId(IndustrialBoxData data, IndustrialDefinition definition) {

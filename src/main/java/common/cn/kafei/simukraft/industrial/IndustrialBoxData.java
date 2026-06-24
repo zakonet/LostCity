@@ -15,6 +15,7 @@ public final class IndustrialBoxData {
     private String statusKey = "";
     private String statusText = "";
     private String machineState = "";
+    private String workState = "";
     private long updatedAt;
 
     public IndustrialBoxData(BlockPos boxPos) {
@@ -97,6 +98,14 @@ public final class IndustrialBoxData {
         this.machineState = machineState != null ? machineState : "";
     }
 
+    public String workState() {
+        return workState;
+    }
+
+    public void setWorkState(String workState) {
+        this.workState = workState != null ? workState : "";
+    }
+
     public long updatedAt() {
         return updatedAt;
     }
@@ -117,6 +126,7 @@ public final class IndustrialBoxData {
         tag.putString("StatusKey", statusKey);
         tag.putString("StatusText", statusText);
         tag.putString("MachineState", machineState);
+        tag.putString("WorkState", workState);
         tag.putLong("UpdatedAt", updatedAt);
         return tag;
     }
@@ -132,6 +142,7 @@ public final class IndustrialBoxData {
         data.statusKey = tag.getString("StatusKey");
         data.statusText = tag.getString("StatusText");
         data.machineState = tag.getString("MachineState");
+        data.workState = tag.getString("WorkState");
         data.updatedAt = tag.getLong("UpdatedAt");
         return data;
     }

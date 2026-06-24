@@ -16,6 +16,9 @@ glassFactory.sk
 JJJ.json
 JJJ.nbt
 JJJ.sk
+lumberjacks_house.json
+lumberjacks_house.nbt
+lumberjacks_house.sk
 mill.json
 mill.nbt
 mill.sk

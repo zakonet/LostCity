@@ -20,6 +20,7 @@ import net.neoforged.api.distmarker.OnlyIn;
 
 import java.util.List;
 
+@SuppressWarnings("null")
 @OnlyIn(Dist.CLIENT)
 public final class PreviewSpecialBlockRenderer {
     private static ModelPart bedHeadRoot;

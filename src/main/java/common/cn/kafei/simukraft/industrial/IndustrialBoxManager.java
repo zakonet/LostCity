@@ -58,6 +58,11 @@ public final class IndustrialBoxManager extends SavedData {
         }
     }
 
+    /** level: 返回当前管理器绑定的服务端维度，用于状态视图同步。 */
+    public ServerLevel level() {
+        return level;
+    }
+
     public synchronized void reloadFromSqlite(ServerLevel level) {
         boxes.clear();
         sqliteLoaded = false;
