@@ -13,6 +13,9 @@ fishersHouse.sk
 glassFactory.json
 glassFactory.nbt
 glassFactory.sk
+brick_kiln.json
+brick_kiln.nbt
+brick_kiln.sk
 JJJ.json
 JJJ.nbt
 JJJ.sk
@@ -22,6 +25,9 @@ lumberjacks_house.sk
 mill.json
 mill.nbt
 mill.sk
+mud_pit.json
+mud_pit.nbt
+mud_pit.sk
 sugerFactory.json
 sugerFactory.nbt
 sugerFactory.sk
