@@ -269,7 +269,7 @@ public final class BuilderConstructionService {
             if (!level.isAreaLoaded(worldPos, 4)) {
                 break;
             }
-            level.setBlock(worldPos, targetState, 3);
+            level.setBlock(worldPos, BuildingBlockPlacementService.refreshedPlacementState(level, worldPos, targetState), 3);
             spawnBuildParticles(level, worldPos);
             addPendingBuilderXp(taskRuntime, 1);
             index++;

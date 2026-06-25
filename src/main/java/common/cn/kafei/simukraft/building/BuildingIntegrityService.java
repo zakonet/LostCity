@@ -108,7 +108,7 @@ public final class BuildingIntegrityService {
             FinanceLedgerService.record(level, building.cityId(), player, -cost, EconomyService.getCityBalance(level, building.cityId()), FinanceTransactionData.Type.EXPENSE, "building_repair");
         }
         for (RepairTarget target : targets) {
-            level.setBlock(target.pos(), target.state(), 3);
+            level.setBlock(target.pos(), BuildingBlockPlacementService.refreshedPlacementState(level, target.pos(), target.state()), 3);
         }
         return new RepairResult(RepairStatus.SUCCESS, targets.size(), plan.manualRepairBlocks(), cost);
     }
