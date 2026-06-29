@@ -379,7 +379,7 @@
     "gui.building.price":  "Cost: %s",
     "gui.building.author":  "Author: %s",
     "gui.button.select":  "Select",
-    "gui.building_list.empty_dir":  "No external building files were found for this category: %s",
+    "gui.building_list.empty_dir":  "No building package entries were found for this category: %s",
     "gui.hire_builder.title":  "Hire Builder",
     "gui.hire_planner.title":  "Hire Planner",
     "gui.select_npc.title":  "Hireable NPCs: %s (Page %s / %s)",

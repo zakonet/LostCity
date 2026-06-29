@@ -1,5 +1,6 @@
 package common.cn.kafei.simukraft.commercial;
 
+import common.cn.kafei.simukraft.building.BuildingPackageCatalog;
 import common.cn.kafei.simukraft.building.PlacedBuildingRecord;
 import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;
@@ -10,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
+import java.util.zip.ZipFile;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -22,7 +24,8 @@ class CommercialDefinitionLoaderTest {
     Path tempDir;
 
     @Test
-    void loadsBundledCommercialJsonIgnoringSavedFileCase() {
+    void loadsBundledCommercialJsonIgnoringSavedFileCase() throws Exception {
+        refreshOfficialPackageInGameDir();
         CommercialDefinitionLoader.clearCache();
         PlacedBuildingRecord building = new PlacedBuildingRecord(
                 UUID.randomUUID(),
@@ -274,9 +277,37 @@ class CommercialDefinitionLoaderTest {
     }
 
     private Path commercialResource(String fileName) throws Exception {
-        var resource = CommercialDefinitionLoaderTest.class.getResource("/assets/simukraft/building/commercial/" + fileName);
-        assertNotNull(resource);
-        return Path.of(resource.toURI());
+        Path packageFile = copyOfficialPackage();
+        Path file = tempDir.resolve("commercial_resource_" + System.nanoTime() + "_" + fileName);
+        try (ZipFile zipFile = new ZipFile(packageFile.toFile())) {
+            var entry = zipFile.getEntry("buildings/commercial/" + fileName);
+            assertNotNull(entry);
+            try (var input = zipFile.getInputStream(entry)) {
+                Files.copy(input, file);
+            }
+        }
+        return file;
+    }
+
+    private Path copyOfficialPackage() throws Exception {
+        Path packageFile = tempDir.resolve("official_building_" + System.nanoTime() + ".zip");
+        try (var input = CommercialDefinitionLoaderTest.class.getResourceAsStream("/assets/simukraft/building/official_building.zip")) {
+            assertNotNull(input);
+            Files.copy(input, packageFile);
+        }
+        return packageFile;
+    }
+
+    private void refreshOfficialPackageInGameDir() throws Exception {
+        Path root = BuildingPackageCatalog.rootDirectory();
+        Files.createDirectories(root);
+        Path packageFile = root.resolve(BuildingPackageCatalog.OFFICIAL_PACKAGE_NAME);
+        Files.deleteIfExists(packageFile);
+        try (var input = CommercialDefinitionLoaderTest.class.getResourceAsStream("/assets/simukraft/building/official_building.zip")) {
+            assertNotNull(input);
+            Files.copy(input, packageFile);
+        }
+        BuildingPackageCatalog.clearCache();
     }
 
     private CommercialDefinition load(String json) throws Exception {

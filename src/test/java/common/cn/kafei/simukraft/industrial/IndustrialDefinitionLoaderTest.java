@@ -7,6 +7,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.zip.ZipFile;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -87,9 +88,18 @@ class IndustrialDefinitionLoaderTest {
 
     @Test
     void bundledIndustrialJsonFilesLoad() throws Exception {
-        Path directory = Path.of(IndustrialDefinitionLoaderTest.class.getResource("/assets/simukraft/building/industry").toURI());
-        try (var stream = Files.list(directory)) {
-            for (Path file : stream.filter(path -> path.getFileName().toString().endsWith(".json")).toList()) {
+        Path packageFile = copyOfficialPackage();
+        try (ZipFile zipFile = new ZipFile(packageFile.toFile())) {
+            var entries = zipFile.entries();
+            while (entries.hasMoreElements()) {
+                var entry = entries.nextElement();
+                if (entry.isDirectory() || !entry.getName().startsWith("buildings/industry/") || !entry.getName().endsWith(".json")) {
+                    continue;
+                }
+                Path file = tempDir.resolve(Path.of(entry.getName()).getFileName().toString());
+                try (var input = zipFile.getInputStream(entry)) {
+                    Files.copy(input, file);
+                }
                 IndustrialDefinitionLoader.LoadResult result = IndustrialDefinitionLoader.load(file);
 
                 assertTrue(result.valid(), () -> file.getFileName() + " errors: " + result.errors());
@@ -98,6 +108,15 @@ class IndustrialDefinitionLoaderTest {
                 assertTrue(result.definition().recipes().stream().allMatch(recipe -> !recipe.steps().isEmpty()), file.getFileName().toString());
             }
         }
+    }
+
+    private Path copyOfficialPackage() throws Exception {
+        Path packageFile = tempDir.resolve("official_building_" + System.nanoTime() + ".zip");
+        try (var input = IndustrialDefinitionLoaderTest.class.getResourceAsStream("/assets/simukraft/building/official_building.zip")) {
+            assertNotNull(input);
+            Files.copy(input, packageFile);
+        }
+        return packageFile;
     }
 
     @Test

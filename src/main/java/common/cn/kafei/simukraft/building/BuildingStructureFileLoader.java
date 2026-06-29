@@ -8,11 +8,11 @@ import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.Tag;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -21,40 +21,48 @@ public final class BuildingStructureFileLoader {
     private BuildingStructureFileLoader() {
     }
 
+    /** load: 从建筑 zip 包读取结构 NBT，不解压到磁盘。 */
     public static Optional<LoadedStructure> load(BuildingCatalog.BuildingDefinition definition) {
         if (definition == null) {
             return Optional.empty();
         }
-        Path file = definition.structurePath();
-        if (!Files.isRegularFile(file)) {
-            SimuKraft.LOGGER.warn("Simukraft: Structure file not found {}", file);
-            return Optional.empty();
-        }
-        StructureFormat format = StructureFormat.fromFileName(file.getFileName().toString());
+        String fileName = definition.structureFileName();
+        StructureFormat format = StructureFormat.fromFileName(fileName);
         try {
-            CompoundTag rootTag = readCompressedOrPlain(file);
+            CompoundTag rootTag = readCompressedOrPlain(definition);
             ParsedStructureInfo parsedInfo = parseStructureInfo(rootTag, format);
-            return Optional.of(new LoadedStructure(file, parsedInfo.format(), rootTag, parsedInfo.blockCount(), parsedInfo.size()));
+            return Optional.of(new LoadedStructure(definition.packageName() + ":" + fileName, parsedInfo.format(), rootTag, parsedInfo.blockCount(), parsedInfo.size()));
         } catch (Exception exception) {
-            SimuKraft.LOGGER.error("Simukraft: Failed to load structure file {} with format {}", file, format, exception);
+            SimuKraft.LOGGER.error("Simukraft: Failed to load structure file {} from {} with format {}", fileName, definition.packageName(), format, exception);
             return Optional.empty();
         }
     }
 
-    private static CompoundTag readCompressedOrPlain(Path file) throws IOException {
+    private static CompoundTag readCompressedOrPlain(BuildingCatalog.BuildingDefinition definition) throws IOException {
+        byte[] bytes;
+        try (InputStream inputStream = definition.openStructure().orElse(null)) {
+            if (inputStream == null) {
+                throw new IOException("Missing structure entry " + definition.structureFileName());
+            }
+            bytes = readAllBytes(inputStream);
+        }
         try {
-            return NbtIo.readCompressed(file, NbtAccounter.unlimitedHeap());
+            return NbtIo.readCompressed(new ByteArrayInputStream(bytes), NbtAccounter.unlimitedHeap());
         } catch (IOException compressedException) {
-            // 不同投影文件可能是 gzip NBT 或裸 NBT，压缩读取失败后再尝试普通读取。
-            try (InputStream inputStream = Files.newInputStream(file);
-                 DataInputStream dataInputStream = new DataInputStream(inputStream)) {
+            // 建筑包可能存 gzip NBT 或裸 NBT，压缩读取失败后再按普通 NBT 读取。
+            try (DataInputStream dataInputStream = new DataInputStream(new ByteArrayInputStream(bytes))) {
                 return NbtIo.read(dataInputStream, NbtAccounter.unlimitedHeap());
             }
         }
     }
 
+    private static byte[] readAllBytes(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        inputStream.transferTo(outputStream);
+        return outputStream.toByteArray();
+    }
+
     private static ParsedStructureInfo parseStructureInfo(CompoundTag rootTag, StructureFormat fallbackFormat) {
-        // 这里不完整解析方块，只读取格式、尺寸和方块数量用于列表展示和后续加载选择。
         if (rootTag.contains("Schematic", Tag.TAG_COMPOUND)) {
             CompoundTag schematicTag = rootTag.getCompound("Schematic");
             return parseStructureInfo(schematicTag, StructureFormat.SCHEMATIC);
@@ -181,6 +189,6 @@ public final class BuildingStructureFileLoader {
     private record ParsedStructureInfo(StructureFormat format, int blockCount, BlockPos size) {
     }
 
-    public record LoadedStructure(Path file, StructureFormat format, CompoundTag rootTag, int blockCount, BlockPos size) {
+    public record LoadedStructure(String source, StructureFormat format, CompoundTag rootTag, int blockCount, BlockPos size) {
     }
 }

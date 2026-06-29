@@ -45,12 +45,11 @@ public final class IndustrialDefinitionLoader {
         if (definition.isEmpty()) {
             return LoadResult.missing("missing_building_definition");
         }
-        Path industrialPath = resolveIndustrialPath(definition.get());
-        if (industrialPath != null && Files.isRegularFile(industrialPath)) {
-            return load(industrialPath);
+        String industrialFile = resolveIndustrialFileName(definition.get());
+        if (industrialFile != null) {
+            return load(definition.get(), industrialFile);
         }
-        LoadResult bundled = loadBundled(stripExtension(definition.get().metaFileName()));
-        return bundled.definition() != null ? bundled : LoadResult.missing("missing_industrial_json");
+        return LoadResult.missing("missing_industrial_json");
     }
 
     public static LoadResult load(Path path) {
@@ -58,20 +57,6 @@ public final class IndustrialDefinitionLoader {
             return loadText(Files.readString(path, StandardCharsets.UTF_8), stripExtension(path.getFileName().toString()), path);
         } catch (Exception exception) {
             SimuKraft.LOGGER.warn("Simukraft: Failed to load industrial definition {}", path, exception);
-            return LoadResult.missing("invalid_industrial_json");
-        }
-    }
-
-    private static LoadResult loadBundled(String baseName) {
-        String resourcePath = "/assets/" + SimuKraft.MOD_ID + "/building/industry/" + baseName + ".json";
-        try (var input = IndustrialDefinitionLoader.class.getResourceAsStream(resourcePath)) {
-            if (input == null) {
-                return LoadResult.missing("missing_industrial_json");
-            }
-            String text = new String(input.readAllBytes(), StandardCharsets.UTF_8);
-            return loadText(text, baseName, null);
-        } catch (Exception exception) {
-            SimuKraft.LOGGER.warn("Simukraft: Failed to load bundled industrial definition {}", resourcePath, exception);
             return LoadResult.missing("invalid_industrial_json");
         }
     }
@@ -96,31 +81,53 @@ public final class IndustrialDefinitionLoader {
         return new LoadResult(definition, List.copyOf(errors), path);
     }
 
-    private static Path resolveIndustrialPath(BuildingCatalog.BuildingDefinition definition) {
-        Path explicit = explicitIndustrialPath(definition.metaPath());
+    private static LoadResult load(BuildingCatalog.BuildingDefinition definition, String fileName) {
+        String key = "package:" + definition.packageKey() + ":" + definition.category() + "/" + fileName.toLowerCase(Locale.ROOT);
+        LoadResult cached = CACHE.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        try {
+            String text = definition.readFileText(fileName).orElse(null);
+            if (text == null) {
+                return LoadResult.missing("missing_industrial_json");
+            }
+            LoadResult result = loadText(text, stripExtension(fileName), definition.packagePath());
+            CACHE.put(key, result);
+            return result;
+        } catch (Exception exception) {
+            SimuKraft.LOGGER.warn("Simukraft: Failed to load industrial definition {} from {}", fileName, definition.packageName(), exception);
+            return LoadResult.missing("invalid_industrial_json");
+        }
+    }
+
+    private static String resolveIndustrialFileName(BuildingCatalog.BuildingDefinition definition) {
+        String explicit = explicitIndustrialFileName(definition);
         if (explicit != null) {
             return explicit;
         }
-        return definition.metaPath().getParent().resolve(stripExtension(definition.metaFileName()) + ".json");
+        String sibling = stripExtension(definition.metaFileName()) + ".json";
+        return definition.hasFile(sibling) ? definition.actualFileName(sibling) : null;
     }
 
-    private static Path explicitIndustrialPath(Path metaPath) {
-        if (!Files.isRegularFile(metaPath)) {
+    private static String explicitIndustrialFileName(BuildingCatalog.BuildingDefinition definition) {
+        if (definition == null) {
             return null;
         }
         try {
-            for (String rawLine : Files.readAllLines(metaPath, StandardCharsets.UTF_8)) {
+            String text = definition.readFileText(definition.metaFileName()).orElse("");
+            for (String rawLine : text.split("\\R")) {
                 String line = rawLine == null ? "" : rawLine.trim();
                 if (!line.regionMatches(true, 0, "industrial:", 0, "industrial:".length())) {
                     continue;
                 }
                 String fileName = line.substring("industrial:".length()).trim();
                 if (!fileName.isBlank()) {
-                    return metaPath.getParent().resolve(fileName);
+                    return definition.hasFile(fileName) ? definition.actualFileName(fileName) : null;
                 }
             }
         } catch (Exception exception) {
-            SimuKraft.LOGGER.warn("Simukraft: Failed to read industrial entry from {}", metaPath, exception);
+            SimuKraft.LOGGER.warn("Simukraft: Failed to read industrial entry from {} in {}", definition.metaFileName(), definition.packageName(), exception);
         }
         return null;
     }

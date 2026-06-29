@@ -379,7 +379,7 @@
     "gui.building.price":  "造价：%s",
     "gui.building.author":  "作者：%s",
     "gui.button.select":  "选择",
-    "gui.building_list.empty_dir":  "该分类暂无外部建筑文件：%s",
+    "gui.building_list.empty_dir":  "该分类暂无建筑包条目：%s",
     "gui.hire_builder.title":  "雇佣建筑师",
     "gui.hire_planner.title":  "雇佣规划师",
     "gui.select_npc.title":  "可雇佣 NPC：%s 个（第 %s / %s 页）",

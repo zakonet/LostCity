@@ -9,6 +9,7 @@ import common.cn.kafei.simukraft.citizen.CitizenData;
 import common.cn.kafei.simukraft.citizen.CitizenManager;
 import common.cn.kafei.simukraft.citizen.CitizenService;
 import common.cn.kafei.simukraft.citizen.CitizenTeleportService;
+import common.cn.kafei.simukraft.building.BuildingCatalog;
 import common.cn.kafei.simukraft.city.CityChunkManager;
 import common.cn.kafei.simukraft.city.CityData;
 import common.cn.kafei.simukraft.city.CityManager;
@@ -19,9 +20,11 @@ import common.cn.kafei.simukraft.city.poi.CityPoiManager;
 import common.cn.kafei.simukraft.city.poi.CityPoiService;
 import common.cn.kafei.simukraft.city.poi.CityPoiType;
 import common.cn.kafei.simukraft.commercial.CommercialBoxManager;
+import common.cn.kafei.simukraft.commercial.CommercialDefinitionLoader;
 import common.cn.kafei.simukraft.commercial.CommercialStockManager;
 import common.cn.kafei.simukraft.farmland.FarmlandBoxManager;
 import common.cn.kafei.simukraft.industrial.IndustrialBoxManager;
+import common.cn.kafei.simukraft.industrial.IndustrialDefinitionLoader;
 import common.cn.kafei.simukraft.logistics.LogisticsManager;
 import common.cn.kafei.simukraft.economy.EconomyService;
 import common.cn.kafei.simukraft.entity.CitizenEntity;
@@ -203,6 +206,9 @@ public final class SimuKraftCommand {
     }
 
     private static int reload(CommandSourceStack source) {
+        BuildingCatalog.reload();
+        CommercialDefinitionLoader.clearCache();
+        IndustrialDefinitionLoader.clearCache();
         int count = 0;
         for (ServerPlayer player : source.getServer().getPlayerList().getPlayers()) {
             PacketDistributor.sendToPlayer(player, new BuildingCacheReloadPacket());

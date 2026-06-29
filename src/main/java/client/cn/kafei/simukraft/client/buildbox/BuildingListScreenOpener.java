@@ -415,13 +415,12 @@ public final class BuildingListScreenOpener {
             return;
         }
         BuildingCacheService.BuildingMeta building = selectedBuilding.get();
-        var loadedStructure = BuildingStructureLoader.load(building);
-        Component message = loadedStructure.isPresent()
-                ? Component.translatable("message.simukraft.building_list.loaded", building.name(), loadedStructure.get().format().name() + " " + loadedStructure.get().size().toShortString())
-                : Component.translatable("message.simukraft.building_list.load_failed", building.name(), building.structureFileName());
-        ClientInfoToast.show(Component.translatable("toast.simukraft.title"), message, loadedStructure.isPresent() ? "success" : "warning");
         Optional<BuildingStructure> structure = BuildingStructureService.loadStructure(building.category(), building.metaFileName());
         if (structure.isPresent()) {
+            Component detail = Component.literal(structure.get().size().toShortString());
+            ClientInfoToast.show(Component.translatable("toast.simukraft.title"),
+                    Component.translatable("message.simukraft.building_list.loaded", building.name(), detail.getString()),
+                    "success");
             pendingPreview = new PendingPreview(building, currentBuildBoxPos, structure.get());
             minecraft.setScreen(null);
         } else {
@@ -510,7 +509,7 @@ public final class BuildingListScreenOpener {
         private void refreshStatus(List<BuildingCacheService.BuildingMeta> filteredBuildings) {
             statusSlot.clearAllChildren();
             Component status = buildings.isEmpty()
-                    ? Component.translatable("gui.building_list.empty_dir", BuildingCacheService.categoryDirectory(category).toString())
+                    ? Component.translatable("gui.building_list.empty_dir", BuildingCacheService.rootDirectoryText())
                     : Component.translatable("gui.building_list.status", filteredBuildings.size());
             int statusColor = buildings.isEmpty()
                     ? SimuKraftUiTheme.TEXT_ERROR_COLOR

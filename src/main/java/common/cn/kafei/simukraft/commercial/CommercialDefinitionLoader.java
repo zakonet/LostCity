@@ -37,20 +37,16 @@ public final class CommercialDefinitionLoader {
         }
         Optional<BuildingCatalog.BuildingDefinition> definition = BuildingCatalog.findBuilding(building.category(), building.buildingFileName());
         if (definition.isPresent()) {
-            Path explicit = CommercialDefinitionSourceResolver.explicitCommercialPath(definition.get().metaPath());
-            if (explicit != null && Files.isRegularFile(explicit)) {
-                return load(explicit);
+            String explicit = CommercialDefinitionSourceResolver.explicitCommercialFileName(definition.get());
+            if (explicit != null) {
+                return load(definition.get(), explicit);
             }
-            Path sibling = CommercialDefinitionSourceResolver.siblingCommercialPath(definition.get().metaPath(), definition.get().metaFileName());
+            String sibling = CommercialDefinitionSourceResolver.siblingCommercialFileName(definition.get());
             if (sibling != null) {
-                return load(sibling);
+                return load(definition.get(), sibling);
             }
         }
-        String bundledName = definition
-                .map(value -> stripExtensionPreserveCase(value.metaFileName()))
-                .orElse(stripExtensionPreserveCase(building.buildingFileName()));
-        LoadResult bundled = loadBundled(bundledName);
-        return bundled.definition() != null ? bundled : LoadResult.missing("missing_commercial_json");
+        return LoadResult.missing("missing_commercial_json");
     }
 
     /** load: 从磁盘文件加载商业定义。 */
@@ -74,34 +70,34 @@ public final class CommercialDefinitionLoader {
         }
     }
 
-    /** clearCache: 清理定义缓存。 */
-    public static void clearCache() {
-        CACHE.clear();
-        CommercialDefinitionSourceResolver.clearCache();
-    }
-
-    private static LoadResult loadBundled(String baseName) {
-        String normalized = stripExtensionPreserveCase(baseName);
-        String key = "bundled:" + normalized.toLowerCase(Locale.ROOT);
+    /** load: 从建筑包内 JSON 文本加载商业定义。 */
+    private static LoadResult load(BuildingCatalog.BuildingDefinition definition, String fileName) {
+        if (definition == null || fileName == null || fileName.isBlank()) {
+            return LoadResult.missing("missing_path");
+        }
+        String key = "package:" + definition.packageKey() + ":" + definition.category() + "/" + fileName.toLowerCase(Locale.ROOT);
         CacheEntry cached = CACHE.get(key);
         if (cached != null) {
             return cached.result();
         }
-        String resourcePath = CommercialDefinitionSourceResolver.resolveBundledResourcePath(normalized);
-        if (resourcePath == null) {
-            return LoadResult.missing("missing_commercial_json");
-        }
-        try (var input = CommercialDefinitionSourceResolver.openBundledResource(resourcePath)) {
-            if (input == null) {
+        try {
+            String text = definition.readFileText(fileName).orElse(null);
+            if (text == null) {
                 return LoadResult.missing("missing_commercial_json");
             }
-            LoadResult result = loadText(new String(input.readAllBytes(), StandardCharsets.UTF_8), normalized, null);
+            LoadResult result = loadText(text, stripExtension(fileName), definition.packagePath());
             CACHE.put(key, new CacheEntry(0L, result));
             return result;
         } catch (Exception exception) {
-            SimuKraft.LOGGER.warn("Simukraft: Failed to load bundled commercial definition {}", resourcePath, exception);
+            SimuKraft.LOGGER.warn("Simukraft: Failed to load commercial definition {} from {}", fileName, definition.packageName(), exception);
             return LoadResult.missing("invalid_commercial_json");
         }
+    }
+
+    /** clearCache: 清理定义缓存。 */
+    public static void clearCache() {
+        CACHE.clear();
+        CommercialDefinitionSourceResolver.clearCache();
     }
 
     private static LoadResult loadText(String text, String fallbackId, @Nullable Path sourcePath) {

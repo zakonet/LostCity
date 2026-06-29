@@ -1,26 +1,17 @@
 package common.cn.kafei.simukraft.building;
 
-import common.cn.kafei.simukraft.SimuKraft;
-import net.neoforged.fml.loading.FMLPaths;
-
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
+import java.io.InputStream;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 
 public final class BuildingCatalog {
-    private static final String ROOT_DIR = "simukraftbuilding";
-    private static final ConcurrentHashMap<String, List<BuildingDefinition>> CATALOG_CACHE = new ConcurrentHashMap<>();
-
     private BuildingCatalog() {
     }
 
+    /** findBuilding: 按分类和 .sk 文件名查找建筑，兼容不带扩展名的旧保存值。 */
     public static Optional<BuildingDefinition> findBuilding(String category, String buildingFileName) {
         if (buildingFileName == null || buildingFileName.isBlank()) {
             return Optional.empty();
@@ -32,7 +23,7 @@ public final class BuildingCatalog {
         return byMetaFile.isPresent() ? byMetaFile : findBuildingByStructureFile(category, buildingFileName);
     }
 
-    /** findBuildingByStructureFile: 通过结构文件名查找建筑定义，用于兼容已保存任务和外部建筑包。 */
+    /** findBuildingByStructureFile: 通过结构文件名恢复旧任务和已放置建筑。 */
     public static Optional<BuildingDefinition> findBuildingByStructureFile(String category, String structureFileName) {
         if (structureFileName == null || structureFileName.isBlank()) {
             return Optional.empty();
@@ -44,82 +35,27 @@ public final class BuildingCatalog {
     }
 
     public static List<BuildingDefinition> listBuildings(String category) {
-        return CATALOG_CACHE.computeIfAbsent(normalizeCategory(category), BuildingCatalog::scanCategory);
+        return BuildingPackageCatalog.ensurePrepared().listBuildings(normalizeCategory(category));
     }
 
-    private static List<BuildingDefinition> scanCategory(String normalizedCategory) {
-        BuildingBuiltinResourceService.ensureCopied(rootDirectory());
-        Path categoryDir = rootDirectory().resolve(normalizedCategory);
-        if (!Files.isDirectory(categoryDir)) {
-            return List.of();
-        }
-        List<BuildingDefinition> buildings = new ArrayList<>();
-        try (var stream = Files.list(categoryDir)) {
-            stream.filter(Files::isRegularFile)
-                    .filter(BuildingCatalog::isMetaFile)
-                    .sorted(Comparator.comparing(path -> path.getFileName().toString().toLowerCase(Locale.ROOT)))
-                    .forEach(path -> {
-                        BuildingDefinition definition = readDefinition(normalizedCategory, path);
-                        if (definition != null) {
-                            buildings.add(definition);
-                        }
-                    });
-        } catch (IOException exception) {
-            SimuKraft.LOGGER.error("Simukraft: Failed to scan building category {}", normalizedCategory, exception);
-            return List.of();
-        }
-        return List.copyOf(buildings);
+    public static void reload() {
+        BuildingPackageCatalog.reload(rootDirectory());
+    }
+
+    public static void clearCache() {
+        BuildingPackageCatalog.clearCache();
     }
 
     public static Path rootDirectory() {
-        return FMLPaths.GAMEDIR.get().resolve(ROOT_DIR);
+        return BuildingPackageCatalog.rootDirectory();
     }
 
-    public static Path categoryDirectory(String category) {
-        return rootDirectory().resolve(normalizeCategory(category));
-    }
-
-    private static BuildingDefinition readDefinition(String category, Path metaPath) {
-        try {
-            String fileName = metaPath.getFileName().toString();
-            String text = Files.readString(metaPath, StandardCharsets.UTF_8);
-            String baseName = stripExtension(fileName);
-            String displayName = findValue(text, "name", baseName);
-            String author = findValue(text, "author", "External");
-            String size = findValue(text, "size", "-");
-            String amount = findValue(text, "amount", findValue(text, "price", "-"));
-            String structureFile = findValue(text, "structure", findValue(text, "file", ""));
-            if (structureFile.isBlank()) {
-                structureFile = baseName + ".nbt";
-            }
-            Path structurePath = categoryDirectory(category).resolve(structureFile);
-            return new BuildingDefinition(category, displayName, size, amount, author, fileName, structureFile, metaPath, structurePath);
-        } catch (IOException exception) {
-            SimuKraft.LOGGER.error("Simukraft: Failed to read building meta file {}", metaPath, exception);
-            return null;
-        }
-    }
-
-    private static boolean isMetaFile(Path path) {
-        String fileName = path.getFileName().toString().toLowerCase(Locale.ROOT);
-        return fileName.endsWith(".sk");
-    }
-
-    private static String findValue(String text, String key, String fallback) {
-        String prefix = key + ":";
-        for (String line : text.split("\\R")) {
-            String trimmedLine = line.trim();
-            if (!trimmedLine.regionMatches(true, 0, prefix, 0, prefix.length())) {
-                continue;
-            }
-            String value = trimmedLine.substring(prefix.length()).trim();
-            return value.isEmpty() ? fallback : value;
-        }
-        return fallback;
+    public static String rootDirectoryText() {
+        return rootDirectory().toString();
     }
 
     private static String normalizeCategory(String category) {
-        return category == null ? "other" : category.toLowerCase(Locale.ROOT);
+        return BuildingPackageCatalog.normalizeCategory(category);
     }
 
     private static String stripExtension(String fileName) {
@@ -134,7 +70,42 @@ public final class BuildingCatalog {
                                      String author,
                                      String metaFileName,
                                      String structureFileName,
-                                     Path metaPath,
-                                     Path structurePath) {
+                                     BuildingPackageCatalog.PackageSource source) {
+        public Optional<InputStream> openMeta() throws IOException {
+            return openFile(metaFileName);
+        }
+
+        public Optional<InputStream> openStructure() throws IOException {
+            return openFile(structureFileName);
+        }
+
+        public Optional<InputStream> openFile(String fileName) throws IOException {
+            return BuildingPackageCatalog.openEntry(source, category, fileName);
+        }
+
+        public Optional<String> readFileText(String fileName) {
+            return BuildingPackageCatalog.readText(this, fileName);
+        }
+
+        public boolean hasFile(String fileName) {
+            return source != null && source.isAllowed(category, fileName);
+        }
+
+        public String actualFileName(String fileName) {
+            return source != null ? source.actualFileName(category, fileName) : fileName;
+        }
+
+        public String packageName() {
+            return source != null ? source.packageName() : "";
+        }
+
+        public Path packagePath() {
+            return source != null ? source.packagePath() : null;
+        }
+
+        public String packageKey() {
+            Path path = packagePath();
+            return path == null ? "" : path.toString().toLowerCase(Locale.ROOT);
+        }
     }
 }

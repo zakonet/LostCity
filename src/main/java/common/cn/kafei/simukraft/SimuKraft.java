@@ -14,6 +14,7 @@ import common.cn.kafei.simukraft.city.CityChunkManager;
 import common.cn.kafei.simukraft.city.CityManager;
 import common.cn.kafei.simukraft.city.CityPermissionInviteService;
 import common.cn.kafei.simukraft.city.poi.CityPoiManager;
+import common.cn.kafei.simukraft.building.BuildingCatalog;
 import common.cn.kafei.simukraft.building.BuilderConstructionService;
 import common.cn.kafei.simukraft.building.BuildingIntegrityService;
 import common.cn.kafei.simukraft.building.PlacedBuildingService;
@@ -230,6 +231,7 @@ public final class SimuKraft {
         HudSyncService.clearServerCaches(event.getServer());
         CommercialDefinitionLoader.clearCache();
         IndustrialDefinitionLoader.clearCache();
+        BuildingCatalog.clearCache();
         WorkMaterialPolicy.clearCache();
         NpcBlockProtectionPolicy.clearCache();
         PlayerWelcomeService.clearServerCaches(event.getServer());

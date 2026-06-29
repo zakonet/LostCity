@@ -17,7 +17,9 @@ public final class BuildingMetadataReader {
         if (definition == null) {
             return List.of();
         }
-        return readPoiDefinitions(definition.metaPath());
+        return definition.readFileText(definition.metaFileName())
+                .map(BuildingMetadataReader::readPoiDefinitions)
+                .orElse(List.of());
     }
 
     public static List<BuildingPoiDefinition> readPoiDefinitions(Path file) {
@@ -25,35 +27,38 @@ public final class BuildingMetadataReader {
             return List.of();
         }
         try {
-            List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
-            List<BuildingPoiDefinition> definitions = new ArrayList<>();
-            for (String rawLine : lines) {
-                String line = rawLine == null ? "" : rawLine.trim();
-                if (line.isEmpty() || line.startsWith("#")) {
-                    continue;
-                }
-                if (!line.regionMatches(true, 0, "poi:", 0, 4)) {
-                    continue;
-                }
-                String payload = line.substring(4).trim();
-                String[] parts = payload.split(",");
-                if (parts.length < 2) {
-                    continue;
-                }
-                String poiTypeName = parts[0].trim().toUpperCase(Locale.ROOT);
-                int capacity;
-                try {
-                    capacity = Integer.parseInt(parts[1].trim());
-                } catch (NumberFormatException exception) {
-                    continue;
-                }
-                String id = parts.length >= 3 ? parts[2].trim() : poiTypeName.toLowerCase(Locale.ROOT);
-                definitions.add(new BuildingPoiDefinition(id, common.cn.kafei.simukraft.city.poi.CityPoiType.fromName(poiTypeName), Math.max(0, capacity)));
-            }
-            return List.copyOf(definitions);
+            return readPoiDefinitions(Files.readString(file, StandardCharsets.UTF_8));
         } catch (Exception ignored) {
             return List.of();
         }
+    }
+
+    private static List<BuildingPoiDefinition> readPoiDefinitions(String text) {
+        List<BuildingPoiDefinition> definitions = new ArrayList<>();
+        for (String rawLine : text.split("\\R")) {
+            String line = rawLine == null ? "" : rawLine.trim();
+            if (line.isEmpty() || line.startsWith("#")) {
+                continue;
+            }
+            if (!line.regionMatches(true, 0, "poi:", 0, 4)) {
+                continue;
+            }
+            String payload = line.substring(4).trim();
+            String[] parts = payload.split(",");
+            if (parts.length < 2) {
+                continue;
+            }
+            String poiTypeName = parts[0].trim().toUpperCase(Locale.ROOT);
+            int capacity;
+            try {
+                capacity = Integer.parseInt(parts[1].trim());
+            } catch (NumberFormatException exception) {
+                continue;
+            }
+            String id = parts.length >= 3 ? parts[2].trim() : poiTypeName.toLowerCase(Locale.ROOT);
+            definitions.add(new BuildingPoiDefinition(id, common.cn.kafei.simukraft.city.poi.CityPoiType.fromName(poiTypeName), Math.max(0, capacity)));
+        }
+        return List.copyOf(definitions);
     }
 
     public static BlockPos parseSize(String value) {
