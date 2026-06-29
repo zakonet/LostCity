@@ -68,6 +68,7 @@ public final class BuildingCatalog {
                                      String size,
                                      String amount,
                                      String author,
+                                     String description,
                                      String metaFileName,
                                      String structureFileName,
                                      BuildingPackageCatalog.PackageSource source) {

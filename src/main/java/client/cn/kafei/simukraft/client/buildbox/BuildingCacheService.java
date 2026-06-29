@@ -66,6 +66,7 @@ public final class BuildingCacheService {
                 definition.size(),
                 definition.amount(),
                 definition.author(),
+                definition.description(),
                 definition.metaFileName(),
                 definition.structureFileName(),
                 definition.packageName()
@@ -77,6 +78,7 @@ public final class BuildingCacheService {
                                String size,
                                String amount,
                                String author,
+                               String description,
                                String metaFileName,
                                String structureFileName,
                                String packageName) {

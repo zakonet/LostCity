@@ -220,6 +220,7 @@ public final class BuildingPackageCatalog {
         String author = findValue(metaText.get(), "author", "External");
         String size = findValue(metaText.get(), "size", "-");
         String amount = findValue(metaText.get(), "amount", findValue(metaText.get(), "price", "-"));
+        String description = findValue(metaText.get(), "description", findValue(metaText.get(), "desc", ""));
         String structureFile = findValue(metaText.get(), "structure", findValue(metaText.get(), "file", ""));
         if (structureFile.isBlank()) {
             structureFile = baseName + ".nbt";
@@ -235,6 +236,7 @@ public final class BuildingPackageCatalog {
                 size,
                 amount,
                 author,
+                description,
                 metaFile,
                 actualStructureFile,
                 new PackageSource(packagePath.toAbsolutePath().normalize(), packagePath.getFileName().toString(), Map.copyOf(Map.of(category, Map.copyOf(packageFiles))))

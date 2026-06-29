@@ -118,7 +118,7 @@ public final class BuildingConfirmScreen extends ModularUIScreen {
         panel.addChild(text(Component.translatable("gui.building_confirm.size", building.size()), textWidth, SimuKraftUiTheme.TEXT_SECONDARY_COLOR, 16, TextTexture.TextType.LEFT));
         panel.addChild(text(Component.translatable("gui.building_confirm.price", building.amount()), textWidth, SimuKraftUiTheme.TEXT_SECONDARY_COLOR, 16, TextTexture.TextType.LEFT));
         panel.addChild(text(Component.translatable("gui.building_confirm.author", building.author()), textWidth, SimuKraftUiTheme.TEXT_SECONDARY_COLOR, 16, TextTexture.TextType.LEFT));
-        panel.addChild(text(Component.translatable("gui.building_confirm.desc", building.structureFileName()), textWidth, SimuKraftUiTheme.TEXT_INFO_COLOR, 16, TextTexture.TextType.LEFT));
+        panel.addChild(text(Component.translatable("gui.building_confirm.desc", building.description()), textWidth, SimuKraftUiTheme.TEXT_INFO_COLOR, 16, TextTexture.TextType.LEFT));
         panel.addChild(text(Component.translatable("gui.building_confirm.hint"), textWidth, SimuKraftUiTheme.TEXT_WARNING_COLOR, 42, TextTexture.TextType.LEFT));
         return panel;
     }

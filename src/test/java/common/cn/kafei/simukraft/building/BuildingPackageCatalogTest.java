@@ -26,7 +26,7 @@ class BuildingPackageCatalogTest {
     @Test
     void loadsBuildingsByScanningPackageCategories() throws Exception {
         writePackage("official_building.zip", List.of(
-                entry("buildings/commercial/shop.sk", "name:Shop\namount:12\nstructure:shop.nbt\ncommercial:shop.json\n"),
+                entry("buildings/commercial/shop.sk", "name:Shop\namount:12\nstructure:shop.nbt\ndescription:Busy corner shop\ncommercial:shop.json\n"),
                 entry("buildings/commercial/shop.nbt", structureNbtBytes(1)),
                 entry("buildings/commercial/shop.json", "{}"),
                 entry("buildings/industry/factory.sk", "name:Factory\nstructure:factory.nbt\nindustrial:factory.json\n"),
@@ -39,6 +39,7 @@ class BuildingPackageCatalogTest {
         assertEquals(1, snapshot.listBuildings("commercial").size());
         assertEquals(1, snapshot.listBuildings("industry").size());
         assertEquals("Shop", snapshot.listBuildings("commercial").getFirst().displayName());
+        assertEquals("Busy corner shop", snapshot.listBuildings("commercial").getFirst().description());
         assertEquals("Factory", snapshot.listBuildings("industry").getFirst().displayName());
     }
 
