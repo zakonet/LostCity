@@ -46,7 +46,9 @@ authors="NSUK Studio"
 
 # The description text for the mod (multi line!) (#mandatory)
 description='''
-Example mod description.
+New: Sim-U-Kraft is a city-building and NPC life simulation mod for Minecraft. It lets you
+found a city, claim land, place buildings, hire citizens, and turn a simple settlement into
+a working town with construction, farming, commerce, industry, and logistics.
 '''
 
 # The [[mixins]] block allows you to declare your mixin config to FML so that it gets loaded.
