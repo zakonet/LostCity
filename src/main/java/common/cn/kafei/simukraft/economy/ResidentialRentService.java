@@ -7,6 +7,8 @@ import common.cn.kafei.simukraft.building.PlacedBuildingService;
 import common.cn.kafei.simukraft.citizen.CitizenData;
 import common.cn.kafei.simukraft.citizen.CitizenManager;
 import common.cn.kafei.simukraft.city.CityData;
+import common.cn.kafei.simukraft.city.CityMemberData;
+import common.cn.kafei.simukraft.city.CityPermissionLevel;
 import common.cn.kafei.simukraft.city.CityService;
 import common.cn.kafei.simukraft.city.FinanceTransactionData;
 import common.cn.kafei.simukraft.commercial.CommercialTaxService;
@@ -23,6 +25,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
@@ -91,11 +94,37 @@ public final class ResidentialRentService {
     }
 
     private static void collectRentForDay(ServerLevel level, long rentDay) {
+        Set<UUID> activeCities = activeCities(level);
+        if (activeCities.isEmpty()) {
+            return;
+        }
         Map<UUID, Double> rentByCity = collectRentByCity(level);
+        rentByCity.keySet().retainAll(activeCities);
         rentByCity.forEach((cityId, amount) -> collectCityRent(level, cityId, rentDay, amount));
-        Map<UUID, Double> taxByCity = CommercialTaxService.collectDueTaxes(level, rentDay);
+        Map<UUID, Double> taxByCity = CommercialTaxService.collectDueTaxes(level, rentDay, activeCities);
         taxByCity.keySet().forEach(cityId -> syncCityMembers(level, cityId));
         notifyPlayerIncome(level, rentByCity, taxByCity);
+    }
+
+    private static Set<UUID> activeCities(ServerLevel level) {
+        Set<UUID> cities = new HashSet<>();
+        for (CityData city : CityService.allCities(level)) {
+            if (hasOfficialOnline(level, city.cityId())) {
+                cities.add(city.cityId());
+            }
+        }
+        return cities;
+    }
+
+    private static boolean hasOfficialOnline(ServerLevel level, UUID cityId) {
+        Collection<CityMemberData> members = CityService.getMembers(level, cityId);
+        for (CityMemberData member : members) {
+            if (member.permissionLevel().atLeast(CityPermissionLevel.OFFICIAL)
+                    && level.getServer().getPlayerList().getPlayer(member.playerId()) != null) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static void clearServerCaches(MinecraftServer server) {

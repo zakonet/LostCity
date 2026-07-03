@@ -154,6 +154,9 @@ public final class CommercialTradeService {
         if (moneyResult > 0.0D) {
             EconomyService.depositCityFunds(level, cityId, player, moneyResult, "commercial_trade");
         }
+        if (moneyCost > 0.0D) {
+            CommercialTaxService.recordShopIncome(level, cityId, moneyCost);
+        }
         if (quickMove) {
             for (ItemStack stack : resultItems) {
                 giveItem(player, stack);
