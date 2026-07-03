@@ -126,9 +126,13 @@ public final class CommercialControlBoxService {
         if (level == null || boxPos == null) {
             return;
         }
+        PlacedBuildingRecord building = resolveBuilding(level, boxPos);
         fireWorker(level, boxPos);
         CommercialBoxManager.get(level).remove(boxPos);
         CommercialStockService.removeBox(level, boxPos);
+        if (building != null) {
+            PlacedBuildingService.unregister(level, building.buildingId());
+        }
     }
 
     /** resolveBuilding: 解析商业控制箱所属商业建筑。 */

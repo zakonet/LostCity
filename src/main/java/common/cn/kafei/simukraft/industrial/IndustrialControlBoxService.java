@@ -185,8 +185,12 @@ public final class IndustrialControlBoxService {
         if (level == null || boxPos == null) {
             return;
         }
+        PlacedBuildingRecord building = resolveBuilding(level, boxPos);
         fireWorker(level, boxPos);
         IndustrialBoxManager.get(level).remove(boxPos);
+        if (building != null) {
+            PlacedBuildingService.unregister(level, building.buildingId());
+        }
     }
 
     public static PlacedBuildingRecord resolveBuilding(ServerLevel level, BlockPos boxPos) {
