@@ -27,6 +27,7 @@ import net.minecraft.world.level.block.BonemealableBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.FarmBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
@@ -239,7 +240,7 @@ public final class FarmlandFarmingService {
         }
         BlockState cropState = level.getBlockState(cropPos);
         BlockState soilState = level.getBlockState(soilPos);
-        return !cropState.isAir() || !soilState.is(Blocks.WATER);
+        return !cropState.isAir() || !hasWater(soilState);
     }
 
     private static boolean needsTillWork(ServerLevel level, FarmlandBoxData data, BlockPos cropPos) {
@@ -294,13 +295,23 @@ public final class FarmlandFarmingService {
             harvestBlock(level, chestPositions, cropPos, cropState);
         }
         BlockState soilState = level.getBlockState(soilPos);
-        if (!soilState.is(Blocks.WATER)) {
+        if (!hasWater(soilState)) {
             if (!soilState.isAir()) {
                 harvestBlock(level, chestPositions, soilPos, soilState);
             }
             level.setBlock(soilPos, Blocks.WATER.defaultBlockState(), 3);
         }
         return FarmlandWorkResult.PROCESSED;
+    }
+
+    private static boolean hasWater(BlockState state) {
+        if (state.is(Blocks.WATER)) {
+            return true;
+        }
+        if (state.hasProperty(BlockStateProperties.WATERLOGGED)) {
+            return state.getValue(BlockStateProperties.WATERLOGGED);
+        }
+        return false;
     }
 
     private static FarmlandWorkResult applyTillWork(ServerLevel level, FarmlandBoxData data, BlockPos cropPos) {

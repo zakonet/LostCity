@@ -10,6 +10,7 @@ import client.cn.kafei.simukraft.client.ui.SimuKraftFlexLayout;
 import client.cn.kafei.simukraft.client.citizen.CitizenAvatarFactory;
 import client.cn.kafei.simukraft.client.ui.SimuKraftUiTheme;
 import common.cn.kafei.simukraft.SimuKraft;
+import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.TextTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -36,6 +37,7 @@ import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -70,9 +72,17 @@ public final class NpcHireScreen {
     private static final int MIN_CARD_WIDTH = 130;
     private static final int PREFERRED_CARD_HEIGHT = 70;
     private static final int MIN_CARD_HEIGHT = 62;
+    private static final int TOOLBAR_GAP = 6;
+    private static final int FAVORITE_BUTTON_SIZE = 18;
+    private static final int FAVORITE_BUTTON_TOP = 8;
+    private static final int FAVORITE_BUTTON_RIGHT_INSET = 4;
+    private static final int FAVORITE_STAR_COLOR = 0xFFFFD700;
     private static UUID selectedNpcId;
     private static int currentPage;
     private static String searchText = "";
+    private static boolean showFavoritesOnly;
+    private static boolean sortDescending;
+    private static SortMode sortMode = SortMode.NAME;
 
     private NpcHireScreen() {
     }
@@ -82,6 +92,9 @@ public final class NpcHireScreen {
         currentPage = 0;
         selectedNpcId = null;
         searchText = "";
+        showFavoritesOnly = false;
+        sortMode = SortMode.NAME;
+        sortDescending = false;
         PacketDistributor.sendToServer(new NpcHireListRequestPacket(sourcePos, sourceType, role));
     }
 
@@ -166,10 +179,22 @@ public final class NpcHireScreen {
             });
             root.addChild(confirmRegion);
 
-            root.addChild(RecipeBookSearchUi.frameElement(regions.searchRegion().left(), regions.searchRegion().top()));
-            HireUiController controller = new HireUiController(packet, regions, grid, statusSlot, cardRegion, infoRegion, pagerRegion, confirmRegion);
+            root.addChild(RecipeBookSearchUi.frameElement(regions.searchRegion().left(), regions.searchRegion().top(),
+                    regions.searchRegion().width(), regions.searchRegion().height()));
+            UIElement toolbarButtonsRegion = absoluteRegion(regions.toolbarButtonsRegion());
+            toolbarButtonsRegion.layout(layout -> {
+                layout.flexDirection(FlexDirection.ROW);
+                layout.alignItems(AlignItems.CENTER);
+                layout.justifyContent(AlignContent.CENTER);
+                layout.gapAll(TOOLBAR_GAP);
+            });
+            root.addChild(toolbarButtonsRegion);
+            HireUiController controller = new HireUiController(packet, regions, grid, statusSlot, cardRegion, infoRegion, pagerRegion, confirmRegion, toolbarButtonsRegion);
             root.addChild(RecipeBookSearchUi.createField(regions.searchRegion().left() + RecipeBookSearchUi.TEXT_OFFSET_X,
-                    regions.searchRegion().top() + RecipeBookSearchUi.TEXT_OFFSET_Y, searchText, controller::onSearchChanged));
+                    regions.searchRegion().top() + searchTextOffsetY(regions.searchRegion().height()),
+                    Math.max(RecipeBookSearchUi.TEXT_WIDTH, regions.searchRegion().width() - RecipeBookSearchUi.TEXT_OFFSET_X - 4),
+                    RecipeBookSearchUi.TEXT_HEIGHT,
+                    searchText, controller::onSearchChanged));
             controller.refresh();
             return new ModularUI(SimuKraftUiTheme.createUi(root)).shouldCloseOnEsc(true).shouldCloseOnKeyInventory(false);
         } catch (Exception exception) {
@@ -219,7 +244,7 @@ public final class NpcHireScreen {
             }));
 
             int textLeft = HEAD_SIZE + 12;
-            int textWidth = buttonWidth - textLeft - 10;
+            int textWidth = buttonWidth - textLeft - FAVORITE_BUTTON_SIZE - FAVORITE_BUTTON_RIGHT_INSET - 4;
 
             card.addChild(infoLine(Component.literal(candidate.name()), textWidth, CARD_TEXT_COLOR).layout(layout -> {
                 layout.positionType(TaffyPosition.ABSOLUTE);
@@ -241,6 +266,13 @@ public final class NpcHireScreen {
                 layout.top(34);
                 layout.width(34);
                 layout.height(10);
+            }));
+            card.addChild(favoriteButton(candidate.citizenId(), refreshAction).layout(layout -> {
+                layout.positionType(TaffyPosition.ABSOLUTE);
+                layout.left(Math.max(textLeft, buttonWidth - FAVORITE_BUTTON_SIZE - FAVORITE_BUTTON_RIGHT_INSET));
+                layout.top(FAVORITE_BUTTON_TOP);
+                layout.width(FAVORITE_BUTTON_SIZE);
+                layout.height(FAVORITE_BUTTON_SIZE);
             }));
 
             card.addChild(expBar(candidate, buttonWidth, buttonHeight).layout(layout -> {
@@ -288,6 +320,40 @@ public final class NpcHireScreen {
         return badge;
     }
 
+    private static UIElement favoriteButton(UUID citizenId, Runnable refreshAction) {
+        boolean favorite = isFavorite(citizenId);
+        UIElement root = new UIElement();
+        root.addChild(textElement(Component.literal(favorite ? "★" : "☆"), FAVORITE_BUTTON_SIZE, FAVORITE_STAR_COLOR, TextTexture.TextType.NORMAL, false).layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(0);
+            layout.top(0);
+            layout.width(FAVORITE_BUTTON_SIZE);
+            layout.height(FAVORITE_BUTTON_SIZE);
+        }).setAllowHitTest(false));
+
+        Button hitArea = new Button().noText();
+        hitArea.buttonStyle(style -> style
+                .baseTexture(IGuiTexture.EMPTY)
+                .hoverTexture(IGuiTexture.EMPTY)
+                .pressedTexture(IGuiTexture.EMPTY));
+        hitArea.layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(0);
+            layout.top(0);
+            layout.width(FAVORITE_BUTTON_SIZE);
+            layout.height(FAVORITE_BUTTON_SIZE);
+        });
+        hitArea.setOnClick(event -> {
+            if (event.button == 0) {
+                toggleFavorite(citizenId);
+                refreshAction.run();
+                event.stopPropagation();
+            }
+        });
+        root.addChild(hitArea);
+        return root;
+    }
+
     private static UIElement infoLine(Component text, int width, int color) {
         UIElement element = new UIElement();
         element.style(style -> style.backgroundTexture(new TextTexture(text.getString())
@@ -299,12 +365,16 @@ public final class NpcHireScreen {
     }
 
     private static UIElement textElement(Component text, int width, int color, TextTexture.TextType type) {
+        return textElement(text, width, color, type, true);
+    }
+
+    private static UIElement textElement(Component text, int width, int color, TextTexture.TextType type, boolean dropShadow) {
         UIElement element = new UIElement();
         element.style(style -> style.backgroundTexture(new TextTexture(text.getString())
                 .setWidth(width)
                 .setType(type)
                 .setColor(color)
-                .setDropShadow(true)));
+                .setDropShadow(dropShadow)));
         return element;
     }
 
@@ -312,16 +382,28 @@ public final class NpcHireScreen {
         RegionBox titleRegion = relativeBox(screenWidth, screenHeight, TITLE_LEFT_RATIO, TITLE_TOP_RATIO, TITLE_WIDTH_RATIO, TITLE_HEIGHT_RATIO);
         RegionBox pagerRegion = relativeBox(screenWidth, screenHeight, PAGER_LEFT_RATIO, PAGER_TOP_RATIO, PAGER_WIDTH_RATIO, PAGER_HEIGHT_RATIO);
         RegionBox confirmRegion = relativeBox(screenWidth, screenHeight, CONFIRM_LEFT_RATIO, CONFIRM_TOP_RATIO, CONFIRM_WIDTH_RATIO, CONFIRM_HEIGHT_RATIO);
-        int searchTop = clamp(Math.max(titleRegion.bottom() + 4, Math.round(screenHeight * 0.155F)), 0,
-                Math.max(0, pagerRegion.top() - RecipeBookSearchUi.FRAME_HEIGHT - MIN_CARD_HEIGHT - 12));
+        int toolbarTop = clamp(Math.max(titleRegion.bottom() + 6, Math.round(screenHeight * 0.18F)), 0,
+                Math.max(0, pagerRegion.top() - Math.max(22, RecipeBookSearchUi.FRAME_HEIGHT) - MIN_CARD_HEIGHT - 12));
+        int toolbarLeft = clamp(Math.round(screenWidth * 0.036F), 0, Math.max(0, screenWidth - 1));
+        int toolbarWidth = clamp(Math.round(screenWidth * 0.928F), 1, Math.max(1, screenWidth - toolbarLeft));
+        int toolbarHeight = Math.max(22, RecipeBookSearchUi.FRAME_HEIGHT + 4);
+        int toolbarButtonHeight = Math.max(MIN_BUTTON_HEIGHT, toolbarHeight - 2);
+        int controlsWidth = clamp(Math.round(toolbarWidth * 0.34F), Math.min(220, toolbarWidth), Math.min(430, toolbarWidth));
+        int searchWidth = Math.max(RecipeBookSearchUi.FRAME_WIDTH, toolbarWidth - controlsWidth - TOOLBAR_GAP);
         RegionBox searchRegion = new RegionBox(
-                clamp((screenWidth - RecipeBookSearchUi.FRAME_WIDTH) / 2, 0, Math.max(0, screenWidth - RecipeBookSearchUi.FRAME_WIDTH)),
-                searchTop,
-                Math.min(RecipeBookSearchUi.FRAME_WIDTH, screenWidth),
-                RecipeBookSearchUi.FRAME_HEIGHT
+                toolbarLeft,
+                toolbarTop + Math.max(0, (toolbarHeight - toolbarButtonHeight) / 2),
+                searchWidth,
+                toolbarButtonHeight
+        );
+        RegionBox toolbarButtonsRegion = new RegionBox(
+                searchRegion.right() + TOOLBAR_GAP,
+                toolbarTop,
+                Math.max(1, toolbarLeft + toolbarWidth - searchRegion.right() - TOOLBAR_GAP),
+                toolbarHeight
         );
         RegionBox rawCardRegion = relativeBox(screenWidth, screenHeight, CARD_LEFT_RATIO, CARD_TOP_RATIO, CARD_WIDTH_RATIO, CARD_HEIGHT_RATIO);
-        int cardTop = clamp(Math.max(rawCardRegion.top(), searchRegion.bottom() + 6), 0, Math.max(0, pagerRegion.top() - MIN_CARD_HEIGHT - 4));
+        int cardTop = clamp(Math.max(rawCardRegion.top(), toolbarTop + toolbarHeight + 8), 0, Math.max(0, pagerRegion.top() - MIN_CARD_HEIGHT - 4));
         int cardBottomLimit = Math.max(rawCardRegion.top() + MIN_CARD_HEIGHT, Math.min(rawCardRegion.bottom(), pagerRegion.top() - 4));
         RegionBox cardRegion = new RegionBox(
                 rawCardRegion.left(),
@@ -339,6 +421,7 @@ public final class NpcHireScreen {
         return new RegionMetrics(
                 titleRegion,
                 searchRegion,
+                toolbarButtonsRegion,
                 cardRegion,
                 selectedInfoRegion,
                 pagerRegion,
@@ -348,6 +431,10 @@ public final class NpcHireScreen {
 
     private static int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    private static int searchTextOffsetY(int frameHeight) {
+        return Math.max(1, (frameHeight - RecipeBookSearchUi.TEXT_HEIGHT) / 2);
     }
 
     private static UIElement absoluteRegion(RegionBox region) {
@@ -445,12 +532,29 @@ public final class NpcHireScreen {
 
     private static List<NpcHireListResponsePacket.HireCandidate> filteredCandidates(List<NpcHireListResponsePacket.HireCandidate> candidates) {
         String query = normalizedSearchText();
-        if (query.isBlank()) {
-            return candidates;
-        }
         return candidates.stream()
-                .filter(candidate -> matchesSearch(candidate, query))
+                .filter(candidate -> !showFavoritesOnly || isFavorite(candidate.citizenId()))
+                .filter(candidate -> query.isBlank() || matchesSearch(candidate, query))
+                .sorted(currentComparator())
                 .toList();
+    }
+
+    private static boolean isFavorite(UUID citizenId) {
+        return HireFavoriteStore.isFavorite(citizenId);
+    }
+
+    private static void toggleFavorite(UUID citizenId) {
+        HireFavoriteStore.toggleFavorite(citizenId);
+    }
+
+    private static Comparator<NpcHireListResponsePacket.HireCandidate> currentComparator() {
+        Comparator<NpcHireListResponsePacket.HireCandidate> comparator = switch (sortMode) {
+            case NAME -> Comparator.comparing(NpcHireListResponsePacket.HireCandidate::name, String.CASE_INSENSITIVE_ORDER);
+            case LEVEL -> Comparator.comparingInt(NpcHireListResponsePacket.HireCandidate::skillLevel);
+        };
+        comparator = comparator.thenComparing(NpcHireListResponsePacket.HireCandidate::name, String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(c -> c.citizenId().toString(), String.CASE_INSENSITIVE_ORDER);
+        return sortDescending ? comparator.reversed() : comparator;
     }
 
     private static boolean matchesSearch(NpcHireListResponsePacket.HireCandidate candidate, String query) {
@@ -486,9 +590,10 @@ public final class NpcHireScreen {
         private final UIElement infoRegion;
         private final UIElement pagerRegion;
         private final UIElement confirmRegion;
+        private final UIElement toolbarButtonsRegion;
 
         private HireUiController(NpcHireListResponsePacket packet, RegionMetrics regions, GridMetrics grid, UIElement statusSlot,
-                                 UIElement cardRegion, UIElement infoRegion, UIElement pagerRegion, UIElement confirmRegion) {
+                                 UIElement cardRegion, UIElement infoRegion, UIElement pagerRegion, UIElement confirmRegion, UIElement toolbarButtonsRegion) {
             this.packet = packet;
             this.regions = regions;
             this.grid = grid;
@@ -497,6 +602,7 @@ public final class NpcHireScreen {
             this.infoRegion = infoRegion;
             this.pagerRegion = pagerRegion;
             this.confirmRegion = confirmRegion;
+            this.toolbarButtonsRegion = toolbarButtonsRegion;
         }
 
         /** onSearchChanged: 搜索变化时只刷新列表区域，避免输入框丢焦点。 */
@@ -517,6 +623,7 @@ public final class NpcHireScreen {
             refreshSelectedInfo();
             refreshPager(pageCount);
             refreshConfirm();
+            refreshToolbar();
         }
 
         private void refreshStatus(List<NpcHireListResponsePacket.HireCandidate> filteredCandidates, int pageCount) {
@@ -606,13 +713,87 @@ public final class NpcHireScreen {
             }
             confirmRegion.addChild(confirmButton);
         }
+
+        private void refreshToolbar() {
+            toolbarButtonsRegion.clearAllChildren();
+            int width = Math.max(MIN_BUTTON_WIDTH, (regions.toolbarButtonsRegion().width() - TOOLBAR_GAP * 2) / 3);
+            int height = Math.max(MIN_BUTTON_HEIGHT, regions.toolbarButtonsRegion().height() - 2);
+
+            Button favoriteButton = toolbarButton(Component.translatable(showFavoritesOnly
+                    ? "gui.hire_list.favorites_only"
+                    : "gui.hire_list.show_favorites"), width, height);
+            favoriteButton.setOnClick(event -> {
+                if (event.button == 0) {
+                    showFavoritesOnly = !showFavoritesOnly;
+                    currentPage = 0;
+                    selectedNpcId = null;
+                    refresh();
+                }
+            });
+
+            Button sortModeButton = toolbarButton(Component.translatable("gui.building_list.sort_button", sortMode.label()), width, height);
+            sortModeButton.setOnClick(event -> {
+                if (event.button == 0) {
+                    sortMode = sortMode.next();
+                    currentPage = 0;
+                    refresh();
+                }
+            });
+
+            Button sortDirectionButton = toolbarButton(Component.translatable(sortDescending
+                    ? "gui.building_list.sort_desc"
+                    : "gui.building_list.sort_asc"), width, height);
+            sortDirectionButton.setOnClick(event -> {
+                if (event.button == 0) {
+                    sortDescending = !sortDescending;
+                    currentPage = 0;
+                    refresh();
+                }
+            });
+
+            toolbarButtonsRegion.addChild(favoriteButton);
+            toolbarButtonsRegion.addChild(sortModeButton);
+            toolbarButtonsRegion.addChild(sortDirectionButton);
+        }
+
+        private Button toolbarButton(Component text, int width, int height) {
+            Button button = new Button();
+            button.setText(text);
+            button.layout(layout -> {
+                layout.width(width);
+                layout.height(height);
+                layout.flexShrink(0);
+            });
+            return button;
+        }
     }
 
     private record GridMetrics(int columns, int rows, int perPage, int cardWidth, int cardHeight) {
     }
 
+    private enum SortMode {
+        NAME("gui.hire_list.sort.name"),
+        LEVEL("gui.hire_list.sort.level");
+
+        private final String labelKey;
+
+        SortMode(String labelKey) {
+            this.labelKey = labelKey;
+        }
+
+        private Component label() {
+            return Component.translatable(labelKey);
+        }
+
+        private SortMode next() {
+            SortMode[] values = values();
+            return values[(ordinal() + 1) % values.length];
+        }
+    }
+
     private record RegionMetrics(RegionBox titleRegion,
                                  RegionBox searchRegion,
+                                 RegionBox toolbarButtonsRegion,
                                  RegionBox cardRegion,
                                  RegionBox selectedInfoRegion,
                                  RegionBox pagerRegion,
@@ -620,6 +801,10 @@ public final class NpcHireScreen {
     }
 
     private record RegionBox(int left, int top, int width, int height) {
+        private int right() {
+            return left + width;
+        }
+
         private int bottom() {
             return top + height;
         }

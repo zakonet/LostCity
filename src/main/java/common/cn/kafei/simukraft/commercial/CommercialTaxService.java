@@ -7,6 +7,7 @@ import net.minecraft.server.level.ServerLevel;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class CommercialTaxService {
@@ -30,10 +31,22 @@ public final class CommercialTaxService {
 
     /** collectDueTaxes: 结算指定 MC 日之前未上交的企业税。 */
     public static Map<UUID, Double> collectDueTaxes(ServerLevel level, long currentDay) {
+        return collectDueTaxes(level, currentDay, null);
+    }
+
+    /** collectDueTaxes: 仅结算 allowedCities 内城市的企业税；传 null 表示不限制城市。 */
+    public static Map<UUID, Double> collectDueTaxes(ServerLevel level, long currentDay, Set<UUID> allowedCities) {
         if (level == null || currentDay <= 1L) {
             return Map.of();
         }
+        if (allowedCities != null && allowedCities.isEmpty()) {
+            return Map.of();
+        }
         Map<UUID, Double> incomeByCity = SimuSqliteStorage.loadUntaxedCommercialIncome(level, currentDay);
+        if (allowedCities != null) {
+            incomeByCity = new LinkedHashMap<>(incomeByCity);
+            incomeByCity.keySet().retainAll(allowedCities);
+        }
         if (incomeByCity.isEmpty()) {
             return Map.of();
         }

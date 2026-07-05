@@ -37,7 +37,13 @@ public final class IndustrialDefinitionLoader {
             return LoadResult.missing("missing_building");
         }
         String cacheKey = building.category() + "/" + building.buildingFileName();
-        return CACHE.computeIfAbsent(cacheKey, k -> loadForBuildingInternal(building));
+        LoadResult cached = CACHE.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+        LoadResult result = loadForBuildingInternal(building);
+        CACHE.put(cacheKey, result);
+        return result;
     }
 
     private static LoadResult loadForBuildingInternal(PlacedBuildingRecord building) {

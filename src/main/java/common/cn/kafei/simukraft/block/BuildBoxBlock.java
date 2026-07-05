@@ -1,6 +1,8 @@
 package common.cn.kafei.simukraft.block;
 
 import common.cn.kafei.simukraft.building.BuilderConstructionService;
+import common.cn.kafei.simukraft.building.PlacedBuildingRecord;
+import common.cn.kafei.simukraft.building.PlacedBuildingService;
 import common.cn.kafei.simukraft.clientbridge.ClientInteractionBridge;
 import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.registry.ModSoundEvents;
@@ -51,6 +53,10 @@ public class BuildBoxBlock extends Block {
             common.cn.kafei.simukraft.planner.PlannerWorkService.interruptTasksByBuildBox(serverLevel, pos, "build_box_removed");
             releaseAssignedCitizen(serverLevel, pos, "builder");
             releaseAssignedCitizen(serverLevel, pos, "planner");
+            PlacedBuildingRecord building = PlacedBuildingService.findByContainedPos(serverLevel, pos);
+            if (building != null) {
+                PlacedBuildingService.unregister(serverLevel, building.buildingId());
+            }
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
