@@ -3,6 +3,9 @@ package common.cn.kafei.simukraft.network.citizen.info;
 import common.cn.kafei.simukraft.network.clientbound.ClientboundNetworkBridge;
 import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.citizen.CitizenData;
+import common.cn.kafei.simukraft.citizen.CitizenProfileGenerator;
+import common.cn.kafei.simukraft.citizen.CitizenManager;
+import common.cn.kafei.simukraft.citizen.family.FamilyManager;
 import common.cn.kafei.simukraft.citizen.CitizenLevelService;
 import common.cn.kafei.simukraft.citizen.CitizenSelfFeedingService;
 import common.cn.kafei.simukraft.citizen.CitizenSkillSnapshot;
@@ -28,7 +31,8 @@ import java.util.UUID;
 public record CitizenInfoResponsePacket(UUID citizenId, String name, String gender, int age, int lifespan,
                                         double health, double hunger, boolean sick, boolean child,
                                         String workStatus, String statusLabel, String jobType, String jobId, String jobName, String cityName, String homeName,
-                                        String workplaceName, int skillLevel, int skillXp, int skillMaxLevel) implements CustomPacketPayload {
+                                        String workplaceName, int skillLevel, int skillXp, int skillMaxLevel,
+                                        String familyDisplay, String clanDisplay) implements CustomPacketPayload {
     public static final Type<CitizenInfoResponsePacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SimuKraft.MOD_ID, "citizen_info_response"));
     public static final StreamCodec<RegistryFriendlyByteBuf, CitizenInfoResponsePacket> STREAM_CODEC = StreamCodec.of(CitizenInfoResponsePacket::encode, CitizenInfoResponsePacket::decode);
 
@@ -58,8 +62,45 @@ public record CitizenInfoResponsePacket(UUID citizenId, String name, String gend
                 workplaceName,
                 skill.level(),
                 skill.xp(),
-                skill.maxLevel()
+                skill.maxLevel(),
+                buildFamilyDisplay(level, data),
+                buildClanDisplay(level, data)
         );
+    }
+
+    private static String buildFamilyDisplay(ServerLevel level, CitizenData data) {
+        FamilyManager familyManager = FamilyManager.get(level);
+        CitizenManager citizenManager = CitizenManager.get(level);
+        // 优先用当前家庭的丈夫（已婚）
+        UUID husbandId = resolveHusbandId(familyManager, data.familyId());
+        // 未婚时回溯出生家庭的父亲
+        if (husbandId == null) {
+            husbandId = resolveHusbandId(familyManager, data.originFamilyId());
+        }
+        if (husbandId == null) return "";
+        CitizenData husband = citizenManager.getCitizen(husbandId).orElse(null);
+        if (husband == null || husband.name().isBlank()) return "";
+        return husband.name() + "家庭";
+    }
+
+    private static String buildClanDisplay(ServerLevel level, CitizenData data) {
+        FamilyManager familyManager = FamilyManager.get(level);
+        CitizenManager citizenManager = CitizenManager.get(level);
+        UUID husbandId = resolveHusbandId(familyManager, data.familyId());
+        if (husbandId == null) {
+            husbandId = resolveHusbandId(familyManager, data.originFamilyId());
+        }
+        if (husbandId == null) return "";
+        CitizenData husband = citizenManager.getCitizen(husbandId).orElse(null);
+        if (husband == null || husband.name().isBlank()) return "";
+        String surname = CitizenProfileGenerator.extractFamilyName(husband.name());
+        if (surname.isBlank()) return "";
+        return surname + "氏家族";
+    }
+
+    private static UUID resolveHusbandId(FamilyManager familyManager, UUID familyId) {
+        if (familyId == null) return null;
+        return familyManager.getFamily(familyId).map(f -> f.husbandId()).orElse(null);
     }
 
     @Override
@@ -88,6 +129,8 @@ public record CitizenInfoResponsePacket(UUID citizenId, String name, String gend
         buffer.writeVarInt(packet.skillLevel());
         buffer.writeVarInt(packet.skillXp());
         buffer.writeVarInt(packet.skillMaxLevel());
+        buffer.writeUtf(packet.familyDisplay(), 64);
+        buffer.writeUtf(packet.clanDisplay(), 64);
     }
 
     public static CitizenInfoResponsePacket decode(RegistryFriendlyByteBuf buffer) {
@@ -111,7 +154,9 @@ public record CitizenInfoResponsePacket(UUID citizenId, String name, String gend
                 buffer.readUtf(96),
                 buffer.readVarInt(),
                 buffer.readVarInt(),
-                buffer.readVarInt()
+                buffer.readVarInt(),
+                buffer.readUtf(64),
+                buffer.readUtf(64)
         );
     }
 

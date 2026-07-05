@@ -206,7 +206,8 @@ final class HybridPathfinder {
                             && !down.climbable()
                             && current.standY() - down.standY() <= 3.5D
                             && hasVerticalPassage(snapshot, current, down)) {
-                        output.add(new Neighbor(down, down.water() ? MovementMode.SWIM : MovementMode.FALL, 1.2D + fall));
+                        output.add(new Neighbor(down, down.water() ? MovementMode.SWIM : MovementMode.FALL,
+                                down.water() ? 1.8D : fallCost(current.standY() - down.standY())));
                         break;
                     }
                 }
@@ -277,7 +278,7 @@ final class HybridPathfinder {
                         if (!diagonal
                                 && current.standY() - next.standY() <= 3.5D
                                 && hasVerticalPassage(snapshot, current, next)) {
-                            output.add(new Neighbor(next, MovementMode.FALL, 1.2D + distance(current, next)));
+                            output.add(new Neighbor(next, MovementMode.FALL, fallCost(current.standY() - next.standY())));
                         }
                     }
                 }
@@ -371,7 +372,8 @@ final class HybridPathfinder {
                             && !down.climbable()
                             && current.standY() - down.standY() <= 3.5D
                             && hasVerticalPassage(snapshot, current, down)) {
-                        output.add(new Neighbor(down, down.water() ? MovementMode.SWIM : MovementMode.FALL, 1.2D + fall));
+                        output.add(new Neighbor(down, down.water() ? MovementMode.SWIM : MovementMode.FALL,
+                                down.water() ? 1.8D : fallCost(current.standY() - down.standY())));
                         break;
                     }
                 }
@@ -680,6 +682,20 @@ final class HybridPathfinder {
     /**
      * Returns the Euclidean distance between two cells using their stand heights.
      */
+    /**
+     * fallCost: 按高度差分档计算跳落代价。
+     * <1格: 低代价（微台阶）; ~1格: 中代价; >1格: 高代价（尽量绕路）
+     */
+    private static double fallCost(double heightDiff) {
+        if (heightDiff < 1.0D) {
+            return 1.5D;           // 低代价：不到1格
+        } else if (heightDiff <= 1.5D) {
+            return 4.0D;           // 中代价：约1格
+        } else {
+            return 8.0D + heightDiff * 2.0D; // 高代价：超过1格，线性惩罚
+        }
+    }
+
     private static double distance(PathCell from, PathCell to) {
         double dx = from.x() - to.x();
         double dy = from.standY() - to.standY();

@@ -133,7 +133,7 @@ public final class CityPoiManager extends SavedData {
         if (existingPoiId != null) {
             CityPoiData existing = pois.get(existingPoiId);
             if (existing != null) {
-                CityPoiData updated = new CityPoiData(requestedPoiId != null ? requestedPoiId : existing.poiId(), cityId, immutablePos, type, Math.max(0, capacity), true);
+                CityPoiData updated = new CityPoiData(requestedPoiId != null ? requestedPoiId : existing.poiId(), cityId, immutablePos, type, Math.max(0, capacity), true, existing.unitId());
                 replacePoi(existing, updated);
                 CityJobAssignmentService.invalidate(existing.cityId());
                 CityJobAssignmentService.invalidate(cityId);
@@ -143,7 +143,7 @@ public final class CityPoiManager extends SavedData {
                 return updated;
             }
         }
-        CityPoiData poi = new CityPoiData(requestedPoiId != null ? requestedPoiId : UUID.randomUUID(), cityId, immutablePos, type, Math.max(0, capacity), true);
+        CityPoiData poi = new CityPoiData(requestedPoiId != null ? requestedPoiId : UUID.randomUUID(), cityId, immutablePos, type, Math.max(0, capacity), true, null);
         putLoaded(poi);
         CityJobAssignmentService.invalidate(cityId);
         GLOBAL_POI_CACHE.put(poi.poiId(), poi);
@@ -217,6 +217,16 @@ public final class CityPoiManager extends SavedData {
 
     public CityPoiData getPoi(UUID poiId) {
         return poiId == null ? null : pois.get(poiId);
+    }
+
+    public synchronized void updatePoiUnitId(UUID poiId, UUID unitId) {
+        CityPoiData poi = poiId != null ? pois.get(poiId) : null;
+        if (poi == null) return;
+        CityPoiData updated = poi.withUnitId(unitId);
+        pois.put(poiId, updated);
+        GLOBAL_POI_CACHE.put(poiId, updated);
+        savePoiIncremental(updated);
+        setDirty();
     }
 
     public CityPoiData getPoiAt(BlockPos pos) {

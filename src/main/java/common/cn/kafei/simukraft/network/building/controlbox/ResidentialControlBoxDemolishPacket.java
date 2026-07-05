@@ -4,6 +4,9 @@ import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.building.PlacedBuildingDemolitionService;
 import common.cn.kafei.simukraft.building.PlacedBuildingRecord;
 import common.cn.kafei.simukraft.building.controlbox.ResidentialControlBoxService;
+import common.cn.kafei.simukraft.city.CityData;
+import common.cn.kafei.simukraft.city.CityManager;
+import common.cn.kafei.simukraft.city.CityPermissionLevel;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import common.cn.kafei.simukraft.registry.ModBlocks;
 import net.minecraft.core.BlockPos;
@@ -54,6 +57,18 @@ public record ResidentialControlBoxDemolishPacket(BlockPos pos) implements Custo
         if (building == null) {
             InfoToastService.warning(player, Component.translatable("message.simukraft.residential_control_box.no_building"));
             return;
+        }
+        // 鉴权：OP 或城市官员及以上权限
+        if (!player.hasPermissions(2)) {
+            if (building.cityId() == null) {
+                InfoToastService.warning(player, Component.translatable("message.simukraft.no_permission"));
+                return;
+            }
+            CityData city = CityManager.get(level).getCity(building.cityId()).orElse(null);
+            if (city == null || !city.hasPermission(player.getUUID(), CityPermissionLevel.OFFICIAL)) {
+                InfoToastService.warning(player, Component.translatable("message.simukraft.no_permission"));
+                return;
+            }
         }
         if (PlacedBuildingDemolitionService.demolish(level, building)) {
             InfoToastService.success(player, Component.translatable("message.simukraft.residential_control_box.demolished"));

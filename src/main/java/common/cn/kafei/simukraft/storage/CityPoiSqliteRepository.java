@@ -28,7 +28,7 @@ public final class CityPoiSqliteRepository {
                 ListTag pois = tag.getList("Pois", CompoundTag.TAG_COMPOUND);
                 if (!pois.isEmpty()) {
                     try (PreparedStatement statement = connection.prepareStatement(
-                            "INSERT INTO city_pois(poi_id, dimension_id, city_id, pos_long, type, capacity, active) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(poi_id) DO UPDATE SET dimension_id = excluded.dimension_id, city_id = excluded.city_id, pos_long = excluded.pos_long, type = excluded.type, capacity = excluded.capacity, active = excluded.active")) {
+                            "INSERT INTO city_pois(poi_id, dimension_id, city_id, pos_long, type, capacity, active, unit_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(poi_id) DO UPDATE SET dimension_id = excluded.dimension_id, city_id = excluded.city_id, pos_long = excluded.pos_long, type = excluded.type, capacity = excluded.capacity, active = excluded.active, unit_id = excluded.unit_id")) {
                         for (int i = 0; i < pois.size(); i++) {
                             CompoundTag poi = pois.getCompound(i);
                             statement.setString(1, poi.getUUID("PoiId").toString());
@@ -38,6 +38,7 @@ public final class CityPoiSqliteRepository {
                             statement.setString(5, poi.getString("Type"));
                             statement.setInt(6, poi.getInt("Capacity"));
                             statement.setInt(7, poi.getBoolean("Active") ? 1 : 0);
+                            SqliteNbtHelper.setNullableString(statement, 8, poi.hasUUID("UnitId") ? poi.getUUID("UnitId").toString() : null);
                             statement.addBatch();
                         }
                         statement.executeBatch();
@@ -89,6 +90,7 @@ public final class CityPoiSqliteRepository {
                 poi.putString("Type", resultSet.getString("type"));
                 poi.putInt("Capacity", resultSet.getInt("capacity"));
                 poi.putBoolean("Active", resultSet.getInt("active") != 0);
+                SqliteNbtHelper.putNullableUuid(poi, "UnitId", resultSet.getString("unit_id"));
                 pois.add(poi);
             }
             }
@@ -101,7 +103,7 @@ public final class CityPoiSqliteRepository {
     }
 
     private void savePoi(Connection connection, CompoundTag poi, String dimensionId) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("INSERT INTO city_pois(poi_id, dimension_id, city_id, pos_long, type, capacity, active) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(poi_id) DO UPDATE SET dimension_id = excluded.dimension_id, city_id = excluded.city_id, pos_long = excluded.pos_long, type = excluded.type, capacity = excluded.capacity, active = excluded.active")) {
+        try (PreparedStatement statement = connection.prepareStatement("INSERT INTO city_pois(poi_id, dimension_id, city_id, pos_long, type, capacity, active, unit_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(poi_id) DO UPDATE SET dimension_id = excluded.dimension_id, city_id = excluded.city_id, pos_long = excluded.pos_long, type = excluded.type, capacity = excluded.capacity, active = excluded.active, unit_id = excluded.unit_id")) {
             statement.setString(1, poi.getUUID("PoiId").toString());
             statement.setString(2, dimensionId);
             statement.setString(3, poi.getUUID("CityId").toString());
@@ -109,6 +111,7 @@ public final class CityPoiSqliteRepository {
             statement.setString(5, poi.getString("Type"));
             statement.setInt(6, poi.getInt("Capacity"));
             statement.setInt(7, poi.getBoolean("Active") ? 1 : 0);
+            SqliteNbtHelper.setNullableString(statement, 8, poi.hasUUID("UnitId") ? poi.getUUID("UnitId").toString() : null);
             statement.executeUpdate();
         }
     }

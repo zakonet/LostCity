@@ -423,32 +423,65 @@ public final class CityCoreScreenOpener {
         });
         panel.addChild(sectionLabel("screen.simukraft.city_core.members.add_title"));
         panel.addChild(manualAddRow(packet));
-        if (!packet.onlineCandidates().isEmpty()) {
-            panel.addChild(sectionLabel("screen.simukraft.city_core.members.candidates"));
-            packet.onlineCandidates().forEach(candidate -> panel.addChild(candidateRow(packet, candidate)));
-        } else {
-            panel.addChild(line(Component.translatable("screen.simukraft.city_core.members.candidate_empty")));
-        }
         return panel;
     }
 
     private static UIElement manualAddRow(CityCoreMembersResponsePacket packet) {
+        UIElement wrapper = new UIElement().layout(layout -> {
+            layout.widthPercent(100);
+            layout.flexDirection(FlexDirection.COLUMN);
+            layout.gapAll(4);
+        });
+
+        // 输入行：搜索框 + 操作按钮
+        UIElement row = addRow();
         TextField addField = textField("", 180);
         addField.getTextFieldStyle().placeholder(Component.translatable("screen.simukraft.city_core.members.add_placeholder"));
-        UIElement row = addRow();
         row.addChild(addField.layout(layout -> {
             layout.flex(1);
             layout.height(20);
         }));
-        row.addChild(memberActionButton("screen.simukraft.city_core.members.add_citizen", 72,
-                () -> sendAddMember(packet.pos(), CityCoreMemberActionPacket.EMPTY_PLAYER_ID, addField.getValue(), CityPermissionLevel.CITIZEN)));
         if (packet.viewerPermission() == CityPermissionLevel.MAYOR) {
             row.addChild(memberActionButton("screen.simukraft.city_core.members.add_official", 72,
                     () -> sendAddMember(packet.pos(), CityCoreMemberActionPacket.EMPTY_PLAYER_ID, addField.getValue(), CityPermissionLevel.OFFICIAL)));
             row.addChild(memberActionButton("screen.simukraft.city_core.members.add_mayor", 72,
                     () -> sendAddMember(packet.pos(), CityCoreMemberActionPacket.EMPTY_PLAYER_ID, addField.getValue(), CityPermissionLevel.MAYOR)));
         }
-        return row;
+        wrapper.addChild(row);
+
+        // 建议列表：最多5条，按输入过滤在线候选玩家
+        UIElement suggestionPanel = new UIElement().layout(layout -> {
+            layout.widthPercent(100);
+            layout.flexDirection(FlexDirection.COLUMN);
+            layout.gapAll(2);
+        });
+
+        Runnable rebuildSuggestions = () -> {
+            suggestionPanel.clearAllChildren();
+            String q = addField.getValue().trim().toLowerCase(java.util.Locale.ROOT);
+            List<CityCoreMembersResponsePacket.CandidateEntry> matches = packet.onlineCandidates().stream()
+                    .filter(c -> q.isEmpty() || c.playerName().toLowerCase(java.util.Locale.ROOT).contains(q))
+                    .limit(5)
+                    .toList();
+            for (CityCoreMembersResponsePacket.CandidateEntry candidate : matches) {
+                Button btn = new Button();
+                btn.setText(Component.literal(candidate.playerName()));
+                btn.setOnClick(e -> {
+                    addField.setValue(candidate.playerName());
+                    suggestionPanel.clearAllChildren();
+                });
+                btn.layout(layout -> {
+                    layout.widthPercent(100);
+                    layout.height(18);
+                });
+                suggestionPanel.addChild(btn);
+            }
+        };
+
+        addField.setTextResponder(t -> rebuildSuggestions.run());
+        rebuildSuggestions.run();
+        wrapper.addChild(suggestionPanel);
+        return wrapper;
     }
 
     private static UIElement candidateRow(CityCoreMembersResponsePacket packet, CityCoreMembersResponsePacket.CandidateEntry candidate) {
@@ -459,8 +492,6 @@ public final class CityCoreScreenOpener {
             layout.height(13);
         });
         row.addChild(name);
-        row.addChild(memberActionButton("screen.simukraft.city_core.members.add_citizen", 72,
-                () -> sendAddMember(packet.pos(), candidate.playerId(), candidate.playerName(), CityPermissionLevel.CITIZEN)));
         if (packet.viewerPermission() == CityPermissionLevel.MAYOR) {
             row.addChild(memberActionButton("screen.simukraft.city_core.members.add_official", 72,
                     () -> sendAddMember(packet.pos(), candidate.playerId(), candidate.playerName(), CityPermissionLevel.OFFICIAL)));

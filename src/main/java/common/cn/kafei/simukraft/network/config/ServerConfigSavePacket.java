@@ -23,7 +23,12 @@ public record ServerConfigSavePacket(
         boolean claimProtection,
         int populationGrowthIntervalTicks,
         int populationGrowthMaxPerInterval,
+        int populationGrowthTimesPerWeek,
         CitizenNameStyle npcNameStyle,
+        int familyPregnancyDurationDays,
+        int familyChildGrowthDurationDays,
+        double familyMarriageChancePerDay,
+        double familyPregnancyChancePerDay,
         int farmAreaRadius,
         int farmWorkIntervalTicks,
         int farmActionsPerCycle,
@@ -86,7 +91,12 @@ public record ServerConfigSavePacket(
         buf.writeBoolean(p.claimProtection);
         buf.writeVarInt(p.populationGrowthIntervalTicks);
         buf.writeVarInt(p.populationGrowthMaxPerInterval);
+        buf.writeVarInt(p.populationGrowthTimesPerWeek);
         buf.writeUtf(safeNameStyle(p.npcNameStyle).name(), 16);
+        buf.writeVarInt(p.familyPregnancyDurationDays);
+        buf.writeVarInt(p.familyChildGrowthDurationDays);
+        buf.writeDouble(p.familyMarriageChancePerDay);
+        buf.writeDouble(p.familyPregnancyChancePerDay);
         buf.writeVarInt(p.farmAreaRadius);
         buf.writeVarInt(p.farmWorkIntervalTicks);
         buf.writeVarInt(p.farmActionsPerCycle);
@@ -138,7 +148,8 @@ public record ServerConfigSavePacket(
     public static ServerConfigSavePacket decode(RegistryFriendlyByteBuf buf) {
         return new ServerConfigSavePacket(
                 buf.readDouble(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean(),
-                buf.readVarInt(), buf.readVarInt(), CitizenNameStyle.fromName(buf.readUtf(16)),
+                buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), CitizenNameStyle.fromName(buf.readUtf(16)),
+                buf.readVarInt(), buf.readVarInt(), buf.readDouble(), buf.readDouble(),
                 buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
                 buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
                 buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readBoolean(),
@@ -163,7 +174,12 @@ public record ServerConfigSavePacket(
         ServerConfig.ENABLE_CLAIM_PROTECTION.set(p.claimProtection);
         ServerConfig.POPULATION_GROWTH_INTERVAL_TICKS.set(p.populationGrowthIntervalTicks);
         ServerConfig.POPULATION_GROWTH_MAX_PER_INTERVAL.set(p.populationGrowthMaxPerInterval);
+        ServerConfig.POPULATION_GROWTH_TIMES_PER_WEEK.set(p.populationGrowthTimesPerWeek);
         ServerConfig.NPC_NAME_STYLE.set(safeNameStyle(p.npcNameStyle));
+        ServerConfig.FAMILY_PREGNANCY_DURATION_DAYS.set(p.familyPregnancyDurationDays);
+        ServerConfig.FAMILY_CHILD_GROWTH_DURATION_DAYS.set(p.familyChildGrowthDurationDays);
+        ServerConfig.FAMILY_MARRIAGE_CHANCE_PER_DAY.set(p.familyMarriageChancePerDay);
+        ServerConfig.FAMILY_PREGNANCY_CHANCE_PER_DAY.set(p.familyPregnancyChancePerDay);
         ServerConfig.FARM_AREA_RADIUS.set(p.farmAreaRadius);
         ServerConfig.FARM_WORK_INTERVAL_TICKS.set(p.farmWorkIntervalTicks);
         ServerConfig.FARM_ACTIONS_PER_CYCLE.set(p.farmActionsPerCycle);

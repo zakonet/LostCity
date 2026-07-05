@@ -73,6 +73,13 @@ public final class CitizenService {
             }
             data.setHomeId(homeId);
             manager.saveCitizenNow(citizenId);
+            if (homeId != null) {
+                common.cn.kafei.simukraft.building.PlacedBuildingRecord building =
+                        common.cn.kafei.simukraft.building.PlacedBuildingService.findByPoi(level, homeId);
+                if (building != null && common.cn.kafei.simukraft.building.BuildingAbandonmentService.get(level, building.buildingId()) > 0) {
+                    common.cn.kafei.simukraft.building.BuildingAbandonmentService.reset(level, building.buildingId(), building.cityId());
+                }
+            }
         });
     }
 
@@ -162,6 +169,7 @@ public final class CitizenService {
         return data != null
                 && !data.dead()
                 && !data.child()
+                && !data.pregnant()
                 && data.jobType() == CityJobType.UNEMPLOYED
                 && data.workplaceId() == null;
     }

@@ -42,9 +42,21 @@ public class CitizenRenderer extends MobRenderer<CitizenEntity, CitizenModel> {
         super.render(entity, entityYaw, partialTicks, poseStack, buffer, packedLight);
     }
 
+    private static final float ADULT_SCALE = 0.9375F;
+    private static final float CHILD_MIN_SCALE = 0.45F;
+
     @Override
     protected void scale(CitizenEntity livingEntity, PoseStack poseStack, float partialTickTime) {
-        poseStack.scale(0.9375F, 0.9375F, 0.9375F);
+        float scale;
+        if (livingEntity.isChildNpc()) {
+            int age = Math.max(1, livingEntity.getAge());
+            // 1岁到17岁线性从 CHILD_MIN_SCALE 渐变到 ADULT_SCALE
+            float t = Math.clamp((age - 1) / 16.0f, 0.0f, 1.0f);
+            scale = CHILD_MIN_SCALE + t * (ADULT_SCALE - CHILD_MIN_SCALE);
+        } else {
+            scale = ADULT_SCALE;
+        }
+        poseStack.scale(scale, scale, scale);
     }
 
     @Override

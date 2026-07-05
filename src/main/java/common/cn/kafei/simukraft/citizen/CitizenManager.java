@@ -46,6 +46,7 @@ public final class CitizenManager extends SavedData {
     private final AtomicInteger dirtyCounter = new AtomicInteger();
     private volatile boolean sqliteLoaded;
     private volatile ServerLevel level;
+    private long lastFamilyTickDay = -1L;
 
     public static CitizenManager get(ServerLevel level) {
         ServerLevel storageLevel = storageLevel(level);
@@ -70,6 +71,9 @@ public final class CitizenManager extends SavedData {
             CitizenData data = CitizenData.fromTag(citizensTag.getCompound(i));
             manager.putLoadedCitizen(data);
         }
+        if (tag.contains("LastFamilyTickDay")) {
+            manager.lastFamilyTickDay = tag.getLong("LastFamilyTickDay");
+        }
         return manager;
     }
 
@@ -78,6 +82,7 @@ public final class CitizenManager extends SavedData {
         ListTag citizensTag = new ListTag();
         citizens.values().forEach(data -> citizensTag.add(data.toTag()));
         tag.put("Citizens", citizensTag);
+        tag.putLong("LastFamilyTickDay", lastFamilyTickDay);
         return tag;
     }
 
@@ -311,6 +316,28 @@ public final class CitizenManager extends SavedData {
         if (dirtyCounter.get() >= SAVE_DIRTY_INTERVAL_TICKS) {
             dirtyCounter.set(0);
             setDirty();
+        }
+        tickFamilySystemsIfNewDay(level);
+    }
+
+    private void tickFamilySystemsIfNewDay(ServerLevel level) {
+        long currentDay = level.getDayTime() / 24000L;
+        if (currentDay <= lastFamilyTickDay) return;
+        lastFamilyTickDay = currentDay;
+        RandomSource random = level.random;
+        NpcGrowthService.tickGrowth(level, random, currentDay);
+        NpcChildbirthService.tickChildbirths(level, random, currentDay);
+        NpcPregnancyService.tickPregnancies(level, random, currentDay);
+        NpcMarriageService.tickMarriages(level, random, currentDay);
+        common.cn.kafei.simukraft.building.BuildingAbandonmentService.tickDaily(level, currentDay);
+        // 每1天补跑一次家庭搬迁，确保后建的新房也能触发搬入
+        if (currentDay % 1 == 0) {
+            var familyManager = common.cn.kafei.simukraft.citizen.family.FamilyManager.get(level);
+            for (var family : familyManager.allFamilies()) {
+                if (family.status() == common.cn.kafei.simukraft.citizen.family.FamilyStatus.ACTIVE) {
+                    common.cn.kafei.simukraft.citizen.FamilyRelocationService.tryRelocate(level, family);
+                }
+            }
         }
     }
 

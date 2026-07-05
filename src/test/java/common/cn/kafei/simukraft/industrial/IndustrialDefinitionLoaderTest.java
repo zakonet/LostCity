@@ -138,6 +138,8 @@ class IndustrialDefinitionLoaderTest {
                 0L,
                 java.util.List.of(),
                 java.util.List.of(),
+                java.util.List.of(),
+                java.util.List.of(),
                 java.util.List.of()
         );
         IndustrialDefinition.WorkAreaDefinition workArea = new IndustrialDefinition.WorkAreaDefinition(

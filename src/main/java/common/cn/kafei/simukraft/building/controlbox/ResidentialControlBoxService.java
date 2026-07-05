@@ -1,5 +1,6 @@
 package common.cn.kafei.simukraft.building.controlbox;
 
+import common.cn.kafei.simukraft.building.BuildingUnitInstance;
 import common.cn.kafei.simukraft.building.BuilderConstructionService;
 import common.cn.kafei.simukraft.building.BuildingPoiInstance;
 import common.cn.kafei.simukraft.building.BuildingIntegrityService;
@@ -42,6 +43,7 @@ public final class ResidentialControlBoxService {
         BlockPos min = building != null ? building.minPos() : BlockPos.ZERO;
         BlockPos max = building != null ? building.maxPos() : BlockPos.ZERO;
         BuildingIntegrityService.IntegrityPreview integrity = BuildingIntegrityService.preview(level, building);
+        List<ResidentialControlBoxView.UnitView> units = buildUnitViews(building, bedPois, level);
         return new ResidentialControlBoxView(
                 controlBoxPos.immutable(),
                 buildingName,
@@ -57,7 +59,8 @@ public final class ResidentialControlBoxService {
                 integrity.percent(),
                 integrity.repairableBlocks(),
                 integrity.manualRepairBlocks(),
-                integrity.repairCost()
+                integrity.repairCost(),
+                units
         );
     }
 
@@ -86,6 +89,48 @@ public final class ResidentialControlBoxService {
             }
         }
         return null;
+    }
+
+    private static List<ResidentialControlBoxView.UnitView> buildUnitViews(
+            PlacedBuildingRecord building, List<CityPoiData> bedPois, ServerLevel level) {
+        if (building == null || building.unitInstances().isEmpty()) return List.of();
+        java.util.Map<UUID, String> poiToUnit = new java.util.HashMap<>();
+        java.util.Map<UUID, String> unitLabels = new java.util.LinkedHashMap<>();
+        for (BuildingUnitInstance unit : building.unitInstances()) {
+            unitLabels.put(unit.unitId(), unit.label());
+            for (UUID poiId : unit.poiIds()) {
+                poiToUnit.put(poiId, unit.label());
+            }
+        }
+        java.util.Map<UUID, List<ResidentialControlBoxView.ResidentEntry>> residentsByUnit = new java.util.LinkedHashMap<>();
+        java.util.Map<UUID, java.util.concurrent.atomic.AtomicInteger> bedCountByUnit = new java.util.LinkedHashMap<>();
+        for (UUID unitId : unitLabels.keySet()) {
+            residentsByUnit.put(unitId, new java.util.ArrayList<>());
+            bedCountByUnit.put(unitId, new java.util.concurrent.atomic.AtomicInteger(0));
+        }
+        // 计算每户的床位数和入住居民
+        java.util.Set<UUID> unitPoiIds = new java.util.HashSet<>();
+        for (BuildingUnitInstance unit : building.unitInstances()) {
+            unit.poiIds().forEach(unitPoiIds::add);
+            bedCountByUnit.get(unit.unitId()).addAndGet(unit.poiIds().size());
+        }
+        for (CityPoiData poi : bedPois) {
+            UUID unitId = building.unitInstances().stream()
+                    .filter(u -> u.poiIds().contains(poi.poiId()))
+                    .map(BuildingUnitInstance::unitId)
+                    .findFirst().orElse(null);
+            if (unitId == null) continue;
+            CitizenManager.get(level).allCitizens().stream()
+                    .filter(c -> !c.dead() && poi.poiId().equals(c.homeId()))
+                    .forEach(c -> residentsByUnit.get(unitId).add(
+                            new ResidentialControlBoxView.ResidentEntry(c.uuid(), c.name())));
+        }
+        return unitLabels.entrySet().stream()
+                .map(e -> new ResidentialControlBoxView.UnitView(
+                        e.getKey(), e.getValue(),
+                        bedCountByUnit.get(e.getKey()).get(),
+                        residentsByUnit.get(e.getKey())))
+                .toList();
     }
 
     private static List<CityPoiData> resolveBedPois(ServerLevel level, PlacedBuildingRecord building) {
@@ -132,7 +177,9 @@ public final class ResidentialControlBoxService {
                 building.completedAt(),
                 building.blocks(),
                 building.poiDefinitions(),
-                mergePoiInstances(building.poiInstances(), bedPoiInstances)
+                mergePoiInstances(building.poiInstances(), bedPoiInstances),
+                building.unitDefinitions(),
+                building.unitInstances()
         ));
         return repaired;
     }

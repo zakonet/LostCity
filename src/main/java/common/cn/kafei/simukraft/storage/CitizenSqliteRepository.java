@@ -124,6 +124,10 @@ public final class CitizenSqliteRepository {
                     citizen.putLong("BornDay", resultSet.getLong("born_day"));
                     String dimId = resultSet.getString("dimension_id");
                     citizen.putString("DimensionId", dimId != null ? dimId : "minecraft:overworld");
+                    SqliteNbtHelper.putNullableUuid(citizen, "FamilyId", resultSet.getString("family_id"));
+                    SqliteNbtHelper.putNullableUuid(citizen, "OriginFamilyId", resultSet.getString("origin_family_id"));
+                    citizen.putBoolean("Pregnant", resultSet.getInt("pregnant") != 0);
+                    citizen.putLong("PregnantSince", resultSet.getLong("pregnant_since"));
                     citizen.put("Skills", skillsByUuid.getOrDefault(uuid, new CompoundTag()));
                     citizens.add(citizen);
                 }
@@ -138,7 +142,7 @@ public final class CitizenSqliteRepository {
 
     private void saveCitizen(Connection connection, CompoundTag citizen) throws SQLException {
         String uuid = citizen.getUUID("Uuid").toString();
-        try (PreparedStatement citizenStatement = connection.prepareStatement("INSERT INTO citizens(uuid, name, gender, age, lifespan, job_type, job_id, status, work_status, work_need_detail, status_label, is_working, npc_id, skin_path, city_id, home_id, workplace_id, workplace_pos_long, health, happiness, sick, child, child_growth_due_day, born_day, dimension_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET name = excluded.name, gender = excluded.gender, age = excluded.age, lifespan = excluded.lifespan, job_type = excluded.job_type, job_id = excluded.job_id, status = excluded.status, work_status = excluded.work_status, work_need_detail = excluded.work_need_detail, status_label = excluded.status_label, is_working = excluded.is_working, npc_id = excluded.npc_id, skin_path = excluded.skin_path, city_id = excluded.city_id, home_id = excluded.home_id, workplace_id = excluded.workplace_id, workplace_pos_long = excluded.workplace_pos_long, health = excluded.health, happiness = excluded.happiness, sick = excluded.sick, child = excluded.child, child_growth_due_day = excluded.child_growth_due_day, born_day = excluded.born_day, dimension_id = excluded.dimension_id");
+        try (PreparedStatement citizenStatement = connection.prepareStatement("INSERT INTO citizens(uuid, name, gender, age, lifespan, job_type, job_id, status, work_status, work_need_detail, status_label, is_working, npc_id, skin_path, city_id, home_id, workplace_id, workplace_pos_long, health, happiness, sick, child, child_growth_due_day, born_day, dimension_id, family_id, origin_family_id, pregnant, pregnant_since) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET name = excluded.name, gender = excluded.gender, age = excluded.age, lifespan = excluded.lifespan, job_type = excluded.job_type, job_id = excluded.job_id, status = excluded.status, work_status = excluded.work_status, work_need_detail = excluded.work_need_detail, status_label = excluded.status_label, is_working = excluded.is_working, npc_id = excluded.npc_id, skin_path = excluded.skin_path, city_id = excluded.city_id, home_id = excluded.home_id, workplace_id = excluded.workplace_id, workplace_pos_long = excluded.workplace_pos_long, health = excluded.health, happiness = excluded.happiness, sick = excluded.sick, child = excluded.child, child_growth_due_day = excluded.child_growth_due_day, born_day = excluded.born_day, dimension_id = excluded.dimension_id, family_id = excluded.family_id, origin_family_id = excluded.origin_family_id, pregnant = excluded.pregnant, pregnant_since = excluded.pregnant_since");
              PreparedStatement deleteSkills = connection.prepareStatement("DELETE FROM citizen_skills WHERE citizen_id = ?");
              PreparedStatement skillStatement = connection.prepareStatement("INSERT INTO citizen_skills(citizen_id, skill_key, skill_value) VALUES(?, ?, ?)")) {
             citizenStatement.setString(1, uuid);
@@ -171,6 +175,10 @@ public final class CitizenSqliteRepository {
             citizenStatement.setLong(24, citizen.getLong("BornDay"));
             String dimId = citizen.contains("DimensionId") ? citizen.getString("DimensionId") : "minecraft:overworld";
             citizenStatement.setString(25, dimId.isBlank() ? "minecraft:overworld" : dimId);
+            SqliteNbtHelper.setNullableString(citizenStatement, 26, citizen.hasUUID("FamilyId") ? citizen.getUUID("FamilyId").toString() : null);
+            SqliteNbtHelper.setNullableString(citizenStatement, 27, citizen.hasUUID("OriginFamilyId") ? citizen.getUUID("OriginFamilyId").toString() : null);
+            citizenStatement.setInt(28, citizen.getBoolean("Pregnant") ? 1 : 0);
+            citizenStatement.setLong(29, citizen.getLong("PregnantSince"));
             citizenStatement.executeUpdate();
             deleteSkills.setString(1, uuid);
             deleteSkills.executeUpdate();

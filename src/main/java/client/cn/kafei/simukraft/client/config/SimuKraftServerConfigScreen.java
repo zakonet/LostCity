@@ -97,6 +97,7 @@ public final class SimuKraftServerConfigScreen {
         tabs.addTab(tab("gui.simukraft.config.tab.logistics", tabWidth), logisticsPage(draft));
         Tab materials = tab("gui.simukraft.config.tab.materials", tabWidth);
         tabs.addTab(materials, materialsPage(parent, draft));
+        tabs.addTab(tab("gui.simukraft.config.tab.family", tabWidth), familyPage(draft));
         tabs.selectTab("gui.simukraft.config.tab.materials".equals(selectedTabKey) ? materials : general);
         return tabs;
     }
@@ -140,6 +141,8 @@ public final class SimuKraftServerConfigScreen {
                 SimuKraftConfigWidgets.intField(draft.populationGrowthIntervalTicks, 20, 2_400_000, value -> draft.populationGrowthIntervalTicks = value)));
         page.addChild(SimuKraftConfigWidgets.row(Component.translatable("gui.simukraft.config.population_max"),
                 SimuKraftConfigWidgets.intField(draft.populationGrowthMaxPerInterval, 0, 100, value -> draft.populationGrowthMaxPerInterval = value)));
+        page.addChild(SimuKraftConfigWidgets.row(Component.translatable("gui.simukraft.config.population_times_per_week"),
+                SimuKraftConfigWidgets.intField(draft.populationGrowthTimesPerWeek, 1, 7, value -> draft.populationGrowthTimesPerWeek = value)));
         page.addChild(SimuKraftConfigWidgets.section(Component.translatable("gui.simukraft.config.section.farming")));
         page.addChild(SimuKraftConfigWidgets.row(Component.translatable("config.simukraft.farming.areaRadius"),
                 SimuKraftConfigWidgets.intField(draft.farmAreaRadius, 1, 16, value -> draft.farmAreaRadius = value)));
@@ -260,6 +263,20 @@ public final class SimuKraftServerConfigScreen {
                 SimuKraftConfigWidgets.intField(draft.logisticsMaxWarehouseContainers, 1, 512, value -> draft.logisticsMaxWarehouseContainers = value)));
         page.addChild(SimuKraftConfigWidgets.row(Component.translatable("config.simukraft.logistics.maxClientPorts"),
                 SimuKraftConfigWidgets.intField(draft.logisticsMaxClientPorts, 1, 256, value -> draft.logisticsMaxClientPorts = value)));
+        return SimuKraftConfigWidgets.scroller(page);
+    }
+
+    private static UIElement familyPage(SimuKraftServerConfigDraft draft) {
+        UIElement page = pageColumn();
+        page.addChild(SimuKraftConfigWidgets.section(Component.translatable("gui.simukraft.config.section.family")));
+        page.addChild(SimuKraftConfigWidgets.row(Component.translatable("config.simukraft.family.marriageChancePerDay"),
+                SimuKraftConfigWidgets.doubleField(draft.familyMarriageChancePerDay, 0.0D, 1.0D, value -> draft.familyMarriageChancePerDay = value)));
+        page.addChild(SimuKraftConfigWidgets.row(Component.translatable("config.simukraft.family.pregnancyChancePerDay"),
+                SimuKraftConfigWidgets.doubleField(draft.familyPregnancyChancePerDay, 0.0D, 1.0D, value -> draft.familyPregnancyChancePerDay = value)));
+        page.addChild(SimuKraftConfigWidgets.row(Component.translatable("config.simukraft.family.pregnancyDurationDays"),
+                SimuKraftConfigWidgets.intField(draft.familyPregnancyDurationDays, 1, 30, value -> draft.familyPregnancyDurationDays = value)));
+        page.addChild(SimuKraftConfigWidgets.row(Component.translatable("config.simukraft.family.childGrowthDurationDays"),
+                SimuKraftConfigWidgets.intField(draft.familyChildGrowthDurationDays, 1, 60, value -> draft.familyChildGrowthDurationDays = value)));
         return SimuKraftConfigWidgets.scroller(page);
     }
 

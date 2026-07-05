@@ -11,6 +11,7 @@ public final class ServerConfig {
     public static final ModConfigSpec.DoubleValue CITY_CHUNK_PRICE;
     public static final ModConfigSpec.IntValue POPULATION_GROWTH_INTERVAL_TICKS;
     public static final ModConfigSpec.IntValue POPULATION_GROWTH_MAX_PER_INTERVAL;
+    public static final ModConfigSpec.IntValue POPULATION_GROWTH_TIMES_PER_WEEK;
     public static final ModConfigSpec.EnumValue<CitizenNameStyle> NPC_NAME_STYLE;
     public static final ModConfigSpec.BooleanValue ENABLE_BLACKLIST_PROTECTION;
     public static final ModConfigSpec.BooleanValue ENABLE_CLAIM_PROTECTION;
@@ -61,6 +62,10 @@ public final class ServerConfig {
     public static final ModConfigSpec.DoubleValue LOGISTICS_STEP_COST;
     public static final ModConfigSpec.IntValue LOGISTICS_MAX_WAREHOUSE_CONTAINERS;
     public static final ModConfigSpec.IntValue LOGISTICS_MAX_CLIENT_PORTS;
+    public static final ModConfigSpec.IntValue FAMILY_PREGNANCY_DURATION_DAYS;
+    public static final ModConfigSpec.IntValue FAMILY_CHILD_GROWTH_DURATION_DAYS;
+    public static final ModConfigSpec.DoubleValue FAMILY_MARRIAGE_CHANCE_PER_DAY;
+    public static final ModConfigSpec.DoubleValue FAMILY_PREGNANCY_CHANCE_PER_DAY;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -88,6 +93,9 @@ public final class ServerConfig {
         builder.push("population");
         POPULATION_GROWTH_INTERVAL_TICKS = builder.defineInRange("growthIntervalTicks", 24_000, 20, 2_400_000);
         POPULATION_GROWTH_MAX_PER_INTERVAL = builder.defineInRange("growthMaxPerInterval", 1, 0, 100);
+        POPULATION_GROWTH_TIMES_PER_WEEK = builder
+                .comment("How many times per game week (7 days) the population growth check fires. Range: 1~7.")
+                .defineInRange("growthTimesPerWeek", 2, 1, 7);
         NPC_NAME_STYLE = builder
                 .comment("NPC name style used when generating new citizens.")
                 .translation("config.simukraft.npc.nameStyle")
@@ -336,6 +344,20 @@ public final class ServerConfig {
                 .translation("config.simukraft.logistics.maxClientPorts")
                 .defineInRange("maxClientPorts", 32, 1, 256);
         builder.pop();
+        builder.push("family");
+        FAMILY_PREGNANCY_DURATION_DAYS = builder
+                .comment("Game days a pregnancy lasts before childbirth.")
+                .defineInRange("pregnancyDurationDays", 3, 1, 30);
+        FAMILY_CHILD_GROWTH_DURATION_DAYS = builder
+                .comment("Game days before a child NPC becomes an adult.")
+                .defineInRange("childGrowthDurationDays", 7, 1, 60);
+        FAMILY_MARRIAGE_CHANCE_PER_DAY = builder
+                .comment("Probability per game day that two eligible NPCs will marry.")
+                .defineInRange("marriageChancePerDay", 0.05D, 0.0D, 1.0D);
+        FAMILY_PREGNANCY_CHANCE_PER_DAY = builder
+                .comment("Probability per game day that a married NPC wife becomes pregnant.")
+                .defineInRange("pregnancyChancePerDay", 0.10D, 0.0D, 1.0D);
+        builder.pop();
         SPEC = builder.build();
     }
 
@@ -352,6 +374,10 @@ public final class ServerConfig {
 
     public static int populationGrowthMaxPerInterval() {
         return POPULATION_GROWTH_MAX_PER_INTERVAL.get();
+    }
+
+    public static int populationGrowthTimesPerWeek() {
+        return POPULATION_GROWTH_TIMES_PER_WEEK.get();
     }
 
     /** npcNameStyle: 返回新生成 NPC 名字使用的风格。 */
@@ -549,6 +575,22 @@ public final class ServerConfig {
 
     public static int logisticsMaxClientPorts() {
         return LOGISTICS_MAX_CLIENT_PORTS.get();
+    }
+
+    public static int familyPregnancyDurationDays() {
+        return FAMILY_PREGNANCY_DURATION_DAYS.get();
+    }
+
+    public static int familyChildGrowthDurationDays() {
+        return FAMILY_CHILD_GROWTH_DURATION_DAYS.get();
+    }
+
+    public static double familyMarriageChancePerDay() {
+        return FAMILY_MARRIAGE_CHANCE_PER_DAY.get();
+    }
+
+    public static double familyPregnancyChancePerDay() {
+        return FAMILY_PREGNANCY_CHANCE_PER_DAY.get();
     }
 
     private static boolean isStringEntry(Object value) {

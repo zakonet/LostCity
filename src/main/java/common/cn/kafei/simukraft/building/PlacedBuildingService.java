@@ -186,7 +186,9 @@ public final class PlacedBuildingService {
                             record.completedAt(),
                             record.blocks(),
                             record.poiDefinitions(),
-                            poiInstances
+                            poiInstances,
+                            record.unitDefinitions(),
+                            record.unitInstances()
                     ));
                 }
             }
@@ -194,7 +196,63 @@ public final class PlacedBuildingService {
                 manager.registerPoi(stablePoiId(poi, record.dimensionId()), record.cityId(), poi.worldPos(), poi.poiType(), poi.capacity());
             }
         }
+        // 服务器重启后 unitInstances 为空，从持久化的 CityPoiData.unitId 重建
+        rebuildUnitInstancesIfNeeded(level, manager);
         repairedCities.forEach(cityId -> CitizenHousingService.fillVacantHomes(level, cityId));
+    }
+
+    // 从持久化的 CityPoiData.unitId 重建 BuildingUnitInstance，解决重启后 unitInstances 为空的问题。
+    private static void rebuildUnitInstancesIfNeeded(ServerLevel level, CityPoiManager poiManager) {
+        String cacheKey = SaveScopedCacheKey.levelKey(level);
+        List<PlacedBuildingRecord> current = BY_DIMENSION.getOrDefault(cacheKey, List.of());
+        List<PlacedBuildingRecord> updated = new ArrayList<>(current.size());
+        boolean anyChanged = false;
+        for (PlacedBuildingRecord record : current) {
+            if (!record.unitInstances().isEmpty()) {
+                updated.add(record);
+                continue;
+            }
+            List<BuildingUnitInstance> rebuilt = rebuildUnitsFromPois(record, poiManager);
+            if (rebuilt.isEmpty()) {
+                updated.add(record);
+                continue;
+            }
+            // Re-read unit definitions from catalog for label info
+            List<BuildingUnitDefinition> unitDefs = record.unitDefinitions().isEmpty()
+                    ? readUnitDefsFromCatalog(record) : record.unitDefinitions();
+            updated.add(new PlacedBuildingRecord(
+                    record.buildingId(), record.cityId(), record.dimensionId(),
+                    record.category(), record.buildingFileName(), record.displayName(),
+                    record.amount(), record.structureFileName(), record.facing(),
+                    record.worldOrigin(), record.structureAnchor(), record.minPos(),
+                    record.maxPos(), record.completedAt(), record.blocks(),
+                    record.poiDefinitions(), record.poiInstances(), unitDefs, rebuilt));
+            anyChanged = true;
+        }
+        if (anyChanged) {
+            BY_DIMENSION.put(cacheKey, List.copyOf(updated));
+        }
+    }
+
+    private static List<BuildingUnitInstance> rebuildUnitsFromPois(PlacedBuildingRecord record,
+            CityPoiManager poiManager) {
+        java.util.Map<UUID, List<UUID>> byUnitId = new java.util.LinkedHashMap<>();
+        for (BuildingPoiInstance inst : record.poiInstances()) {
+            if (inst.poiType() != common.cn.kafei.simukraft.city.poi.CityPoiType.RESIDENTIAL) continue;
+            common.cn.kafei.simukraft.city.poi.CityPoiData poi = poiManager.getPoiAt(inst.worldPos());
+            if (poi == null || poi.unitId() == null) continue;
+            byUnitId.computeIfAbsent(poi.unitId(), k -> new ArrayList<>()).add(poi.poiId());
+        }
+        if (byUnitId.isEmpty()) return List.of();
+        return byUnitId.entrySet().stream()
+                .map(e -> new BuildingUnitInstance(e.getKey(), "unit_" + e.getKey().toString().substring(0, 8), List.copyOf(e.getValue())))
+                .toList();
+    }
+
+    private static List<BuildingUnitDefinition> readUnitDefsFromCatalog(PlacedBuildingRecord record) {
+        BuildingCatalog.BuildingDefinition def = BuildingCatalog.findBuilding(record.category(), record.buildingFileName()).orElse(null);
+        if (def == null) return List.of();
+        return BuildingMetadataReader.readUnitDefinitions(def);
     }
 
     private static List<PlacedBuildingRecord> load(ServerLevel level, String dimensionId) {
@@ -207,6 +265,7 @@ public final class PlacedBuildingService {
         String serverKey = SaveScopedCacheKey.serverKey(server);
         BY_DIMENSION.keySet().removeIf(key -> key.startsWith(serverKey + "|"));
         POI_REPAIRED_DIMENSIONS.removeIf(key -> key.startsWith(serverKey + "|"));
+        BuildingAbandonmentService.clearCache(server);
     }
 
     private static boolean isInside(BlockPos pos, BlockPos min, BlockPos max) {

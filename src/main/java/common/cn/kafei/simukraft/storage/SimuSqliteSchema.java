@@ -36,6 +36,9 @@ public final class SimuSqliteSchema {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS logistics_clients(client_id TEXT PRIMARY KEY, box_pos_long INTEGER NOT NULL, city_id TEXT, dimension_id TEXT NOT NULL DEFAULT '', name TEXT NOT NULL DEFAULT '', automatic INTEGER NOT NULL DEFAULT 0, source_type TEXT NOT NULL DEFAULT '', source_id TEXT NOT NULL DEFAULT '', updated_at INTEGER NOT NULL DEFAULT 0)");
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS logistics_ports(owner_id TEXT NOT NULL, owner_type TEXT NOT NULL, port_id TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT '', pos_long INTEGER NOT NULL, PRIMARY KEY(owner_id, owner_type, port_id))");
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS logistics_channels(channel_id TEXT PRIMARY KEY, warehouse_id TEXT NOT NULL, client_id TEXT NOT NULL, direction TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', enabled INTEGER NOT NULL DEFAULT 1, filters TEXT NOT NULL DEFAULT '[]', updated_at INTEGER NOT NULL DEFAULT 0)");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS families(family_id TEXT PRIMARY KEY, city_id TEXT NOT NULL, husband_id TEXT, wife_id TEXT, paternal_family_id TEXT, maternal_family_id TEXT, generation INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'FORMING')");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS family_members(family_id TEXT NOT NULL, citizen_id TEXT NOT NULL, role TEXT NOT NULL, PRIMARY KEY(family_id, citizen_id))");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS building_abandonment(building_id TEXT PRIMARY KEY, city_id TEXT NOT NULL, abandonment_index INTEGER NOT NULL DEFAULT 0, last_tick_day INTEGER NOT NULL DEFAULT 0)");
             dropColumnIfPresent(connection, "citizens", "hunger");
             addColumnIfMissing(connection, "cities", "city_level", "INTEGER NOT NULL DEFAULT 0");
             addColumnIfMissing(connection, "cities", "dimension_id", "TEXT NOT NULL DEFAULT 'minecraft:overworld'");
@@ -72,6 +75,11 @@ public final class SimuSqliteSchema {
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_cities_dimension ON cities(dimension_id)");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_finance_city ON finance_transactions(city_id, sort_index)");
             addColumnIfMissing(connection, "citizens", "dimension_id", "TEXT NOT NULL DEFAULT 'minecraft:overworld'");
+            addColumnIfMissing(connection, "citizens", "family_id",        "TEXT");
+            addColumnIfMissing(connection, "citizens", "origin_family_id", "TEXT");
+            addColumnIfMissing(connection, "citizens", "pregnant",         "INTEGER NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, "citizens", "pregnant_since",   "INTEGER NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, "city_pois", "unit_id", "TEXT");
             addColumnIfMissing(connection, "city_chunks", "dimension_id", "TEXT NOT NULL DEFAULT 'minecraft:overworld'");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_city_chunks_city ON city_chunks(city_id)");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_city_chunks_dimension ON city_chunks(dimension_id)");
@@ -90,6 +98,8 @@ public final class SimuSqliteSchema {
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_logistics_ports_owner ON logistics_ports(owner_id, owner_type)");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_logistics_channels_warehouse ON logistics_channels(warehouse_id)");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_logistics_channels_client ON logistics_channels(client_id)");
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_families_city ON families(city_id)");
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_family_members_citizen ON family_members(citizen_id)");
         } catch (SQLException exception) {
             throw new IllegalStateException("Failed to initialize Sim-U-Kraft SQLite database", exception);
         }

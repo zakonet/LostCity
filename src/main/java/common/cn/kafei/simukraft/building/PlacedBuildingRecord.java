@@ -21,5 +21,7 @@ public record PlacedBuildingRecord(UUID buildingId,
                                    long completedAt,
                                    List<BuildingBlockData> blocks,
                                    List<BuildingPoiDefinition> poiDefinitions,
-                                   List<BuildingPoiInstance> poiInstances) {
+                                   List<BuildingPoiInstance> poiInstances,
+                                   List<BuildingUnitDefinition> unitDefinitions,
+                                   List<BuildingUnitInstance> unitInstances) {
 }

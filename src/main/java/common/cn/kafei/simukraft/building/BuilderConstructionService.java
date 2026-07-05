@@ -3,7 +3,6 @@ package common.cn.kafei.simukraft.building;
 import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.citizen.CitizenData;
 import common.cn.kafei.simukraft.citizen.CitizenHomeRestService;
-import common.cn.kafei.simukraft.citizen.CitizenHousingService;
 import common.cn.kafei.simukraft.citizen.CitizenLevelService;
 import common.cn.kafei.simukraft.citizen.CitizenService;
 import common.cn.kafei.simukraft.citizen.CitizenSelfFeedingService;
@@ -12,7 +11,6 @@ import common.cn.kafei.simukraft.citizen.CitizenWorkStatus;
 import common.cn.kafei.simukraft.city.poi.CityPoiManager;
 import common.cn.kafei.simukraft.city.poi.CityPoiType;
 import common.cn.kafei.simukraft.config.ServerConfig;
-import common.cn.kafei.simukraft.city.CityManager;
 import common.cn.kafei.simukraft.job.CityJobAssignmentService;
 import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.job.CityJobType;
@@ -302,13 +300,24 @@ public final class BuilderConstructionService {
             for (BuildingPoiInstance poi : poiInstances) {
                 CityPoiManager.get(level).registerPoi(stablePoiId(poi), cityId, poi.worldPos(), poi.poiType(), poi.capacity());
             }
-            CitizenHousingService.fillVacantHomes(level, cityId);
-            CityManager.get(level).getCity(cityId).ifPresent(city -> CitizenHousingService.spawnCitizensForVacantHomes(level, cityId, city.cityCorePos().above(), ServerConfig.populationGrowthMaxPerInterval()));
             CityJobAssignmentService.invalidate(cityId);
         }
         BlockPos minPos = cached.blocks().stream().map(BuildingBlockData::relativePos).reduce(task.origin(), (current, pos) -> new BlockPos(Math.min(current.getX(), pos.getX()), Math.min(current.getY(), pos.getY()), Math.min(current.getZ(), pos.getZ())));
         BlockPos maxPos = cached.blocks().stream().map(BuildingBlockData::relativePos).reduce(task.origin(), (current, pos) -> new BlockPos(Math.max(current.getX(), pos.getX()), Math.max(current.getY(), pos.getY()), Math.max(current.getZ(), pos.getZ())));
-        PlacedBuildingRecord placedBuilding = new PlacedBuildingRecord(UUID.randomUUID(), cityId, task.dimensionId(), task.category(), task.buildingFileName(), task.displayName(), task.amount(), task.structureFileName(), BuildingTransform.directionFromRotation(task.rotationDegrees()).getSerializedName(), task.origin(), BlockPos.ZERO, minPos, maxPos, System.currentTimeMillis(), cached.blocks(), task.poiDefinitions(), poiInstances);
+        List<BuildingUnitDefinition> unitDefs = resolveUnitDefinitions(task);
+        List<BuildingUnitInstance> unitInsts = buildUnitInstances(unitDefs, poiInstances, task.origin());
+        if (cityId != null && !unitInsts.isEmpty()) {
+            CityPoiManager poiManager = CityPoiManager.get(level);
+            for (BuildingUnitInstance unit : unitInsts) {
+                for (java.util.UUID poiId : unit.poiIds()) {
+                    common.cn.kafei.simukraft.city.poi.CityPoiData poi = poiManager.getPoi(poiId);
+                    if (poi != null) {
+                        poiManager.updatePoiUnitId(poiId, unit.unitId());
+                    }
+                }
+            }
+        }
+        PlacedBuildingRecord placedBuilding = new PlacedBuildingRecord(UUID.randomUUID(), cityId, task.dimensionId(), task.category(), task.buildingFileName(), task.displayName(), task.amount(), task.structureFileName(), BuildingTransform.directionFromRotation(task.rotationDegrees()).getSerializedName(), task.origin(), BlockPos.ZERO, minPos, maxPos, System.currentTimeMillis(), cached.blocks(), task.poiDefinitions(), poiInstances, unitDefs, unitInsts);
         PlacedBuildingService.register(level, placedBuilding);
         ResidentialBedPoiService.addRecordedBeds(level, placedBuilding);
         ConstructionCompletionNotificationService.notifyCompleted(level, citizen, task);
@@ -780,6 +789,37 @@ public final class BuilderConstructionService {
     }
 
     private record CachedStructure(List<BuildingBlockData> blocks, List<BuildingBlockData> sourceBlocks, List<LayerRange> layerRanges) {
+    }
+
+    private static List<BuildingUnitDefinition> resolveUnitDefinitions(BuildingTaskData task) {
+        BuildingCatalog.BuildingDefinition def = BuildingCatalog.findBuilding(task.category(), task.buildingFileName()).orElse(null);
+        if (def == null) return List.of();
+        return BuildingMetadataReader.readUnitDefinitions(def);
+    }
+
+    private static List<BuildingUnitInstance> buildUnitInstances(
+            List<BuildingUnitDefinition> unitDefs,
+            List<BuildingPoiInstance> poiInstances,
+            BlockPos anchor) {
+        if (unitDefs.isEmpty()) return List.of();
+        java.util.Map<String, List<java.util.UUID>> labelToPoiIds = new java.util.LinkedHashMap<>();
+        for (BuildingUnitDefinition def : unitDefs) {
+            labelToPoiIds.put(def.label(), new java.util.ArrayList<>());
+        }
+        for (BuildingPoiInstance poi : poiInstances) {
+            if (poi.poiType() != common.cn.kafei.simukraft.city.poi.CityPoiType.RESIDENTIAL) continue;
+            BlockPos relative = poi.worldPos().subtract(anchor);
+            for (BuildingUnitDefinition def : unitDefs) {
+                if (def.contains(relative)) {
+                    labelToPoiIds.get(def.label()).add(stablePoiId(poi));
+                    break;
+                }
+            }
+        }
+        return labelToPoiIds.entrySet().stream()
+                .filter(e -> !e.getValue().isEmpty())
+                .map(e -> new BuildingUnitInstance(java.util.UUID.randomUUID(), e.getKey(), java.util.List.copyOf(e.getValue())))
+                .toList();
     }
 
     private record LayerRange(int layerIndex, int y, int startIndex, int endIndex) {

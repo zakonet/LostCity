@@ -1,6 +1,8 @@
 package common.cn.kafei.simukraft.citizen;
 
 import common.cn.kafei.simukraft.building.PlacedBuildingRecord;
+import common.cn.kafei.simukraft.building.BuildingAbandonmentService;
+import common.cn.kafei.simukraft.citizen.family.FamilyManager;
 import common.cn.kafei.simukraft.building.PlacedBuildingService;
 import common.cn.kafei.simukraft.building.ResidentialBedPoiService;
 import common.cn.kafei.simukraft.building.controlbox.ResidentialControlBoxService;
@@ -42,11 +44,20 @@ public final class CitizenDeathService {
         CitizenEmploymentService.fire(level, data.uuid(), null, null, data.workplacePos(), "citizen_died");
         CitizenNavigationService.stop(level, data.uuid());
         CitizenManager.get(level).markCitizenDead(data.uuid(), level.getDayTime() / 24000L + 1L);
+        if (data.familyId() != null) {
+            FamilyManager.get(level).handleMemberDeath(level, data.familyId(), data.uuid());
+        }
         if (cityId != null) {
             CityJobAssignmentService.invalidate(cityId);
             CityGroupMessageService.warningToCity(level, cityId, Component.translatable("message.simukraft.citizen.death", data.name()));
         }
         syncResidentialControlBox(level, oldHomeId);
+        if (oldHomeId != null) {
+            PlacedBuildingRecord building = common.cn.kafei.simukraft.building.PlacedBuildingService.findByPoi(level, oldHomeId);
+            if (building != null) {
+                BuildingAbandonmentService.add(level, building.buildingId(), building.cityId(), 30);
+            }
+        }
         level.players().forEach(player -> HudSyncService.syncToPlayer(player, true));
     }
 

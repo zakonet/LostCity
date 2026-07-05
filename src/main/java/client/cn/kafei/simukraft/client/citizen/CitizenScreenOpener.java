@@ -88,6 +88,11 @@ public final class CitizenScreenOpener {
         panel.addChild(line(Component.translatable("screen.simukraft.citizen_info.age", packet.age(), packet.lifespan())));
         panel.addChild(line(Component.translatable("screen.simukraft.citizen_info.health", healthText(packet))));
         panel.addChild(line(Component.translatable("screen.simukraft.citizen_info.hunger", hungerText(packet.hunger()))));
+        if (!packet.familyDisplay().isBlank()) {
+            panel.addChild(contentSpacerSmall());
+            panel.addChild(line(Component.translatable("screen.simukraft.citizen_info.family", packet.familyDisplay())));
+            panel.addChild(line(Component.translatable("screen.simukraft.citizen_info.clan", packet.clanDisplay())));
+        }
         return panel;
     }
 
