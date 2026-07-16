@@ -259,6 +259,12 @@ public final class BuilderConstructionService {
                 placed++;
                 continue;
             }
+            // 不替换空气：跳过结构中的空气方块，保留原有方块
+            if (targetState.isAir() && !task.replaceWithAir()) {
+                index++;
+                placed++;
+                continue;
+            }
             WorkMaterialResult materialResult = BuilderMaterialService.tryConsumeForBlock(level, taskRuntime.materialCache, targetState);
             if (!materialResult.available()) {
                 markWaitingForMaterials(level, citizen, taskRuntime, task, materialResult);
@@ -272,10 +278,11 @@ public final class BuilderConstructionService {
             if (!level.isAreaLoaded(worldPos, 4)) {
                 break;
             }
+            // 拆除原有方块时掉落物存入工作箱子，与 replaceWithAir 无关
             if (!currentState.isAir()) {
                 List<ItemStack> obstructionDrops = Block.getDrops(currentState, level, worldPos, level.getBlockEntity(worldPos));
                 if (!obstructionDrops.isEmpty()) {
-                    WorkContainerService.depositDropsOrDrop(level, taskRuntime.materialCache.getContainerPositions(), obstructionDrops, worldPos);
+                    WorkContainerService.depositDropsOrDrop(level, WorkContainerService.adjacentContainers(level, task.buildBoxPos()), obstructionDrops, worldPos);
                 }
             }
             level.setBlock(worldPos, BuildingBlockPlacementService.refreshedPlacementState(level, worldPos, targetState), 3);

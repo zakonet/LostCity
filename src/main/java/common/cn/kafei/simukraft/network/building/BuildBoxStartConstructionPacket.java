@@ -41,7 +41,8 @@ public record BuildBoxStartConstructionPacket(BlockPos buildBoxPos,
                                               String category,
                                               String buildingFileName,
                                               BlockPos origin,
-                                              int rotationDegrees) implements CustomPacketPayload {
+                                              int rotationDegrees,
+                                              boolean replaceWithAir) implements CustomPacketPayload {
     public static final Type<BuildBoxStartConstructionPacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SimuKraft.MOD_ID, "build_box_start_construction"));
     public static final StreamCodec<RegistryFriendlyByteBuf, BuildBoxStartConstructionPacket> STREAM_CODEC = StreamCodec.of(BuildBoxStartConstructionPacket::encode, BuildBoxStartConstructionPacket::decode);
 
@@ -56,10 +57,11 @@ public record BuildBoxStartConstructionPacket(BlockPos buildBoxPos,
         buffer.writeUtf(packet.buildingFileName(), 128);
         buffer.writeBlockPos(packet.origin());
         buffer.writeInt(packet.rotationDegrees());
+        buffer.writeBoolean(packet.replaceWithAir());
     }
 
     public static BuildBoxStartConstructionPacket decode(RegistryFriendlyByteBuf buffer) {
-        return new BuildBoxStartConstructionPacket(buffer.readBlockPos(), buffer.readUtf(32), buffer.readUtf(128), buffer.readBlockPos(), buffer.readInt());
+        return new BuildBoxStartConstructionPacket(buffer.readBlockPos(), buffer.readUtf(32), buffer.readUtf(128), buffer.readBlockPos(), buffer.readInt(), buffer.readBoolean());
     }
 
     public static void handle(BuildBoxStartConstructionPacket packet, IPayloadContext context) {
@@ -130,7 +132,8 @@ public record BuildBoxStartConstructionPacket(BlockPos buildBoxPos,
                 BuildingTaskStatus.QUEUED.id(),
                 now,
                 now,
-                structure.poiDefinitions()
+                structure.poiDefinitions(),
+                packet.replaceWithAir()
         );
         BuilderConstructionService.startTask(level, task);
         String statusLabel = Component.Serializer.toJson(

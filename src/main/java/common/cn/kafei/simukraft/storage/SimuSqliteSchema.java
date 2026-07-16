@@ -45,6 +45,7 @@ public final class SimuSqliteSchema {
             addColumnIfMissing(connection, "city_pois", "dimension_id", "TEXT NOT NULL DEFAULT 'minecraft:overworld'");
             addColumnIfMissing(connection, "citizens", "workplace_pos_long", "INTEGER");
             addColumnIfMissing(connection, "building_tasks", "amount", "TEXT NOT NULL DEFAULT ''");
+            addColumnIfMissing(connection, "building_tasks", "replace_with_air", "INTEGER NOT NULL DEFAULT 0");
             addColumnIfMissing(connection, "planning_tasks", "material_chest_long", "INTEGER");
             addColumnIfMissing(connection, "planning_tasks", "replacement_map", "TEXT NOT NULL DEFAULT ''");
             addColumnIfMissing(connection, "planning_tasks", "completed_blocks", "INTEGER NOT NULL DEFAULT 0");
