@@ -14,6 +14,7 @@ import common.cn.kafei.simukraft.config.ServerConfig;
 import common.cn.kafei.simukraft.job.CityJobAssignmentService;
 import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.job.CityJobType;
+import common.cn.kafei.simukraft.material.WorkContainerService;
 import common.cn.kafei.simukraft.material.WorkMaterialCache;
 import common.cn.kafei.simukraft.material.WorkMaterialNotificationService;
 import common.cn.kafei.simukraft.material.WorkMaterialResult;
@@ -30,6 +31,8 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.Comparator;
@@ -268,6 +271,12 @@ public final class BuilderConstructionService {
             }
             if (!level.isAreaLoaded(worldPos, 4)) {
                 break;
+            }
+            if (!currentState.isAir()) {
+                List<ItemStack> obstructionDrops = Block.getDrops(currentState, level, worldPos, level.getBlockEntity(worldPos));
+                if (!obstructionDrops.isEmpty()) {
+                    WorkContainerService.depositDropsOrDrop(level, taskRuntime.materialCache.getContainerPositions(), obstructionDrops, worldPos);
+                }
             }
             level.setBlock(worldPos, BuildingBlockPlacementService.refreshedPlacementState(level, worldPos, targetState), 3);
             spawnBuildParticles(level, worldPos);

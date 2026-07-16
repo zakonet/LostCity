@@ -33,32 +33,39 @@ public final class BuildingAbandonmentRepository {
         return result;
     }
 
-    public synchronized void upsert(UUID buildingId, UUID cityId, int abandonmentIndex, long lastTickDay) {
+    public void upsert(UUID buildingId, UUID cityId, int abandonmentIndex, long lastTickDay) {
         if (buildingId == null) return;
-        try (Connection connection = database.openConnection();
-             PreparedStatement stmt = connection.prepareStatement(
-                     "INSERT INTO building_abandonment(building_id, city_id, abandonment_index, last_tick_day) " +
-                     "VALUES(?, ?, ?, ?) ON CONFLICT(building_id) DO UPDATE SET " +
-                     "city_id = excluded.city_id, abandonment_index = excluded.abandonment_index, last_tick_day = excluded.last_tick_day")) {
-            stmt.setString(1, buildingId.toString());
-            stmt.setString(2, cityId != null ? cityId.toString() : "");
-            stmt.setInt(3, abandonmentIndex);
-            stmt.setLong(4, lastTickDay);
-            stmt.executeUpdate();
-        } catch (SQLException e) {
-            SimuKraft.LOGGER.error("Failed to save building abandonment to SQLite", e);
-        }
+        String bidStr = buildingId.toString();
+        String cidStr = cityId != null ? cityId.toString() : "";
+        database.submitWrite(() -> {
+            try (Connection connection = database.openConnection();
+                 PreparedStatement stmt = connection.prepareStatement(
+                         "INSERT INTO building_abandonment(building_id, city_id, abandonment_index, last_tick_day) " +
+                         "VALUES(?, ?, ?, ?) ON CONFLICT(building_id) DO UPDATE SET " +
+                         "city_id = excluded.city_id, abandonment_index = excluded.abandonment_index, last_tick_day = excluded.last_tick_day")) {
+                stmt.setString(1, bidStr);
+                stmt.setString(2, cidStr);
+                stmt.setInt(3, abandonmentIndex);
+                stmt.setLong(4, lastTickDay);
+                stmt.executeUpdate();
+            } catch (SQLException e) {
+                SimuKraft.LOGGER.error("Failed to save building abandonment to SQLite", e);
+            }
+        });
     }
 
-    public synchronized void delete(UUID buildingId) {
+    public void delete(UUID buildingId) {
         if (buildingId == null) return;
-        try (Connection connection = database.openConnection();
-             PreparedStatement stmt = connection.prepareStatement(
-                     "DELETE FROM building_abandonment WHERE building_id = ?")) {
-            stmt.setString(1, buildingId.toString());
-            stmt.executeUpdate();
-        } catch (SQLException e) {
-            SimuKraft.LOGGER.error("Failed to delete building abandonment from SQLite", e);
-        }
+        String bidStr = buildingId.toString();
+        database.submitWrite(() -> {
+            try (Connection connection = database.openConnection();
+                 PreparedStatement stmt = connection.prepareStatement(
+                         "DELETE FROM building_abandonment WHERE building_id = ?")) {
+                stmt.setString(1, bidStr);
+                stmt.executeUpdate();
+            } catch (SQLException e) {
+                SimuKraft.LOGGER.error("Failed to delete building abandonment from SQLite", e);
+            }
+        });
     }
 }

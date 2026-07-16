@@ -160,6 +160,8 @@ dependencies {
     implementation "dev.vfyjxf:taffy:1.1.4"
     compileOnly "org.appliedenergistics.yoga:yoga:1.0.0"
     implementation "org.xerial:sqlite-jdbc:3.46.1.0"
+    implementation "com.zaxxer:HikariCP:5.1.0"
+    jarJar "com.zaxxer:HikariCP:5.1.0"
     implementation "curse.maven:sodium-394468:6382651"
     implementation "curse.maven:irisshaders-455508:6661598"
     compileOnly "curse.maven:xaeros-world-map-317780:8042208"
