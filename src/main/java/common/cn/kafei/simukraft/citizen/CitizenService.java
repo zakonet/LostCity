@@ -190,7 +190,9 @@ public final class CitizenService {
         if (level == null) {
             return List.of();
         }
+        String dimensionId = level.dimension().location().toString();
         return CitizenManager.get(level).allCitizens().stream()
+                .filter(data -> dimensionId.equals(data.dimensionId()))
                 .filter(CitizenService::isHireable)
                 .sorted(Comparator.comparing(CitizenData::name, String.CASE_INSENSITIVE_ORDER))
                 .toList();
@@ -246,6 +248,7 @@ public final class CitizenService {
         CitizenData data = ensureCitizen(level, entity);
         if (data != null) {
             data.setCityId(cityId);
+            data.setDimensionId(level.dimension().location().toString());
             CitizenManager manager = CitizenManager.get(level);
             manager.saveCitizenNow(data.uuid());
             manager.syncEntity(entity);

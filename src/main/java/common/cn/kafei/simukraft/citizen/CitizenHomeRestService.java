@@ -68,8 +68,12 @@ public final class CitizenHomeRestService {
         ConcurrentMap<UUID, Vec3> homeTargets = HOME_TARGETS_BY_LEVEL.computeIfAbsent(levelKey, ignored -> new ConcurrentHashMap<>());
         CityPoiManager poiManager = CityPoiManager.get(level);
         CitizenManager manager = CitizenManager.get(level);
+        String dimensionId = level.dimension().location().toString();
         for (CitizenData citizen : manager.allCitizens()) {
             if (citizen.dead()) {
+                continue;
+            }
+            if (!dimensionId.equals(citizen.dimensionId())) {
                 continue;
             }
             if (citizen.homeId() == null) {
@@ -112,8 +116,10 @@ public final class CitizenHomeRestService {
     }
 
     private static void retryBlockedWorkNavigation(ServerLevel level) {
+        String dimensionId = level.dimension().location().toString();
         for (CitizenData citizen : CitizenManager.get(level).allCitizens()) {
-            if (citizen.dead() || citizen.workplaceId() == null
+            if (citizen.dead() || !dimensionId.equals(citizen.dimensionId())
+                    || citizen.workplaceId() == null
                     || citizen.jobType() == CityJobType.UNEMPLOYED
                     || citizen.workStatusType() != CitizenWorkStatus.WORKING) continue;
             if (CitizenNavigationService.isNavigating(level, citizen.uuid())) continue;
@@ -131,8 +137,12 @@ public final class CitizenHomeRestService {
 
     private static void restoreHomeRestingCitizens(ServerLevel level) {
         CitizenManager manager = CitizenManager.get(level);
+        String dimensionId = level.dimension().location().toString();
         for (CitizenData citizen : manager.allCitizens()) {
             if (citizen.dead()) {
+                continue;
+            }
+            if (!dimensionId.equals(citizen.dimensionId())) {
                 continue;
             }
             if (!HOME_REST_MARKER.equals(citizen.workNeedDetail())) {

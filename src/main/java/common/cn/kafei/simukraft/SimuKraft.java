@@ -188,8 +188,10 @@ public final class SimuKraft {
     }
 
     private void onServerTick(ServerTickEvent.Post event) {
+        // CitizenManager 数据挂主世界，tick 只需对 overworld 执行一次，避免 N-1 次无效调用。
+        ServerLevel overworld = event.getServer().overworld();
+        CitizenManager.get(overworld).tick(overworld);
         event.getServer().getAllLevels().forEach(level -> {
-            CitizenManager.get(level).tick(level);
             CitizenNavigationService.tick(level);
             CitizenWanderService.tick(level);
             PlacedBuildingService.ensureCityPoisRegistered(level);
@@ -244,6 +246,7 @@ public final class SimuKraft {
         NpcBlockProtectionPolicy.clearCache();
         PlayerWelcomeService.clearServerCaches(event.getServer());
         SimuSqliteStorage.clearServerCache(event.getServer());
+        CityPoiManager.clearGlobalCache();
     }
 
     private void saveDimensionSqlite(ServerLevel level) {

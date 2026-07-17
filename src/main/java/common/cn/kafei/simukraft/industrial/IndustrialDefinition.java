@@ -19,14 +19,15 @@ public record IndustrialDefinition(String id,
                                    SpawnEntityDefinition spawnEntity,
                                    Path sourcePath) {
     public RecipeDefinition recipeById(String recipeId) {
-        if (recipeId != null && !recipeId.isBlank()) {
-            for (RecipeDefinition recipe : recipes) {
-                if (recipe.id().equals(recipeId)) {
-                    return recipe;
-                }
+        if (recipeId == null || recipeId.isBlank()) {
+            return null;
+        }
+        for (RecipeDefinition recipe : recipes) {
+            if (recipe.id().equals(recipeId)) {
+                return recipe;
             }
         }
-        return recipes.isEmpty() ? null : recipes.getFirst();
+        return null;
     }
 
     public String defaultRecipeId() {
