@@ -81,18 +81,18 @@ public record IndustrialControlBoxOpenResponsePacket(BlockPos boxPos,
     public static void encode(RegistryFriendlyByteBuf buffer, IndustrialControlBoxOpenResponsePacket packet) {
         buffer.writeBlockPos(packet.boxPos());
         buffer.writeBoolean(packet.hasBuilding());
-        buffer.writeUtf(packet.buildingName(), 128);
+        buffer.writeUtf(packet.buildingName(), 256);
         buffer.writeBoolean(packet.definitionValid());
-        buffer.writeUtf(packet.definitionName(), 128);
-        buffer.writeUtf(packet.statusKey(), 128);
+        buffer.writeUtf(packet.definitionName(), 256);
+        buffer.writeUtf(packet.statusKey(), 256);
         buffer.writeUtf(packet.statusText(), 256);
         buffer.writeBoolean(packet.running());
-        buffer.writeUtf(packet.selectedRecipeId(), 128);
+        buffer.writeUtf(packet.selectedRecipeId(), 256);
         buffer.writeBoolean(packet.hasWorker());
         if (packet.hasWorker() && packet.workerId() != null) {
             buffer.writeUUID(packet.workerId());
         }
-        buffer.writeUtf(packet.workerName(), 128);
+        buffer.writeUtf(packet.workerName(), 256);
         buffer.writeBoolean(packet.hasBuildingBounds());
         buffer.writeBlockPos(packet.boundsMin());
         buffer.writeBlockPos(packet.boundsMax());
@@ -114,16 +114,16 @@ public record IndustrialControlBoxOpenResponsePacket(BlockPos boxPos,
     public static IndustrialControlBoxOpenResponsePacket decode(RegistryFriendlyByteBuf buffer) {
         BlockPos boxPos = buffer.readBlockPos();
         boolean hasBuilding = buffer.readBoolean();
-        String buildingName = buffer.readUtf(128);
+        String buildingName = buffer.readUtf(256);
         boolean definitionValid = buffer.readBoolean();
-        String definitionName = buffer.readUtf(128);
-        String statusKey = buffer.readUtf(128);
+        String definitionName = buffer.readUtf(256);
+        String statusKey = buffer.readUtf(256);
         String statusText = buffer.readUtf(256);
         boolean running = buffer.readBoolean();
-        String selectedRecipeId = buffer.readUtf(128);
+        String selectedRecipeId = buffer.readUtf(256);
         boolean hasWorker = buffer.readBoolean();
         UUID workerId = hasWorker ? buffer.readUUID() : null;
-        String workerName = buffer.readUtf(128);
+        String workerName = buffer.readUtf(256);
         boolean hasBuildingBounds = buffer.readBoolean();
         BlockPos boundsMin = buffer.readBlockPos();
         BlockPos boundsMax = buffer.readBlockPos();
@@ -151,8 +151,8 @@ public record IndustrialControlBoxOpenResponsePacket(BlockPos boxPos,
 
     public record RecipeEntry(String id, String name, List<ItemEntry> inputs, List<ItemEntry> outputs) {
         private void encode(RegistryFriendlyByteBuf buffer) {
-            buffer.writeUtf(id, 128);
-            buffer.writeUtf(name, 128);
+            buffer.writeUtf(id, 256);
+            buffer.writeUtf(name, 256);
             buffer.writeVarInt(inputs.size());
             for (ItemEntry item : inputs) {
                 item.encode(buffer);
@@ -164,8 +164,8 @@ public record IndustrialControlBoxOpenResponsePacket(BlockPos boxPos,
         }
 
         private static RecipeEntry decode(RegistryFriendlyByteBuf buffer) {
-            String id = buffer.readUtf(128);
-            String name = buffer.readUtf(128);
+            String id = buffer.readUtf(256);
+            String name = buffer.readUtf(256);
             int inputCount = buffer.readVarInt();
             List<ItemEntry> inputs = new ArrayList<>();
             for (int i = 0; i < inputCount; i++) {
@@ -186,28 +186,28 @@ public record IndustrialControlBoxOpenResponsePacket(BlockPos boxPos,
         }
 
         private void encode(RegistryFriendlyByteBuf buffer) {
-            buffer.writeUtf(itemId, 128);
-            buffer.writeUtf(potionId, 128);
+            buffer.writeUtf(itemId, 256);
+            buffer.writeUtf(potionId, 256);
             buffer.writeVarInt(count);
             buffer.writeUtf(connector, 8);
             buffer.writeUtf(itemSpec, 4096);
         }
 
         private static ItemEntry decode(RegistryFriendlyByteBuf buffer) {
-            return new ItemEntry(buffer.readUtf(128), buffer.readUtf(128), buffer.readVarInt(), buffer.readUtf(8), buffer.readUtf(4096));
+            return new ItemEntry(buffer.readUtf(256), buffer.readUtf(256), buffer.readVarInt(), buffer.readUtf(8), buffer.readUtf(4096));
         }
     }
 
     public record PointMarkerEntry(String id, String kind, BlockPos pos, int color) {
         private void encode(RegistryFriendlyByteBuf buffer) {
-            buffer.writeUtf(id, 128);
+            buffer.writeUtf(id, 256);
             buffer.writeUtf(kind, 64);
             buffer.writeBlockPos(pos);
             buffer.writeInt(color);
         }
 
         private static PointMarkerEntry decode(RegistryFriendlyByteBuf buffer) {
-            return new PointMarkerEntry(buffer.readUtf(128), buffer.readUtf(64), buffer.readBlockPos(), buffer.readInt());
+            return new PointMarkerEntry(buffer.readUtf(256), buffer.readUtf(64), buffer.readBlockPos(), buffer.readInt());
         }
     }
 }

@@ -82,7 +82,7 @@ public record LogisticsBoxActionPacket(BlockPos boxPos,
         LogisticsServerBoxOpenResponsePacket.writeUuid(buffer, packet.clientId());
         LogisticsServerBoxOpenResponsePacket.writeUuid(buffer, packet.channelId());
         buffer.writeBlockPos(packet.targetPos() != null ? packet.targetPos() : BlockPos.ZERO);
-        buffer.writeUtf(packet.value() != null ? packet.value() : "", 128);
+        buffer.writeUtf(packet.value() != null ? packet.value() : "", 256);
         buffer.writeEnum(packet.direction() != null ? packet.direction() : LogisticsDirection.WAREHOUSE_TO_CLIENT);
         buffer.writeBlockPos(packet.areaMin() != null ? packet.areaMin() : BlockPos.ZERO);
         buffer.writeBlockPos(packet.areaMax() != null ? packet.areaMax() : BlockPos.ZERO);
@@ -98,7 +98,7 @@ public record LogisticsBoxActionPacket(BlockPos boxPos,
         UUID clientId = LogisticsServerBoxOpenResponsePacket.readUuid(buffer);
         UUID channelId = LogisticsServerBoxOpenResponsePacket.readUuid(buffer);
         BlockPos targetPos = buffer.readBlockPos();
-        String value = buffer.readUtf(128);
+        String value = buffer.readUtf(256);
         LogisticsDirection direction = buffer.readEnum(LogisticsDirection.class);
         BlockPos areaMin = buffer.readBlockPos();
         BlockPos areaMax = buffer.readBlockPos();

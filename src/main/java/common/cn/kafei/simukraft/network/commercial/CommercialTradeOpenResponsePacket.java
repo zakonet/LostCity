@@ -59,8 +59,8 @@ public record CommercialTradeOpenResponsePacket(BlockPos boxPos,
         if (packet.workerId() != null) {
             buffer.writeUUID(packet.workerId());
         }
-        buffer.writeUtf(packet.shopName(), 128);
-        buffer.writeUtf(packet.workerName(), 128);
+        buffer.writeUtf(packet.shopName(), 256);
+        buffer.writeUtf(packet.workerName(), 256);
         buffer.writeDouble(packet.cityBalance());
         buffer.writeBoolean(packet.running());
         buffer.writeVarInt(packet.offers().size());
@@ -73,8 +73,8 @@ public record CommercialTradeOpenResponsePacket(BlockPos boxPos,
     public static CommercialTradeOpenResponsePacket decode(RegistryFriendlyByteBuf buffer) {
         BlockPos boxPos = buffer.readBlockPos();
         UUID workerId = buffer.readBoolean() ? buffer.readUUID() : null;
-        String shopName = buffer.readUtf(128);
-        String workerName = buffer.readUtf(128);
+        String shopName = buffer.readUtf(256);
+        String workerName = buffer.readUtf(256);
         double cityBalance = buffer.readDouble();
         boolean running = buffer.readBoolean();
         int offerCount = buffer.readVarInt();
@@ -105,7 +105,7 @@ public record CommercialTradeOpenResponsePacket(BlockPos boxPos,
                              long restockInterval,
                              int restockAmount) {
         private void encode(RegistryFriendlyByteBuf buffer) {
-            buffer.writeUtf(id, 128);
+            buffer.writeUtf(id, 256);
             buffer.writeVarInt(cost.size());
             for (ResourceEntry resource : cost) {
                 resource.encode(buffer);
@@ -114,7 +114,7 @@ public record CommercialTradeOpenResponsePacket(BlockPos boxPos,
             for (ResourceEntry resource : result) {
                 resource.encode(buffer);
             }
-            buffer.writeUtf(stockItem, 128);
+            buffer.writeUtf(stockItem, 256);
             buffer.writeVarInt(currentStock);
             buffer.writeVarInt(maxStock);
             buffer.writeVarLong(restockInterval);
@@ -122,7 +122,7 @@ public record CommercialTradeOpenResponsePacket(BlockPos boxPos,
         }
 
         private static OfferEntry decode(RegistryFriendlyByteBuf buffer) {
-            String id = buffer.readUtf(128);
+            String id = buffer.readUtf(256);
             int costCount = buffer.readVarInt();
             List<ResourceEntry> cost = new ArrayList<>();
             for (int i = 0; i < costCount; i++) {
@@ -133,20 +133,20 @@ public record CommercialTradeOpenResponsePacket(BlockPos boxPos,
             for (int i = 0; i < resultCount; i++) {
                 result.add(ResourceEntry.decode(buffer));
             }
-            return new OfferEntry(id, List.copyOf(cost), List.copyOf(result), buffer.readUtf(128), buffer.readVarInt(), buffer.readVarInt(), buffer.readVarLong(), buffer.readVarInt());
+            return new OfferEntry(id, List.copyOf(cost), List.copyOf(result), buffer.readUtf(256), buffer.readVarInt(), buffer.readVarInt(), buffer.readVarLong(), buffer.readVarInt());
         }
     }
 
     public record ResourceEntry(String type, String itemId, int count, double money) {
         private void encode(RegistryFriendlyByteBuf buffer) {
             buffer.writeUtf(type, 16);
-            buffer.writeUtf(itemId, 128);
+            buffer.writeUtf(itemId, 256);
             buffer.writeVarInt(count);
             buffer.writeDouble(money);
         }
 
         private static ResourceEntry decode(RegistryFriendlyByteBuf buffer) {
-            return new ResourceEntry(buffer.readUtf(16), buffer.readUtf(128), buffer.readVarInt(), buffer.readDouble());
+            return new ResourceEntry(buffer.readUtf(16), buffer.readUtf(256), buffer.readVarInt(), buffer.readDouble());
         }
     }
 }

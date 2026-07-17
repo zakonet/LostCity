@@ -119,10 +119,10 @@ public record CitizenInfoResponsePacket(UUID citizenId, String name, String gend
         buffer.writeBoolean(packet.sick());
         buffer.writeBoolean(packet.child());
         buffer.writeUtf(packet.workStatus(), 32);
-        buffer.writeUtf(packet.statusLabel(), 128);
+        buffer.writeUtf(packet.statusLabel(), 256);
         buffer.writeUtf(packet.jobType(), 32);
         buffer.writeUtf(packet.jobId(), 64);
-        buffer.writeUtf(packet.jobName(), 128);
+        buffer.writeUtf(packet.jobName(), 256);
         buffer.writeUtf(packet.cityName(), 64);
         buffer.writeUtf(packet.homeName(), 96);
         buffer.writeUtf(packet.workplaceName(), 96);
@@ -145,10 +145,10 @@ public record CitizenInfoResponsePacket(UUID citizenId, String name, String gend
                 buffer.readBoolean(),
                 buffer.readBoolean(),
                 buffer.readUtf(32),
-                buffer.readUtf(128),
+                buffer.readUtf(256),
                 buffer.readUtf(32),
                 buffer.readUtf(64),
-                buffer.readUtf(128),
+                buffer.readUtf(256),
                 buffer.readUtf(64),
                 buffer.readUtf(96),
                 buffer.readUtf(96),

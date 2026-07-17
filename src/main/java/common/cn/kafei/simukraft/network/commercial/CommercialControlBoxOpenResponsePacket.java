@@ -70,17 +70,17 @@ public record CommercialControlBoxOpenResponsePacket(BlockPos boxPos,
     public static void encode(RegistryFriendlyByteBuf buffer, CommercialControlBoxOpenResponsePacket packet) {
         buffer.writeBlockPos(packet.boxPos());
         buffer.writeBoolean(packet.hasBuilding());
-        buffer.writeUtf(packet.buildingName(), 128);
+        buffer.writeUtf(packet.buildingName(), 256);
         buffer.writeBoolean(packet.definitionValid());
-        buffer.writeUtf(packet.definitionName(), 128);
-        buffer.writeUtf(packet.statusKey(), 128);
+        buffer.writeUtf(packet.definitionName(), 256);
+        buffer.writeUtf(packet.statusKey(), 256);
         buffer.writeUtf(packet.statusText(), 256);
         buffer.writeBoolean(packet.running());
         buffer.writeBoolean(packet.hasWorker());
         if (packet.hasWorker() && packet.workerId() != null) {
             buffer.writeUUID(packet.workerId());
         }
-        buffer.writeUtf(packet.workerName(), 128);
+        buffer.writeUtf(packet.workerName(), 256);
         buffer.writeDouble(packet.cityBalance());
         buffer.writeBoolean(packet.hasBuildingBounds());
         buffer.writeBlockPos(packet.boundsMin());
@@ -96,15 +96,15 @@ public record CommercialControlBoxOpenResponsePacket(BlockPos boxPos,
     public static CommercialControlBoxOpenResponsePacket decode(RegistryFriendlyByteBuf buffer) {
         BlockPos boxPos = buffer.readBlockPos();
         boolean hasBuilding = buffer.readBoolean();
-        String buildingName = buffer.readUtf(128);
+        String buildingName = buffer.readUtf(256);
         boolean definitionValid = buffer.readBoolean();
-        String definitionName = buffer.readUtf(128);
-        String statusKey = buffer.readUtf(128);
+        String definitionName = buffer.readUtf(256);
+        String statusKey = buffer.readUtf(256);
         String statusText = buffer.readUtf(256);
         boolean running = buffer.readBoolean();
         boolean hasWorker = buffer.readBoolean();
         UUID workerId = hasWorker ? buffer.readUUID() : null;
-        String workerName = buffer.readUtf(128);
+        String workerName = buffer.readUtf(256);
         double cityBalance = buffer.readDouble();
         boolean hasBuildingBounds = buffer.readBoolean();
         BlockPos boundsMin = buffer.readBlockPos();

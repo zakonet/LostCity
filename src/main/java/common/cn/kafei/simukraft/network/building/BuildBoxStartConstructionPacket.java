@@ -54,14 +54,14 @@ public record BuildBoxStartConstructionPacket(BlockPos buildBoxPos,
     public static void encode(RegistryFriendlyByteBuf buffer, BuildBoxStartConstructionPacket packet) {
         buffer.writeBlockPos(packet.buildBoxPos());
         buffer.writeUtf(packet.category(), 32);
-        buffer.writeUtf(packet.buildingFileName(), 128);
+        buffer.writeUtf(packet.buildingFileName(), 256);
         buffer.writeBlockPos(packet.origin());
         buffer.writeInt(packet.rotationDegrees());
         buffer.writeBoolean(packet.replaceWithAir());
     }
 
     public static BuildBoxStartConstructionPacket decode(RegistryFriendlyByteBuf buffer) {
-        return new BuildBoxStartConstructionPacket(buffer.readBlockPos(), buffer.readUtf(32), buffer.readUtf(128), buffer.readBlockPos(), buffer.readInt(), buffer.readBoolean());
+        return new BuildBoxStartConstructionPacket(buffer.readBlockPos(), buffer.readUtf(32), buffer.readUtf(256), buffer.readBlockPos(), buffer.readInt(), buffer.readBoolean());
     }
 
     public static void handle(BuildBoxStartConstructionPacket packet, IPayloadContext context) {

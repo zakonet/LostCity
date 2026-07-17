@@ -3,6 +3,7 @@ package client.cn.kafei.simukraft.client.buildbox;
 import net.neoforged.api.distmarker.OnlyIn;
 import client.cn.kafei.simukraft.client.toast.ClientInfoToast;
 import client.cn.kafei.simukraft.client.ui.SimuKraftUiTheme;
+import com.lowdragmc.lowdraglib2.gui.texture.ItemStackTexture;
 import client.cn.kafei.simukraft.client.ui.SimuKraftFlexLayout;
 import com.lowdragmc.lowdraglib2.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.GuiTextureGroup;
@@ -11,6 +12,7 @@ import com.lowdragmc.lowdraglib2.gui.texture.TextTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
+import common.cn.kafei.simukraft.building.BuildingPackageCatalog;
 import common.cn.kafei.simukraft.building.BuildingStructure;
 import common.cn.kafei.simukraft.building.BuildingStructureService;
 import common.cn.kafei.simukraft.ui.RecipeBookSearchUi;
@@ -22,6 +24,8 @@ import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -67,7 +71,8 @@ public final class BuildingListScreenOpener {
     private static final int FAVORITE_BUTTON_SIZE = 18;
     private static final int FAVORITE_BUTTON_TOP = 8;
     private static final int FAVORITE_BUTTON_RIGHT_INSET = 4;
-    private static final int FAVORITE_STAR_COLOR = 0xFFFFD700;
+    private static final int FAVORITE_STAR_COLOR  = 0xFFFFD700;
+    private static final int ITEM_ICON_SIZE        = 10; // 来源图标尺寸（书/书架）
     private static int currentPage;
     private static String currentCategory;
     private static BlockPos currentBuildBoxPos;
@@ -245,6 +250,20 @@ public final class BuildingListScreenOpener {
                 new ColorRectTexture(0x66000000),
                 new ColorRectTexture(accentColor)
         ))));
+
+        // 来源图标：官方建筑=书，非官方=书架；层级在文字之下、卡片背景之上
+        ItemStack sourceStack = new ItemStack(
+                BuildingPackageCatalog.OFFICIAL_PACKAGE_NAME.equals(building.packageName())
+                        ? Items.BOOK : Items.BOOKSHELF);
+        int srcIconLeft = Math.max(4, buttonWidth - FAVORITE_BUTTON_SIZE - FAVORITE_BUTTON_RIGHT_INSET) - ITEM_ICON_SIZE - 1;
+        int srcIconTop  = FAVORITE_BUTTON_TOP + (FAVORITE_BUTTON_SIZE - ITEM_ICON_SIZE) / 2 - 2;
+        card.addChild(new UIElement().layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(srcIconLeft);
+            layout.top(srcIconTop);
+            layout.width(ITEM_ICON_SIZE);
+            layout.height(ITEM_ICON_SIZE);
+        }).style(style -> style.backgroundTexture(new ItemStackTexture(sourceStack))));
 
         card.addChild(textElement(Component.literal(trim(building.name(), Math.max(10, buttonWidth / 10))), buttonWidth, CARD_TEXT_COLOR, TextTexture.TextType.NORMAL, false).layout(layout -> {
             layout.positionType(TaffyPosition.ABSOLUTE);

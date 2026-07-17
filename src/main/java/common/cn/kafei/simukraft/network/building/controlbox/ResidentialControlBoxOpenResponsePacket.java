@@ -86,7 +86,7 @@ public record ResidentialControlBoxOpenResponsePacket(BlockPos controlBoxPos,
 
     public static void encode(RegistryFriendlyByteBuf buffer, ResidentialControlBoxOpenResponsePacket packet) {
         buffer.writeBlockPos(packet.controlBoxPos());
-        buffer.writeUtf(packet.buildingName(), 128);
+        buffer.writeUtf(packet.buildingName(), 256);
         buffer.writeUtf(packet.buildingTypeKey(), 96);
         buffer.writeVarInt(packet.residentCount());
         buffer.writeVarInt(packet.capacity());
@@ -120,7 +120,7 @@ public record ResidentialControlBoxOpenResponsePacket(BlockPos controlBoxPos,
 
     public static ResidentialControlBoxOpenResponsePacket decode(RegistryFriendlyByteBuf buffer) {
         BlockPos controlBoxPos = buffer.readBlockPos();
-        String buildingName = buffer.readUtf(128);
+        String buildingName = buffer.readUtf(256);
         String buildingTypeKey = buffer.readUtf(96);
         int residentCount = buffer.readVarInt();
         int capacity = buffer.readVarInt();
