@@ -29,6 +29,8 @@ public final class BuildingPreviewScreen extends Screen implements FreeCameraScr
     private final BlockPos buildBoxPos;
     private final BuildingStructure structure;
 
+    private static boolean sPanelVisible = true; // Tab 隐藏状态持久化
+
     private final SlidingInfoPanel panel = new SlidingInfoPanel();
     private boolean replaceWithAir = false;
 
@@ -38,6 +40,7 @@ public final class BuildingPreviewScreen extends Screen implements FreeCameraScr
         this.building = building;
         this.buildBoxPos = buildBoxPos;
         this.structure = structure;
+        panel.setVisible(sPanelVisible);
     }
 
     @Override
@@ -66,6 +69,8 @@ public final class BuildingPreviewScreen extends Screen implements FreeCameraScr
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         int sw = this.width, sh = this.height;
+        // beginRender 必须先调用以初始化 panel.font，panel 从 y=18 绘制不影响标题栏
+        panel.beginRender(g, font, sw, sh, 18);
         // ── 顶部标题条 ──
         g.fill(0, 0, sw, 18, 0xAA000000);
         g.fill(0, 17, sw, 18, 0x55AAAACC);
@@ -80,8 +85,6 @@ public final class BuildingPreviewScreen extends Screen implements FreeCameraScr
         g.drawCenteredString(font,
                 Component.translatable("gui.building_preview.title_with_name", building.name()),
                 sw / 2, 5, SimuKraftUiTheme.TEXT_PRIMARY_COLOR);
-        // ── 滑动面板 ──
-        panel.beginRender(g, font, sw, sh, 18);
         int kw = 10, kh = 10, step = 11;
         int pX = panel.getPanelX(), pW = panel.getPanelW(), iX = panel.getInnerX();
         int curY = 18 + 7;
@@ -167,7 +170,7 @@ public final class BuildingPreviewScreen extends Screen implements FreeCameraScr
             return true;
         }
         if (SimuKraftKeyMappings.matches(SimuKraftKeyMappings.PREVIEW_TOGGLE_HUD, keyCode, scanCode)) {
-            panel.toggle();
+            panel.toggle(); sPanelVisible = panel.isVisible();
             return true;
         }
         if (SimuKraftKeyMappings.matches(SimuKraftKeyMappings.PREVIEW_CANCEL, keyCode, scanCode)) {

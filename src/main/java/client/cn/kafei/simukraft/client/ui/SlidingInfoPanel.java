@@ -27,6 +27,12 @@ public final class SlidingInfoPanel {
         visible = !visible;
     }
 
+    /** 直接设定显隐状态（不经过动画）。 */
+    public void setVisible(boolean v) {
+        visible = v;
+        slideProgress = v ? 1.0f : 0.0f;
+    }
+
     public boolean isVisible() {
         return visible;
     }
@@ -104,5 +110,86 @@ public final class SlidingInfoPanel {
         drawKeyCapAt(g, key, x, y, kw, kh);
         g.drawString(font, label, x + kw + 3, y + (kh - font.lineHeight) / 2, labelColor, false);
         return y + kh + 3;
+    }
+
+    // ── 鼠标图标 ───────────────────────────────────────────────
+
+    /** 鼠标图标宽度（像素）。 */
+    public static final int MOUSE_W = 13;
+    /** 鼠标图标高度（像素）。 */
+    public static final int MOUSE_H = 18;
+    /** 高亮左键。 */
+    public static final int MOUSE_LEFT   = 0;
+    /** 高亮中键（滚轮）。 */
+    public static final int MOUSE_MIDDLE = 1;
+    /** 高亮右键。 */
+    public static final int MOUSE_RIGHT  = 2;
+
+    private static final int MOUSE_BTN_H = 7; // 按键区高度
+
+    /**
+     * 绘制鼠标形状图标（13×18，圆角，按键带高光），高亮指定按键区域。
+     * 布局：左3 / 分隔1 / 中3 / 分隔1 / 右3 = 11px 内宽。
+     * @param mouseButton MOUSE_LEFT / MOUSE_MIDDLE / MOUSE_RIGHT，其他值=无高亮
+     */
+    public void drawMouseIcon(GuiGraphics g, int x, int y, int mouseButton) {
+        final int BODY   = 0xFF1E1E2E;
+        final int BTN    = 0xFF383852;
+        final int BTN_HL = 0xFF484864; // 按键顶部高光行
+        final int BODY_HL= 0xFF272738; // 机身顶部微亮行
+        final int HI     = 0xFFFFAA33;
+        final int HI_HL  = 0xFFFFCC66; // 高亮按键顶部高光
+        final int BORD   = 0xFF8888AA;
+        final int DIV    = 0xFF555575;
+        final int SCROLL = 0xFF555575;
+        final int SCRL_HI= 0xFFFFEE99;
+
+        // 背景整体填充
+        g.fill(x, y, x + MOUSE_W, y + MOUSE_H, BODY);
+        // 圆角边框（跳过四个角点）
+        g.fill(x + 1, y,                x + MOUSE_W - 1, y + 1,              BORD);
+        g.fill(x,     y + 1,            x + 1,           y + MOUSE_H - 1,    BORD);
+        g.fill(x + MOUSE_W - 1, y + 1,  x + MOUSE_W,     y + MOUSE_H - 1,    BORD);
+        g.fill(x + 1, y + MOUSE_H - 1,  x + MOUSE_W - 1, y + MOUSE_H,        BORD);
+
+        // 三个按键区（内宽11：左3 / 分1 / 中3 / 分1 / 右3）
+        int by1 = y + 1, by2 = y + MOUSE_BTN_H;
+        boolean lHi = mouseButton == MOUSE_LEFT, mHi = mouseButton == MOUSE_MIDDLE, rHi = mouseButton == MOUSE_RIGHT;
+        // 左键
+        g.fill(x + 1, by1,     x + 4,  by2,     lHi ? HI    : BTN);
+        g.fill(x + 1, by1,     x + 4,  by1 + 1, lHi ? HI_HL : BTN_HL);
+        // 竖分隔
+        g.fill(x + 4, by1, x + 5, by2, DIV);
+        // 中键（滚轮区）
+        g.fill(x + 5, by1,     x + 8,  by2,     mHi ? HI    : BTN);
+        g.fill(x + 5, by1,     x + 8,  by1 + 1, mHi ? HI_HL : BTN_HL);
+        // 竖分隔
+        g.fill(x + 8, by1, x + 9, by2, DIV);
+        // 右键
+        g.fill(x + 9, by1,     x + 12, by2,     rHi ? HI    : BTN);
+        g.fill(x + 9, by1,     x + 12, by1 + 1, rHi ? HI_HL : BTN_HL);
+
+        // 水平分隔线（按键区与机身）
+        g.fill(x + 1, y + MOUSE_BTN_H, x + MOUSE_W - 1, y + MOUSE_BTN_H + 1, DIV);
+        // 机身顶部微亮行
+        g.fill(x + 1, y + MOUSE_BTN_H + 1, x + MOUSE_W - 1, y + MOUSE_BTN_H + 2, BODY_HL);
+
+        // 滚轮纹路（中键高亮时变亮）
+        int wc = mHi ? SCRL_HI : SCROLL;
+        g.fill(x + 5, by1 + 1, x + 8, by1 + 2, wc);
+        g.fill(x + 5, by1 + 3, x + 8, by1 + 4, wc);
+        g.fill(x + 5, by1 + 5, x + 8, by1 + 6, wc);
+    }
+
+    /**
+     * 绘制一行"鼠标图标 + 动作说明"：图标在左，说明垂直居中于图标旁。
+     * @param mouseButton 高亮按钮：MOUSE_LEFT / MOUSE_MIDDLE / MOUSE_RIGHT
+     * @return 下一行 Y 坐标
+     */
+    public int drawMouseAction(GuiGraphics g, int mouseButton, int x, int y,
+                               Component label, int labelColor) {
+        drawMouseIcon(g, x, y, mouseButton);
+        g.drawString(font, label, x + MOUSE_W + 4, y + (MOUSE_H - font.lineHeight) / 2, labelColor, false);
+        return y + MOUSE_H + 3;
     }
 }

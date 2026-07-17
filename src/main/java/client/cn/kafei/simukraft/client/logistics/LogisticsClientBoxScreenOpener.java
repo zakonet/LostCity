@@ -1,5 +1,7 @@
 package client.cn.kafei.simukraft.client.logistics;
 
+import client.cn.kafei.simukraft.client.selection.TwoPointSelectionScreen;
+import common.cn.kafei.simukraft.network.logistics.LogisticsBoxActionPacket;
 import common.cn.kafei.simukraft.network.logistics.LogisticsClientBoxOpenRequestPacket;
 import common.cn.kafei.simukraft.network.logistics.LogisticsClientBoxOpenResponsePacket;
 import net.minecraft.client.Minecraft;
@@ -52,7 +54,7 @@ public final class LogisticsClientBoxScreenOpener {
                             ? Component.translatable("gui.simukraft.logistics.bind_port")
                             : Component.translatable("gui.simukraft.logistics.bind_port.count", packet.ports().size()),
                     centerX - BUTTON_WIDTH / 2, startY, BUTTON_WIDTH, BUTTON_HEIGHT,
-                    () -> LogisticsAreaSelectionScreen.openClientBinding(packet.boxPos())));
+                    () -> TwoPointSelectionScreen.openLogistics(packet.boxPos(), LogisticsBoxActionPacket.Action.BIND_CLIENT_AREA)));
             bind.active = packet.hasCity();
             Button manage = addRenderableWidget(LogisticsNativeStyle.button(Component.translatable("gui.simukraft.logistics.manage_ports"),
                     centerX - BUTTON_WIDTH / 2, startY + BUTTON_GAP, BUTTON_WIDTH, BUTTON_HEIGHT,
