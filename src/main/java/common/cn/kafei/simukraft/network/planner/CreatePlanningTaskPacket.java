@@ -109,8 +109,12 @@ public record CreatePlanningTaskPacket(BlockPos buildBoxPos,
         BlockPos min = PlannerNetworkValidation.min(packet.min(), packet.max());
         BlockPos max = PlannerNetworkValidation.max(packet.min(), packet.max());
         int volume = PlanningTaskData.volume(min, max);
-        if (volume <= 0 || volume > ServerConfig.plannerMaxVolume() || !PlannerNetworkValidation.selectionNearBuildBox(boxPos, min, max)) {
+        if (volume <= 0 || volume > ServerConfig.plannerMaxVolume()) {
             InfoToastService.warning(player, Component.translatable("message.simukraft.plan_area.too_big", ServerConfig.plannerMaxVolume()));
+            return;
+        }
+        if (!PlannerNetworkValidation.selectionNearBuildBox(boxPos, min, max)) {
+            InfoToastService.warning(player, Component.translatable("message.simukraft.plan_area.too_far"));
             return;
         }
 

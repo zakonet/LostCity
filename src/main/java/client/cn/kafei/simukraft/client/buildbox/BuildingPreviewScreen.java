@@ -10,6 +10,9 @@ import client.cn.kafei.simukraft.client.ui.SimuKraftUiTheme;
 import client.cn.kafei.simukraft.client.ui.SlidingInfoPanel;
 import common.cn.kafei.simukraft.building.BuildingStructure;
 import common.cn.kafei.simukraft.config.ServerConfig;
+import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.level.block.state.properties.BedPart;
+import common.cn.kafei.simukraft.city.poi.CityPoiType;
 import common.cn.kafei.simukraft.network.building.BuildBoxStartConstructionPacket;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -32,6 +35,8 @@ public final class BuildingPreviewScreen extends Screen implements FreeCameraScr
     private static boolean sPanelVisible = true; // Tab 隐藏状态持久化
 
     private final SlidingInfoPanel panel = new SlidingInfoPanel();
+    private final int bedCount;
+    private final int doorCount;
     private boolean replaceWithAir = false;
 
     public BuildingPreviewScreen(Screen parent, BuildingCacheService.BuildingMeta building, BlockPos buildBoxPos, BuildingStructure structure) {
@@ -40,6 +45,13 @@ public final class BuildingPreviewScreen extends Screen implements FreeCameraScr
         this.building = building;
         this.buildBoxPos = buildBoxPos;
         this.structure = structure;
+        this.bedCount = (int) structure.blocks().stream()
+                .filter(b -> b.state().getBlock() instanceof BedBlock
+                        && b.state().getValue(BedBlock.PART) == BedPart.HEAD)
+                .count();
+        this.doorCount = Math.max(1, (int) structure.poiDefinitions().stream()
+                .filter(p -> p.poiType() == CityPoiType.RESIDENTIAL)
+                .count());
         panel.setVisible(sPanelVisible);
     }
 
@@ -74,7 +86,11 @@ public final class BuildingPreviewScreen extends Screen implements FreeCameraScr
         // ── 顶部标题条 ──
         g.fill(0, 0, sw, 18, 0xAA000000);
         g.fill(0, 17, sw, 18, 0x55AAAACC);
-        g.renderItem(new ItemStack(Items.BARRIER), 2, 1);
+        g.pose().pushPose();
+        g.pose().translate(2.0F, 3.0F, 0.0F);
+        g.pose().scale(0.75F, 0.75F, 1.0F);
+        g.renderItem(new ItemStack(Items.BARRIER), 0, 0);
+        g.pose().popPose();
         Component modeText = Component.translatable(replaceWithAir
                 ? "gui.building_preview.mode.replace_air" : "gui.building_preview.mode.keep_obstacles");
         int modeColor = replaceWithAir ? SimuKraftUiTheme.TEXT_SUCCESS_COLOR : SimuKraftUiTheme.TEXT_MUTED_COLOR;
@@ -85,6 +101,24 @@ public final class BuildingPreviewScreen extends Screen implements FreeCameraScr
         g.drawCenteredString(font,
                 Component.translatable("gui.building_preview.title_with_name", building.name()),
                 sw / 2, 5, SimuKraftUiTheme.TEXT_PRIMARY_COLOR);
+        // ── 住宅信息（床位+户数，仅住宅建筑显示，标题栏模式文字右侧）──
+        if (bedCount > 0) {
+            String bedStr = String.valueOf(bedCount);
+            int bedX = 22 + eCapW + 3 + font.width(modeText) + 6;
+            g.pose().pushPose();
+            g.pose().translate(bedX, 3.0F, 0.0F);
+            g.pose().scale(0.75F, 0.75F, 1.0F);
+            g.renderItem(new ItemStack(Items.RED_BED), 0, 0);
+            g.pose().popPose();
+            g.drawString(font, bedStr, bedX + 14, 1 + (16 - font.lineHeight) / 2, SimuKraftUiTheme.TEXT_PRIMARY_COLOR, false);
+            int doorX = bedX + 14 + font.width(bedStr) + 6;
+            g.pose().pushPose();
+            g.pose().translate(doorX, 3.0F, 0.0F);
+            g.pose().scale(0.75F, 0.75F, 1.0F);
+            g.renderItem(new ItemStack(Items.OAK_DOOR), 0, 0);
+            g.pose().popPose();
+            g.drawString(font, String.valueOf(doorCount), doorX + 14, 1 + (16 - font.lineHeight) / 2, SimuKraftUiTheme.TEXT_PRIMARY_COLOR, false);
+        }
         int kw = 10, kh = 10, step = 11;
         int pX = panel.getPanelX(), pW = panel.getPanelW(), iX = panel.getInnerX();
         int curY = 18 + 7;

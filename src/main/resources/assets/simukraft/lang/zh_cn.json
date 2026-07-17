@@ -675,6 +675,7 @@
     "message.simukraft.plan_area.invalid_material_container":  "材料容器无效，请选择紧贴建筑盒六面的容器。",
     "message.simukraft.plan_area.replacement_map_empty":  "请至少建立一组替换映射。",
     "message.simukraft.plan_area.too_big":  "规划区域太大(最多 %s 个方块)。",
+    "message.simukraft.plan_area.too_far":  "选区超出规划师作业范围，请将选区移近建筑盒。",
     "message.simukraft.plan_area.not_enough_funds":  "城市资金不足以支付本次规划(花费 %s)。",
     "message.simukraft.plan_area.started":  "规划师已开始：%s，%s 个方块。",
     "message.simukraft.planner.task_started":  "规划师%s 已接受%s任务。",
