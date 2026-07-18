@@ -7,6 +7,7 @@ import common.cn.kafei.simukraft.city.group.CityGroupMessageService;
 import common.cn.kafei.simukraft.building.PlacedBuildingService;
 import common.cn.kafei.simukraft.building.PlacedBuildingRecord;
 import common.cn.kafei.simukraft.building.BuildingUnitInstance;
+import common.cn.kafei.simukraft.citizen.family.FamilyData;
 import common.cn.kafei.simukraft.citizen.family.FamilyManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -52,11 +53,18 @@ public final class CitizenHousingService {
                 .sorted(Comparator.comparing(CitizenData::name, String.CASE_INSENSITIVE_ORDER))
                 .toList();
 
-        int limit = Math.min(Math.min(vacantHomes.size(), homelessCitizens.size()), Math.max(0, maxAssignments - familyAssigned));
-        for (int i = 0; i < limit; i++) {
-            CitizenService.setHome(level, homelessCitizens.get(i).uuid(), vacantHomes.get(i).poiId());
+        // 阶段二：逐一分配，有配偶且配偶已有床位时优先选最近的空床
+        java.util.List<CityPoiData> mutableVacant = new java.util.ArrayList<>(vacantHomes);
+        int phase2Count = 0;
+        int phase2Limit = Math.max(0, maxAssignments - familyAssigned);
+        for (CitizenData citizen : homelessCitizens) {
+            if (mutableVacant.isEmpty() || phase2Count >= phase2Limit) break;
+            CityPoiData bed = pickBedNearSpouse(level, citizen, mutableVacant, poiManager);
+            mutableVacant.remove(bed);
+            CitizenService.setHome(level, citizen.uuid(), bed.poiId());
+            phase2Count++;
         }
-        return familyAssigned + limit;
+        return familyAssigned + phase2Count;
     }
 
     public static int spawnCitizensForVacantHomes(ServerLevel level, UUID cityId, BlockPos spawnPos, int maxSpawns) {
@@ -111,6 +119,9 @@ public final class CitizenHousingService {
                 vacantPoiIds = findPoiIdsForFamily(level, cityId, poiManager, occupiedPoiIds, homeless.size());
             }
             if (vacantPoiIds.isEmpty()) continue;
+
+            // 夫妻优先邻床：将最近的两张床移到列表前两位，与 homeless 中夫/妻顺序对齐
+            vacantPoiIds = sortCoupleBedsFirst(vacantPoiIds, family, homeless, poiManager);
 
             // 分配
             int slot = 0;
@@ -306,5 +317,66 @@ public final class CitizenHousingService {
         }
         CityPoiData home = poiManager.getPoi(homeId);
         return home != null && home.active() && home.type() == CityPoiType.RESIDENTIAL && cityId.equals(home.cityId());
+    }
+
+    /**
+     * 将最近的两张床移到列表前两位，供夫妻优先分配。
+     * 仅当夫妻均在 homeless 列表中时才重排；否则原样返回。
+     */
+    private static List<UUID> sortCoupleBedsFirst(List<UUID> poiIds, FamilyData family,
+            List<UUID> homeless, CityPoiManager poiManager) {
+        if (poiIds.size() < 2) return poiIds;
+        if (family.husbandId() == null || family.wifeId() == null) return poiIds;
+        if (!homeless.contains(family.husbandId()) || !homeless.contains(family.wifeId())) return poiIds;
+
+        int bestI = 0, bestJ = 1;
+        double bestDist = Double.MAX_VALUE;
+        for (int i = 0; i < poiIds.size() - 1; i++) {
+            BlockPos posI = poiPosOrNull(poiIds.get(i), poiManager);
+            if (posI == null) continue;
+            for (int j = i + 1; j < poiIds.size(); j++) {
+                BlockPos posJ = poiPosOrNull(poiIds.get(j), poiManager);
+                if (posJ == null) continue;
+                double dist = posI.distSqr(posJ);
+                if (dist < bestDist) { bestDist = dist; bestI = i; bestJ = j; }
+            }
+        }
+        List<UUID> sorted = new java.util.ArrayList<>(poiIds);
+        // 把 bestI 换到 0
+        UUID tmp = sorted.get(0); sorted.set(0, sorted.get(bestI)); sorted.set(bestI, tmp);
+        // bestJ 可能因上一步已移动（当 bestJ == 0 时实际变成了 bestI）
+        int actualJ = (bestJ == 0) ? bestI : bestJ;
+        tmp = sorted.get(1); sorted.set(1, sorted.get(actualJ)); sorted.set(actualJ, tmp);
+        return sorted;
+    }
+
+    /**
+     * 从空床列表中选出离配偶床位最近的一张；若配偶无床位则返回第一张。
+     */
+    private static CityPoiData pickBedNearSpouse(ServerLevel level, CitizenData citizen,
+            List<CityPoiData> vacantBeds, CityPoiManager poiManager) {
+        BlockPos spousePos = spouseHomePos(level, citizen, poiManager);
+        if (spousePos == null) return vacantBeds.get(0);
+        return vacantBeds.stream()
+                .min(Comparator.comparingDouble(bed -> bed.pos().distSqr(spousePos)))
+                .orElse(vacantBeds.get(0));
+    }
+
+    /** 获取配偶床位坐标，无配偶或配偶无家则返回 null。 */
+    private static BlockPos spouseHomePos(ServerLevel level, CitizenData citizen, CityPoiManager poiManager) {
+        var familyOpt = FamilyManager.get(level).getFamilyOf(citizen.uuid());
+        if (familyOpt.isEmpty()) return null;
+        FamilyData family = familyOpt.get();
+        UUID spouseId = citizen.uuid().equals(family.husbandId()) ? family.wifeId() : family.husbandId();
+        if (spouseId == null) return null;
+        CitizenData spouse = CitizenManager.get(level).getCitizen(spouseId).orElse(null);
+        if (spouse == null || spouse.homeId() == null) return null;
+        CityPoiData poi = poiManager.getPoi(spouse.homeId());
+        return poi != null ? poi.pos() : null;
+    }
+
+    private static BlockPos poiPosOrNull(UUID poiId, CityPoiManager poiManager) {
+        CityPoiData poi = poiManager.getPoi(poiId);
+        return poi != null ? poi.pos() : null;
     }
 }

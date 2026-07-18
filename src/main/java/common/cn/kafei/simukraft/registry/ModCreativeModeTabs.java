@@ -42,6 +42,10 @@ public final class ModCreativeModeTabs {
                 output.accept(ModBlocks.CHEESE_BLOCK.get());
                 output.accept(ModItems.MANIFEST.get());
                 output.accept(ModItems.GOLD_COIN.get());
+                output.accept(ModItems.HAMBURGER.get());
+                output.accept(ModItems.FRENCH_FRIES.get());
+                output.accept(ModItems.CHEESE_CHUNK.get());
+                output.accept(ModItems.CHEESE_BURGER.get());
             })
             .build());
 

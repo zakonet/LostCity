@@ -3,6 +3,8 @@ package common.cn.kafei.simukraft.registry;
 import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.item.ManifestItem;
 import common.cn.kafei.simukraft.item.PortableCityCoreItem;
+import common.cn.kafei.simukraft.item.food.BuffFoodItem;
+import common.cn.kafei.simukraft.item.food.ModFoods;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -15,6 +17,10 @@ public final class ModItems {
     public static final DeferredHolder<Item, Item> MANIFEST = ITEMS.register("manifest", ManifestItem::new);
     public static final DeferredHolder<Item, Item> PORTABLE_CITY_CORE = ITEMS.register("portable_city_core", PortableCityCoreItem::new);
     public static final DeferredHolder<Item, Item> GOLD_COIN = ITEMS.register("gold_coin", () -> new Item(new Item.Properties()));
+    public static final DeferredHolder<Item, Item> HAMBURGER = ITEMS.register("hamburger", () -> new BuffFoodItem(new Item.Properties().food(ModFoods.HAMBURGER)));
+    public static final DeferredHolder<Item, Item> FRENCH_FRIES = ITEMS.register("french_fries", () -> new BuffFoodItem(new Item.Properties().food(ModFoods.FRENCH_FRIES)));
+    public static final DeferredHolder<Item, Item> CHEESE_CHUNK = ITEMS.register("cheese_chunk", () -> new BuffFoodItem(new Item.Properties().food(ModFoods.CHEESE_CHUNK)));
+    public static final DeferredHolder<Item, Item> CHEESE_BURGER = ITEMS.register("cheese_burger", () -> new BuffFoodItem(new Item.Properties().food(ModFoods.CHEESE_BURGER)));
 
     private ModItems() {
     }

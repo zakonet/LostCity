@@ -600,7 +600,10 @@ public final class BuilderConstructionService {
         BuildingStructure structure = structureOptional.get();
         List<BuildingBlockData> sourceBlocks = List.copyOf(structure.blocks());
         List<BuildingBlockData> placedBlocks = BuildingStructureService.resolvePlacedBlocks(structure, task.origin(), task.rotationDegrees()).stream()
-                .sorted(Comparator.comparingInt((BuildingBlockData block) -> block.relativePos().getY()).thenComparingInt(block -> block.relativePos().getX()).thenComparingInt(block -> block.relativePos().getZ()))
+                .sorted(Comparator.comparingInt((BuildingBlockData b) -> b.relativePos().getY())
+                        .thenComparingInt(b -> b.state().getFluidState().isEmpty() ? 0 : 1)
+                        .thenComparingInt(b -> b.relativePos().getX())
+                        .thenComparingInt(b -> b.relativePos().getZ()))
                 .toList();
         return new CachedStructure(placedBlocks, sourceBlocks, buildLayerRanges(placedBlocks));
     }
