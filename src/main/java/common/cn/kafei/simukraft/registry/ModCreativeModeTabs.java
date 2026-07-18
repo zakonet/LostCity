@@ -9,8 +9,6 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
-import java.util.stream.Stream;
-
 @SuppressWarnings("null")
 public final class ModCreativeModeTabs {
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, SimuKraft.MOD_ID);
@@ -18,9 +16,33 @@ public final class ModCreativeModeTabs {
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> SIMUKRAFT_TAB = CREATIVE_MODE_TABS.register("simukraft_tab", () -> CreativeModeTab.builder()
             .title(Component.translatable("itemGroup.simukraft"))
             .icon(() -> new ItemStack(ModBlocks.BUILD_BOX.get()))
-            .displayItems((parameters, output) -> Stream.concat(ModBlocks.ITEMS.getEntries().stream(), ModItems.ITEMS.getEntries().stream())
-                    .map(DeferredHolder::get)
-                    .forEach(output::accept))
+            .displayItems((parameters, output) -> {
+                // 核心功能
+                output.accept(ModBlocks.CITY_CORE.get());
+                output.accept(ModBlocks.BUILD_BOX.get());
+                output.accept(ModItems.PORTABLE_CITY_CORE.get());
+                // 控制箱
+                output.accept(ModBlocks.COMMERCIAL_CONTROL_BOX.get());
+                output.accept(ModBlocks.INDUSTRIAL_CONTROL_BOX.get());
+                output.accept(ModBlocks.RESIDENTIAL_CONTROL_BOX.get());
+                output.accept(ModBlocks.OTHER_CONTROL_BOX.get());
+                output.accept(ModBlocks.LOGISTICS_SERVER_BOX.get());
+                output.accept(ModBlocks.LOGISTICS_CLIENT_BOX.get());
+                output.accept(ModBlocks.NSUK_FARMLAND_BOX.get());
+                // 发光方块（彩虹顺序）
+                output.accept(ModBlocks.RED_LIGHT_BLOCK.get());
+                output.accept(ModBlocks.ORANGE_LIGHT_BLOCK.get());
+                output.accept(ModBlocks.YELLOW_LIGHT_BLOCK.get());
+                output.accept(ModBlocks.GREEN_LIGHT_BLOCK.get());
+                output.accept(ModBlocks.BLUE_LIGHT_BLOCK.get());
+                output.accept(ModBlocks.PURPLE_LIGHT_BLOCK.get());
+                output.accept(ModBlocks.WHITE_LIGHT_BLOCK.get());
+                output.accept(ModBlocks.RAINBOW_LIGHT_BLOCK.get());
+                // 杂项
+                output.accept(ModBlocks.CHEESE_BLOCK.get());
+                output.accept(ModItems.MANIFEST.get());
+                output.accept(ModItems.GOLD_COIN.get());
+            })
             .build());
 
     private ModCreativeModeTabs() {
