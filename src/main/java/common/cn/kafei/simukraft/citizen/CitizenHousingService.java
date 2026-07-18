@@ -364,7 +364,7 @@ public final class CitizenHousingService {
 
     /** 获取配偶床位坐标，无配偶或配偶无家则返回 null。 */
     private static BlockPos spouseHomePos(ServerLevel level, CitizenData citizen, CityPoiManager poiManager) {
-        var familyOpt = FamilyManager.get(level).getFamilyOf(citizen.uuid());
+        var familyOpt = FamilyManager.get(level).getFamilyByCitizen(citizen.uuid());
         if (familyOpt.isEmpty()) return null;
         FamilyData family = familyOpt.get();
         UUID spouseId = citizen.uuid().equals(family.husbandId()) ? family.wifeId() : family.husbandId();
