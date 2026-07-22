@@ -18,7 +18,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
-@SuppressWarnings("null")
 public final class IndustrialControlBoxService {
     private static final int COLOR_WORK_POINT = 0xAA33CCFF;
     private static final int COLOR_MACHINE_POINT = 0xAAFFFF33;
@@ -124,11 +123,12 @@ public final class IndustrialControlBoxService {
             setStatus(manager, data, "gui.simukraft.industrial.status.no_worker", "");
             return false;
         }
+        // 先同步元数据（可能清空 selectedRecipeId），再校验配方，防止 definition 热重载导致状态不一致
+        synchronizeBoxMetadata(level, data, building, definition);
         if (definition.recipeById(selectedRecipeId(data, definition)) == null) {
             setStatus(manager, data, "gui.simukraft.industrial.status.no_recipe", "");
             return false;
         }
-        synchronizeBoxMetadata(level, data, building, definition);
         data.setRunning(true);
         data.setCurrentStep(Math.max(0, data.currentStep()));
         data.setStatusKey("gui.simukraft.industrial.status.running");
@@ -279,6 +279,8 @@ public final class IndustrialControlBoxService {
             settleCarriedItems(level, null, data, building, definition);
             IndustrialMachineOperationService.abort(level, data, "building_changed");
             data.setBuildingId(building.buildingId().toString());
+            data.setSelectedRecipeId("");
+            data.setCurrentStep(0);
             data.setSpawnEntityDone(false);
             changed = true;
         }
@@ -287,12 +289,9 @@ public final class IndustrialControlBoxService {
                 settleCarriedItems(level, null, data, building, definition);
                 IndustrialMachineOperationService.abort(level, data, "definition_changed");
                 data.setDefinitionId(definition.id());
-                data.setSpawnEntityDone(false);
-                changed = true;
-            }
-            if (data.selectedRecipeId().isBlank() || definition.recipeById(data.selectedRecipeId()) == null) {
-                data.setSelectedRecipeId(definition.defaultRecipeId());
+                data.setSelectedRecipeId("");
                 data.setCurrentStep(0);
+                data.setSpawnEntityDone(false);
                 changed = true;
             }
         }
@@ -318,7 +317,7 @@ public final class IndustrialControlBoxService {
                                            IndustrialBoxData data,
                                            PlacedBuildingRecord building,
                                            IndustrialDefinition definition) {
-        if (level == null || data == null || !IndustrialCarriedItemService.hasItems(data)) {
+        if (level == null || data == null || !IndustrialCarriedItemService.hasItems(level, manager, data)) {
             return;
         }
         IndustrialBoxManager safeManager = manager != null ? manager : IndustrialBoxManager.get(level);
@@ -336,7 +335,8 @@ public final class IndustrialControlBoxService {
             return data.selectedRecipeId();
         }
         IndustrialDefinition.RecipeDefinition recipe = definition.recipeById(data.selectedRecipeId());
-        return recipe != null ? recipe.id() : definition.defaultRecipeId();
+        // 直接返回持久化值，不自动 fallback 到默认配方，避免"显示已选但未真正选中"的状态
+        return recipe != null ? recipe.id() : data.selectedRecipeId();
     }
 
     private static String resolveStatusKey(IndustrialBoxData data, PlacedBuildingRecord building, IndustrialDefinitionLoader.LoadResult loadResult, CitizenData worker) {

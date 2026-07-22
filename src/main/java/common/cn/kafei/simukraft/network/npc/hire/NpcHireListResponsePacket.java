@@ -66,7 +66,7 @@ public record NpcHireListResponsePacket(BlockPos sourcePos, String sourceType, S
             buffer.writeVarInt(candidate.age());
             buffer.writeDouble(candidate.health());
             buffer.writeDouble(candidate.hunger());
-            buffer.writeUtf(candidate.skinPath(), 128);
+            buffer.writeUtf(candidate.skinPath(), 256);
             buffer.writeUtf(candidate.currentJob(), 32);
             buffer.writeUtf(candidate.workStatus(), 32);
             buffer.writeVarInt(candidate.skillLevel());
@@ -82,7 +82,7 @@ public record NpcHireListResponsePacket(BlockPos sourcePos, String sourceType, S
                     buffer.readVarInt(),
                     buffer.readDouble(),
                     buffer.readDouble(),
-                    buffer.readUtf(128),
+                    buffer.readUtf(256),
                     buffer.readUtf(32),
                     buffer.readUtf(32),
                     buffer.readVarInt(),

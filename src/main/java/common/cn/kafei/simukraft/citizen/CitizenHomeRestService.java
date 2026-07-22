@@ -7,6 +7,7 @@ import common.cn.kafei.simukraft.entity.CitizenEntity;
 import common.cn.kafei.simukraft.job.CityJobType;
 import common.cn.kafei.simukraft.path.CitizenNavigationService;
 import common.cn.kafei.simukraft.path.MovementIntent;
+import common.cn.kafei.simukraft.medical.MedicalService;
 import common.cn.kafei.simukraft.util.SaveScopedCacheKey;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -68,8 +69,15 @@ public final class CitizenHomeRestService {
         ConcurrentMap<UUID, Vec3> homeTargets = HOME_TARGETS_BY_LEVEL.computeIfAbsent(levelKey, ignored -> new ConcurrentHashMap<>());
         CityPoiManager poiManager = CityPoiManager.get(level);
         CitizenManager manager = CitizenManager.get(level);
+        String dimensionId = level.dimension().location().toString();
         for (CitizenData citizen : manager.allCitizens()) {
             if (citizen.dead()) {
+                continue;
+            }
+            if (MedicalService.isAdmitted(citizen)) {
+                continue;
+            }
+            if (!dimensionId.equals(citizen.dimensionId())) {
                 continue;
             }
             if (citizen.homeId() == null) {
@@ -112,8 +120,10 @@ public final class CitizenHomeRestService {
     }
 
     private static void retryBlockedWorkNavigation(ServerLevel level) {
+        String dimensionId = level.dimension().location().toString();
         for (CitizenData citizen : CitizenManager.get(level).allCitizens()) {
-            if (citizen.dead() || citizen.workplaceId() == null
+            if (citizen.dead() || !dimensionId.equals(citizen.dimensionId())
+                    || citizen.workplaceId() == null
                     || citizen.jobType() == CityJobType.UNEMPLOYED
                     || citizen.workStatusType() != CitizenWorkStatus.WORKING) continue;
             if (CitizenNavigationService.isNavigating(level, citizen.uuid())) continue;
@@ -131,8 +141,12 @@ public final class CitizenHomeRestService {
 
     private static void restoreHomeRestingCitizens(ServerLevel level) {
         CitizenManager manager = CitizenManager.get(level);
+        String dimensionId = level.dimension().location().toString();
         for (CitizenData citizen : manager.allCitizens()) {
             if (citizen.dead()) {
+                continue;
+            }
+            if (!dimensionId.equals(citizen.dimensionId())) {
                 continue;
             }
             if (!HOME_REST_MARKER.equals(citizen.workNeedDetail())) {
@@ -210,7 +224,7 @@ public final class CitizenHomeRestService {
     }
 
     private static BlockPos resolveHomeAnchor(ServerLevel level, BlockPos homePos) {
-        if (isResidentialBedHead(level.getBlockState(homePos))) {
+        if (isSupportedBedHead(level.getBlockState(homePos))) {
             return homePos;
         }
         // 旧存档里 POI 可能记录在床侧，先回找床头作为安全点搜索中心。
@@ -231,7 +245,7 @@ public final class CitizenHomeRestService {
     }
 
     private static List<BlockPos> collectBedsideCandidates(ServerLevel level, BlockPos bedHeadPos) {
-        if (!isResidentialBedHead(level.getBlockState(bedHeadPos))) {
+        if (!isSupportedBedHead(level.getBlockState(bedHeadPos))) {
             return List.of();
         }
         BlockPos bedFootPos = resolveBedFootPos(bedHeadPos, level.getBlockState(bedHeadPos));
@@ -371,5 +385,10 @@ public final class CitizenHomeRestService {
     public static boolean isResidentialBedHead(BlockState state) {
         return state.is(Blocks.RED_BED)
                 && (!state.hasProperty(BlockStateProperties.BED_PART) || state.getValue(BlockStateProperties.BED_PART) == BedPart.HEAD);
+    }
+
+    private static boolean isSupportedBedHead(BlockState state) {
+        return isResidentialBedHead(state)
+                || common.cn.kafei.simukraft.building.MedicalBedPoiService.isWhiteBedHead(state);
     }
 }

@@ -23,7 +23,17 @@ public record ServerConfigSavePacket(
         boolean claimProtection,
         int populationGrowthIntervalTicks,
         int populationGrowthMaxPerInterval,
+        int populationGrowthTimesPerWeek,
         CitizenNameStyle npcNameStyle,
+        int familyPregnancyDurationDays,
+        int familyPostpartumRecoveryDays,
+        double familyMarriageChancePerDay,
+        double familyPregnancyChancePerDay,
+        double medicalLowHealthThreshold,
+        int medicalHealIntervalTicks,
+        double medicalHealAmount,
+        double medicalDiseaseChancePerDay,
+        int medicalDiseaseTreatmentTicks,
         int farmAreaRadius,
         int farmWorkIntervalTicks,
         int farmActionsPerCycle,
@@ -86,7 +96,17 @@ public record ServerConfigSavePacket(
         buf.writeBoolean(p.claimProtection);
         buf.writeVarInt(p.populationGrowthIntervalTicks);
         buf.writeVarInt(p.populationGrowthMaxPerInterval);
+        buf.writeVarInt(p.populationGrowthTimesPerWeek);
         buf.writeUtf(safeNameStyle(p.npcNameStyle).name(), 16);
+        buf.writeVarInt(p.familyPregnancyDurationDays);
+        buf.writeVarInt(p.familyPostpartumRecoveryDays);
+        buf.writeDouble(p.familyMarriageChancePerDay);
+        buf.writeDouble(p.familyPregnancyChancePerDay);
+        buf.writeDouble(p.medicalLowHealthThreshold);
+        buf.writeVarInt(p.medicalHealIntervalTicks);
+        buf.writeDouble(p.medicalHealAmount);
+        buf.writeDouble(p.medicalDiseaseChancePerDay);
+        buf.writeVarInt(p.medicalDiseaseTreatmentTicks);
         buf.writeVarInt(p.farmAreaRadius);
         buf.writeVarInt(p.farmWorkIntervalTicks);
         buf.writeVarInt(p.farmActionsPerCycle);
@@ -138,7 +158,9 @@ public record ServerConfigSavePacket(
     public static ServerConfigSavePacket decode(RegistryFriendlyByteBuf buf) {
         return new ServerConfigSavePacket(
                 buf.readDouble(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean(),
-                buf.readVarInt(), buf.readVarInt(), CitizenNameStyle.fromName(buf.readUtf(16)),
+                buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), CitizenNameStyle.fromName(buf.readUtf(16)),
+                buf.readVarInt(), buf.readVarInt(), buf.readDouble(), buf.readDouble(),
+                buf.readDouble(), buf.readVarInt(), buf.readDouble(), buf.readDouble(), buf.readVarInt(),
                 buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
                 buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
                 buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readBoolean(),
@@ -163,7 +185,17 @@ public record ServerConfigSavePacket(
         ServerConfig.ENABLE_CLAIM_PROTECTION.set(p.claimProtection);
         ServerConfig.POPULATION_GROWTH_INTERVAL_TICKS.set(p.populationGrowthIntervalTicks);
         ServerConfig.POPULATION_GROWTH_MAX_PER_INTERVAL.set(p.populationGrowthMaxPerInterval);
+        ServerConfig.POPULATION_GROWTH_TIMES_PER_WEEK.set(p.populationGrowthTimesPerWeek);
         ServerConfig.NPC_NAME_STYLE.set(safeNameStyle(p.npcNameStyle));
+        ServerConfig.FAMILY_PREGNANCY_DURATION_DAYS.set(Math.clamp(p.familyPregnancyDurationDays, 1, 3));
+        ServerConfig.FAMILY_POSTPARTUM_RECOVERY_DAYS.set(p.familyPostpartumRecoveryDays);
+        ServerConfig.FAMILY_MARRIAGE_CHANCE_PER_DAY.set(p.familyMarriageChancePerDay);
+        ServerConfig.FAMILY_PREGNANCY_CHANCE_PER_DAY.set(p.familyPregnancyChancePerDay);
+        ServerConfig.MEDICAL_LOW_HEALTH_THRESHOLD.set(p.medicalLowHealthThreshold);
+        ServerConfig.MEDICAL_HEAL_INTERVAL_TICKS.set(p.medicalHealIntervalTicks);
+        ServerConfig.MEDICAL_HEAL_AMOUNT.set(p.medicalHealAmount);
+        ServerConfig.MEDICAL_DISEASE_CHANCE_PER_DAY.set(p.medicalDiseaseChancePerDay);
+        ServerConfig.MEDICAL_DISEASE_TREATMENT_TICKS.set(p.medicalDiseaseTreatmentTicks);
         ServerConfig.FARM_AREA_RADIUS.set(p.farmAreaRadius);
         ServerConfig.FARM_WORK_INTERVAL_TICKS.set(p.farmWorkIntervalTicks);
         ServerConfig.FARM_ACTIONS_PER_CYCLE.set(p.farmActionsPerCycle);

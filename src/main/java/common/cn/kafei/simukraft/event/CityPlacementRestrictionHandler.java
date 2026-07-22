@@ -6,6 +6,7 @@ import common.cn.kafei.simukraft.city.CityService;
 import common.cn.kafei.simukraft.city.poi.CityPoiService;
 import common.cn.kafei.simukraft.city.poi.CityPoiType;
 import common.cn.kafei.simukraft.building.ResidentialBedPoiService;
+import common.cn.kafei.simukraft.building.MedicalBedPoiService;
 import common.cn.kafei.simukraft.config.ServerConfig;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import common.cn.kafei.simukraft.registry.ModBlocks;
@@ -78,6 +79,7 @@ public final class CityPlacementRestrictionHandler {
         }
         if (level instanceof ServerLevel serverLevel) {
             ResidentialBedPoiService.handleBlockPlaced(serverLevel, event.getPos(), event.getPlacedBlock());
+            MedicalBedPoiService.handleBlockPlaced(serverLevel, event.getPos(), event.getPlacedBlock());
             registerPoiForPlacedBlock(serverLevel, event.getPos(), block, player);
         }
     }
@@ -102,6 +104,7 @@ public final class CityPlacementRestrictionHandler {
                 return;
             }
             ResidentialBedPoiService.handleBlockPlaced(serverLevel, snapshot.getPos(), placedState);
+            MedicalBedPoiService.handleBlockPlaced(serverLevel, snapshot.getPos(), placedState);
             registerPoiForPlacedBlock(serverLevel, snapshot.getPos(), block, player);
         }
     }
@@ -113,6 +116,7 @@ public final class CityPlacementRestrictionHandler {
         }
         BlockState brokenState = serverLevel.getBlockState(event.getPos());
         ResidentialBedPoiService.handleBlockBroken(serverLevel, event.getPos(), brokenState);
+        MedicalBedPoiService.handleBlockBroken(serverLevel, event.getPos(), brokenState);
         Block block = brokenState.getBlock();
         if (poiTypeForBlock(block).isPresent()) {
             CityPoiService.deactivatePoi(serverLevel, event.getPos());
@@ -172,6 +176,9 @@ public final class CityPlacementRestrictionHandler {
         if (block == ModBlocks.INDUSTRIAL_CONTROL_BOX.get()) {
             return Optional.of(CityPoiType.INDUSTRIAL);
         }
+        if (block == ModBlocks.MEDICAL_CONTROL_BOX.get()) {
+            return Optional.of(CityPoiType.MEDICAL);
+        }
         if (block == ModBlocks.OTHER_CONTROL_BOX.get()) {
             return Optional.of(CityPoiType.OTHER);
         }
@@ -191,7 +198,7 @@ public final class CityPlacementRestrictionHandler {
         return switch (type) {
             case RESIDENTIAL -> 0;
             case COMMERCIAL, INDUSTRIAL, FARMLAND -> 2;
-            case LOGISTICS, STORAGE, GATHERING, DEFENSE, OTHER -> 1;
+            case MEDICAL, LOGISTICS, STORAGE, GATHERING, DEFENSE, OTHER -> 1;
         };
     }
 
@@ -203,6 +210,7 @@ public final class CityPlacementRestrictionHandler {
                 || block == ModBlocks.RESIDENTIAL_CONTROL_BOX.get()
                 || block == ModBlocks.COMMERCIAL_CONTROL_BOX.get()
                 || block == ModBlocks.INDUSTRIAL_CONTROL_BOX.get()
+                || block == ModBlocks.MEDICAL_CONTROL_BOX.get()
                 || block == ModBlocks.OTHER_CONTROL_BOX.get();
     }
 

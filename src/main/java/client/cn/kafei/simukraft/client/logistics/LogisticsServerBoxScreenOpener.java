@@ -1,6 +1,7 @@
 package client.cn.kafei.simukraft.client.logistics;
 
 import client.cn.kafei.simukraft.client.hire.NpcHireScreen;
+import client.cn.kafei.simukraft.client.selection.TwoPointSelectionScreen;
 import common.cn.kafei.simukraft.logistics.LogisticsConstants;
 import common.cn.kafei.simukraft.logistics.LogisticsControlBoxService;
 import common.cn.kafei.simukraft.logistics.LogisticsDirection;
@@ -226,7 +227,7 @@ public final class LogisticsServerBoxScreenOpener {
             Button create = addRenderableWidget(LogisticsNativeStyle.button(hasWarehouse
                     ? Component.translatable("gui.simukraft.logistics.create_warehouse.count", packet.containers().size())
                     : Component.translatable("gui.simukraft.logistics.create_warehouse"), x, y + gap * 2, buttonWidth, buttonHeight,
-                    () -> LogisticsAreaSelectionScreen.openWarehouseBinding(packet.boxPos())));
+                    () -> TwoPointSelectionScreen.openLogistics(packet.boxPos(), LogisticsBoxActionPacket.Action.BIND_WAREHOUSE_AREA)));
             create.active = packet.hasCity() && !hasWarehouse;
             Button delete = addRenderableWidget(LogisticsNativeStyle.button(Component.translatable("gui.simukraft.logistics.delete_warehouse"),
                     x, y + gap * 3, buttonWidth, buttonHeight,

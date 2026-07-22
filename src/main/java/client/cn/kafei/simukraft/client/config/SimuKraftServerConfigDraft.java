@@ -17,7 +17,17 @@ final class SimuKraftServerConfigDraft {
     boolean claimProtection;
     int populationGrowthIntervalTicks;
     int populationGrowthMaxPerInterval;
+    int populationGrowthTimesPerWeek;
     CitizenNameStyle npcNameStyle;
+    int familyPregnancyDurationDays;
+    int familyPostpartumRecoveryDays;
+    double familyMarriageChancePerDay;
+    double familyPregnancyChancePerDay;
+    double medicalLowHealthThreshold;
+    int medicalHealIntervalTicks;
+    double medicalHealAmount;
+    double medicalDiseaseChancePerDay;
+    int medicalDiseaseTreatmentTicks;
     int farmAreaRadius;
     int farmWorkIntervalTicks;
     int farmActionsPerCycle;
@@ -82,7 +92,17 @@ final class SimuKraftServerConfigDraft {
         claimProtection = ServerConfig.ENABLE_CLAIM_PROTECTION.get();
         populationGrowthIntervalTicks = ServerConfig.POPULATION_GROWTH_INTERVAL_TICKS.get();
         populationGrowthMaxPerInterval = ServerConfig.POPULATION_GROWTH_MAX_PER_INTERVAL.get();
+        populationGrowthTimesPerWeek = ServerConfig.POPULATION_GROWTH_TIMES_PER_WEEK.get();
         npcNameStyle = ServerConfig.NPC_NAME_STYLE.get();
+        familyPregnancyDurationDays = ServerConfig.FAMILY_PREGNANCY_DURATION_DAYS.get();
+        familyPostpartumRecoveryDays = ServerConfig.FAMILY_POSTPARTUM_RECOVERY_DAYS.get();
+        familyMarriageChancePerDay = ServerConfig.FAMILY_MARRIAGE_CHANCE_PER_DAY.get();
+        familyPregnancyChancePerDay = ServerConfig.FAMILY_PREGNANCY_CHANCE_PER_DAY.get();
+        medicalLowHealthThreshold = ServerConfig.MEDICAL_LOW_HEALTH_THRESHOLD.get();
+        medicalHealIntervalTicks = ServerConfig.MEDICAL_HEAL_INTERVAL_TICKS.get();
+        medicalHealAmount = ServerConfig.MEDICAL_HEAL_AMOUNT.get();
+        medicalDiseaseChancePerDay = ServerConfig.MEDICAL_DISEASE_CHANCE_PER_DAY.get();
+        medicalDiseaseTreatmentTicks = ServerConfig.MEDICAL_DISEASE_TREATMENT_TICKS.get();
         farmAreaRadius = ServerConfig.FARM_AREA_RADIUS.get();
         farmWorkIntervalTicks = ServerConfig.FARM_WORK_INTERVAL_TICKS.get();
         farmActionsPerCycle = ServerConfig.FARM_ACTIONS_PER_CYCLE.get();
@@ -138,7 +158,17 @@ final class SimuKraftServerConfigDraft {
         claimProtection = true;
         populationGrowthIntervalTicks = 24_000;
         populationGrowthMaxPerInterval = 1;
+        populationGrowthTimesPerWeek = 2;
         npcNameStyle = CitizenNameStyle.CHINESE;
+        familyPregnancyDurationDays = 3;
+        familyPostpartumRecoveryDays = 1;
+        familyMarriageChancePerDay = 0.05D;
+        familyPregnancyChancePerDay = 0.10D;
+        medicalLowHealthThreshold = 8.0D;
+        medicalHealIntervalTicks = 100;
+        medicalHealAmount = 1.0D;
+        medicalDiseaseChancePerDay = 0.02D;
+        medicalDiseaseTreatmentTicks = 24_000;
         farmAreaRadius = 3;
         farmWorkIntervalTicks = 20;
         farmActionsPerCycle = 4;
@@ -190,7 +220,9 @@ final class SimuKraftServerConfigDraft {
     void saveToLive() {
         PacketDistributor.sendToServer(new ServerConfigSavePacket(
                 cityChunkPrice, blacklistProtection, logBlacklistSkippedBlocks, claimProtection,
-                populationGrowthIntervalTicks, populationGrowthMaxPerInterval, npcNameStyle,
+                populationGrowthIntervalTicks, populationGrowthMaxPerInterval, populationGrowthTimesPerWeek, npcNameStyle,
+                familyPregnancyDurationDays, familyPostpartumRecoveryDays, familyMarriageChancePerDay, familyPregnancyChancePerDay,
+                medicalLowHealthThreshold, medicalHealIntervalTicks, medicalHealAmount, medicalDiseaseChancePerDay, medicalDiseaseTreatmentTicks,
                 farmAreaRadius, farmWorkIntervalTicks, farmActionsPerCycle,
                 pathMaxLoadedCitizenEntities, pathMaxActiveCitizens, pathMaxNewRequestsPerTick,
                 pathWorkerThreads, pathLocalRadiusBlocks, pathFarMovementTeleportDistance,

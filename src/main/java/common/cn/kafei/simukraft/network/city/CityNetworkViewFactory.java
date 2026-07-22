@@ -16,6 +16,7 @@ import net.minecraft.world.level.ChunkPos;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -79,9 +80,15 @@ public final class CityNetworkViewFactory {
     }
 
     private static List<CityCoreMembersResponsePacket.CandidateEntry> buildOnlineCandidates(ServerLevel level, CityData city, UUID viewerId) {
-        {
+        if (level == null || level.getServer() == null) {
             return List.of();
         }
+        Set<UUID> memberIds = new HashSet<>();
+        city.members().forEach(m -> memberIds.add(m.playerId()));
+        return level.getServer().getPlayerList().getPlayers().stream()
+                .filter(p -> !memberIds.contains(p.getUUID()))
+                .map(p -> new CityCoreMembersResponsePacket.CandidateEntry(p.getUUID(), p.getName().getString()))
+                .toList();
     }
 
     public static CityCoreMapResponsePacket buildMapResponse(ServerLevel level, BlockPos pos, UUID viewerId) {

@@ -26,6 +26,8 @@ import common.cn.kafei.simukraft.farmland.FarmlandBoxManager;
 import common.cn.kafei.simukraft.industrial.IndustrialBoxManager;
 import common.cn.kafei.simukraft.industrial.IndustrialDefinitionLoader;
 import common.cn.kafei.simukraft.logistics.LogisticsManager;
+import common.cn.kafei.simukraft.medical.DiseaseType;
+import common.cn.kafei.simukraft.medical.MedicalDefinitionLoader;
 import common.cn.kafei.simukraft.economy.EconomyService;
 import common.cn.kafei.simukraft.entity.CitizenEntity;
 import common.cn.kafei.simukraft.network.building.BuildingCacheReloadPacket;
@@ -35,6 +37,7 @@ import common.cn.kafei.simukraft.path.CitizenWanderService;
 import common.cn.kafei.simukraft.path.MovementIntent;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.coordinates.Vec3Argument;
 import net.minecraft.core.BlockPos;
@@ -158,7 +161,73 @@ public final class SimuKraftCommand {
                         .executes(context -> pathStatus(context.getSource())))
                 .then(Commands.literal("clear")
                         .executes(context -> clearPathDebug(context.getSource()))));
+        root.then(Commands.literal("npc")
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.literal("disease")
+                        .then(Commands.literal("set")
+                                .then(Commands.argument("citizen", EntityArgument.entity())
+                                        .then(Commands.argument("disease", StringArgumentType.word())
+                                                .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                                        List.of("generic", "cold", "flu", "food_poisoning"), builder))
+                                                .executes(context -> setCitizenDisease(
+                                                        context.getSource(),
+                                                        EntityArgument.getEntity(context, "citizen"),
+                                                        StringArgumentType.getString(context, "disease"))))))
+                        .then(Commands.literal("clear")
+                                .then(Commands.argument("citizen", EntityArgument.entity())
+                                        .executes(context -> clearCitizenDisease(
+                                                context.getSource(),
+                                                EntityArgument.getEntity(context, "citizen")))))));
         dispatcher.register(root);
+    }
+
+    /** setCitizenDisease：给选中的存活 NPC 设置测试疾病并立即持久化。 */
+    private static int setCitizenDisease(CommandSourceStack source, Entity entity, String diseaseName) {
+        CitizenData citizen = resolveCommandCitizen(source, entity);
+        if (citizen == null) {
+            return 0;
+        }
+        DiseaseType disease = DiseaseType.fromName(diseaseName);
+        if (disease == DiseaseType.NONE) {
+            source.sendFailure(Component.translatable("message.simukraft.command.npc_disease.invalid", diseaseName));
+            return 0;
+        }
+        ServerLevel level = (ServerLevel) entity.level();
+        citizen.setDisease(disease, level.getDayTime() / 24_000L);
+        CitizenService.save(level, citizen.uuid());
+        source.sendSuccess(() -> Component.translatable(
+                "message.simukraft.command.npc_disease.set",
+                citizen.name(),
+                Component.translatable(disease.translationKey())), true);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** clearCitizenDisease：清除选中 NPC 的测试疾病并立即持久化。 */
+    private static int clearCitizenDisease(CommandSourceStack source, Entity entity) {
+        CitizenData citizen = resolveCommandCitizen(source, entity);
+        if (citizen == null) {
+            return 0;
+        }
+        ServerLevel level = (ServerLevel) entity.level();
+        citizen.clearDisease();
+        CitizenService.save(level, citizen.uuid());
+        source.sendSuccess(() -> Component.translatable(
+                "message.simukraft.command.npc_disease.cleared", citizen.name()), true);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** resolveCommandCitizen：校验命令目标并解析为可修改的存活 NPC 数据。 */
+    private static CitizenData resolveCommandCitizen(CommandSourceStack source, Entity entity) {
+        if (!(entity instanceof CitizenEntity citizenEntity) || !(entity.level() instanceof ServerLevel level)) {
+            source.sendFailure(Component.translatable("message.simukraft.command.npc_disease.selected_not_citizen"));
+            return null;
+        }
+        CitizenData citizen = CitizenService.ensureCitizen(level, citizenEntity);
+        if (citizen == null || citizen.dead()) {
+            source.sendFailure(Component.translatable("message.simukraft.command.npc_disease.unavailable"));
+            return null;
+        }
+        return citizen;
     }
 
     private static int matrixHomeCityPath(CommandSourceStack source, int spacing) {
@@ -209,6 +278,7 @@ public final class SimuKraftCommand {
         BuildingCatalog.reload();
         CommercialDefinitionLoader.clearCache();
         IndustrialDefinitionLoader.clearCache();
+        MedicalDefinitionLoader.clearCache();
         int count = 0;
         for (ServerPlayer player : source.getServer().getPlayerList().getPlayers()) {
             PacketDistributor.sendToPlayer(player, new BuildingCacheReloadPacket());

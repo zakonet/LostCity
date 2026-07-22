@@ -37,14 +37,14 @@ public record CommercialTradePacket(BlockPos pos, UUID workerId, String offerId,
     public static void encode(RegistryFriendlyByteBuf buffer, CommercialTradePacket packet) {
         buffer.writeBlockPos(packet.pos());
         buffer.writeUUID(packet.workerId());
-        buffer.writeUtf(packet.offerId(), 128);
+        buffer.writeUtf(packet.offerId(), 256);
         buffer.writeVarInt(packet.count());
         buffer.writeBoolean(packet.quickMove());
     }
 
     /** decode: 读取玩家商业交易请求。 */
     public static CommercialTradePacket decode(RegistryFriendlyByteBuf buffer) {
-        return new CommercialTradePacket(buffer.readBlockPos(), buffer.readUUID(), buffer.readUtf(128), buffer.readVarInt(), buffer.readBoolean());
+        return new CommercialTradePacket(buffer.readBlockPos(), buffer.readUUID(), buffer.readUtf(256), buffer.readVarInt(), buffer.readBoolean());
     }
 
     /** handle: 在服务端执行 NPC 商业交易并刷新交易视图。 */

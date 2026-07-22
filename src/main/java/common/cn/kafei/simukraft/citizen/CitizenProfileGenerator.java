@@ -90,10 +90,10 @@ public final class CitizenProfileGenerator {
             data.setSkinPath(createSkinPath(data.gender(), data.uuid()));
         }
         if (data.age() <= 0) {
-            data.setAge(18 + random.nextInt(18));
+            data.setAge(18 + random.nextInt(8)); // 18~25
         }
-        if (data.lifespan() <= 0) {
-            data.setLifespan(70 + random.nextInt(21));
+        if (data.lifespan() < 18) {
+            data.setLifespan(70 + random.nextInt(31)); // 70~100
         }
         if (data.bornDay() <= 0L) {
             data.setBornDay(gameDay - data.age() * 365L);
@@ -132,5 +132,63 @@ public final class CitizenProfileGenerator {
         String prefix = "female".equals(gender) ? "custom_female_entity_" : "custom_male_entity_";
         String folder = "female".equals(gender) ? "female" : "male";
         return "simukraft:textures/entity/" + folder + "/" + prefix + index + ".png";
+    }
+
+    private static final java.util.Set<String> COMPOUND_SURNAMES = java.util.Set.of(
+            "欧阳","诸葛","上官","司马","东方","皇甫","慕容","司徒","端木","公孙",
+            "轩辕","令狐","钟离","宇文","长孙","鲜于","澹台","淳于","太叔","申屠",
+            "仲孙","颛孙","巫马","公西"
+    );
+
+    public static void fillChildProfile(CitizenData data, RandomSource random, long gameDay) {
+        if (isMissingGender(data.gender())) {
+            data.setGender(random.nextDouble() < 0.5D ? "male" : "female");
+        }
+        data.setAge(1);
+        data.setBornDay(gameDay);
+        // 从皮肤库取（渲染器缩放体现年龄感）
+        data.setSkinPath(createSkinPath(data.gender(), data.uuid()));
+        if (data.lifespan() < 18) {
+            data.setLifespan(70 + random.nextInt(31)); // 70~100
+        }
+    }
+
+    public static void promoteToAdult(CitizenData data, RandomSource random) {
+        // age 已是18（tickGrowth 累加到18后调用），只换皮肤；寿命不足时补设
+        data.setSkinPath(createSkinPath(data.gender(), data.uuid()));
+        if (data.lifespan() <= 20) {
+            data.setLifespan(70 + random.nextInt(31)); // 70~100
+        }
+    }
+
+    public static String createChildName(String husbandName, String wifeName, String childGender, RandomSource random) {
+        String familyName = extractFamilyName(husbandName);
+        if (familyName.isEmpty()) {
+            familyName = extractFamilyName(wifeName);
+        }
+        if (familyName.isEmpty()) {
+            familyName = FAMILY_NAMES[random.nextInt(FAMILY_NAMES.length)];
+        }
+        if (ServerConfig.npcNameStyle() == CitizenNameStyle.ENGLISH) {
+            String[] givenNames = "female".equals(childGender) ? ENGLISH_FEMALE_GIVEN_NAMES : ENGLISH_MALE_GIVEN_NAMES;
+            return givenNames[random.nextInt(givenNames.length)] + " " + familyName;
+        }
+        String[] givenNames = "female".equals(childGender) ? FEMALE_GIVEN_NAMES : MALE_GIVEN_NAMES;
+        return familyName + givenNames[random.nextInt(givenNames.length)];
+    }
+
+    public static String extractFamilyName(String fullName) {
+        if (fullName == null || fullName.isBlank()) return "";
+        // English: last token is family name
+        if (fullName.contains(" ")) {
+            String[] parts = fullName.trim().split("\\s+");
+            return parts[parts.length - 1];
+        }
+        // Chinese: check compound surnames first
+        if (fullName.length() >= 2) {
+            String prefix2 = fullName.substring(0, 2);
+            if (COMPOUND_SURNAMES.contains(prefix2)) return prefix2;
+        }
+        return fullName.substring(0, 1);
     }
 }

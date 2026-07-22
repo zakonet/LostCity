@@ -32,11 +32,11 @@ public record IndustrialControlBoxActionPacket(BlockPos pos, Action action, Stri
     public static void encode(RegistryFriendlyByteBuf buffer, IndustrialControlBoxActionPacket packet) {
         buffer.writeBlockPos(packet.pos());
         buffer.writeEnum(packet.action());
-        buffer.writeUtf(packet.recipeId(), 128);
+        buffer.writeUtf(packet.recipeId(), 256);
     }
 
     public static IndustrialControlBoxActionPacket decode(RegistryFriendlyByteBuf buffer) {
-        return new IndustrialControlBoxActionPacket(buffer.readBlockPos(), buffer.readEnum(Action.class), buffer.readUtf(128));
+        return new IndustrialControlBoxActionPacket(buffer.readBlockPos(), buffer.readEnum(Action.class), buffer.readUtf(256));
     }
 
     public static void handle(IndustrialControlBoxActionPacket packet, IPayloadContext context) {

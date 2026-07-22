@@ -4,6 +4,7 @@ import com.lowdragmc.lowdraglib2.gui.holder.ModularUIContainerScreen;
 import client.cn.kafei.simukraft.client.bridge.ClientInteractionHandlerImpl;
 import client.cn.kafei.simukraft.client.buildbox.BuildingBoundsRenderer;
 import client.cn.kafei.simukraft.client.config.SimuKraftConfigScreen;
+import client.cn.kafei.simukraft.client.citizen.CitizenScreenOpener;
 import client.cn.kafei.simukraft.client.fluid.ClientFluidExtensions;
 import client.cn.kafei.simukraft.client.input.SimuKraftKeyMappings;
 import client.cn.kafei.simukraft.client.logistics.LogisticsWarehouseGridScreen;
@@ -13,6 +14,7 @@ import client.cn.kafei.simukraft.client.renderer.CitizenRenderer;
 import client.cn.kafei.simukraft.client.selection.TwoPointSelectionRenderer;
 import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.clientbridge.ClientInteractionBridge;
+import common.cn.kafei.simukraft.citizen.CitizenInfoUiBridge;
 import common.cn.kafei.simukraft.network.clientbound.ClientboundNetworkBridge;
 import common.cn.kafei.simukraft.registry.ModEntities;
 import common.cn.kafei.simukraft.registry.ModMenuTypes;
@@ -44,6 +46,7 @@ public final class ClientModBusSetup {
     public static void onClientSetup(FMLClientSetupEvent event) {
         ClientboundNetworkBridge.install(ClientboundNetworkHandlerImpl.INSTANCE);
         ClientInteractionBridge.install(ClientInteractionHandlerImpl.INSTANCE);
+        CitizenInfoUiBridge.install(CitizenScreenOpener::createContainerUi);
         NeoForge.EVENT_BUS.addListener(BuildingBoundsRenderer::onRender);
         NeoForge.EVENT_BUS.addListener(TwoPointSelectionRenderer::onRender);
         NeoForge.EVENT_BUS.addListener(NpcPathDebugRenderer::onRender);
@@ -73,6 +76,7 @@ public final class ClientModBusSetup {
     @SubscribeEvent
     public static void onRegisterMenuScreens(RegisterMenuScreensEvent event) {
         event.register(ModMenuTypes.COMMERCIAL_TRADE.get(), ModularUIContainerScreen::new);
+        event.register(ModMenuTypes.CITIZEN_INFO.get(), ModularUIContainerScreen::new);
         event.register(ModMenuTypes.LOGISTICS_WAREHOUSE_GRID.get(), LogisticsWarehouseGridScreen::new);
     }
 }

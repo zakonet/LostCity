@@ -25,6 +25,8 @@ public final class SimuSqliteStorage {
     private final IndustrialBoxSqliteRepository industrialBoxes;
     private final CommercialSqliteRepository commercial;
     private final LogisticsSqliteRepository logistics;
+    private final FamilySqliteRepository families;
+    private final BuildingAbandonmentRepository buildingAbandonment;
 
     private SimuSqliteStorage(SimuSqliteDatabase database) {
         this.cities = new CitySqliteRepository(database);
@@ -37,6 +39,8 @@ public final class SimuSqliteStorage {
         this.industrialBoxes = new IndustrialBoxSqliteRepository(database);
         this.commercial = new CommercialSqliteRepository(database);
         this.logistics = new LogisticsSqliteRepository(database);
+        this.families = new FamilySqliteRepository(database);
+        this.buildingAbandonment = new BuildingAbandonmentRepository(database);
     }
 
     public static SimuSqliteStorage open(MinecraftServer server) {
@@ -409,6 +413,37 @@ public final class SimuSqliteStorage {
 
     private static String dimensionId(ServerLevel level) {
         return level.dimension().location().toString();
+    }
+
+    public static java.util.List<common.cn.kafei.simukraft.citizen.family.FamilyData> loadFamilies(ServerLevel level) {
+        SimuSqliteStorage storage = openSafely(level);
+        return storage != null ? storage.families.loadAll() : java.util.List.of();
+    }
+
+    public static void saveFamily(ServerLevel level, common.cn.kafei.simukraft.citizen.family.FamilyData family) {
+        SimuSqliteStorage storage = openSafely(level);
+        if (storage != null && family != null) {
+            storage.families.upsert(family);
+        }
+    }
+
+    public static void deleteFamily(ServerLevel level, UUID familyId) {
+        SimuSqliteStorage storage = openSafely(level);
+        if (storage != null && familyId != null) {
+            storage.families.delete(familyId);
+        }
+    }
+
+    public static java.util.Map<UUID, int[]> loadBuildingAbandonment(ServerLevel level) {
+        SimuSqliteStorage storage = openSafely(level);
+        return storage != null ? storage.buildingAbandonment.loadAll() : java.util.Map.of();
+    }
+
+    public static void saveBuildingAbandonment(ServerLevel level, UUID buildingId, UUID cityId, int index, long lastTickDay) {
+        SimuSqliteStorage storage = openSafely(level);
+        if (storage != null && buildingId != null) {
+            storage.buildingAbandonment.upsert(buildingId, cityId, index, lastTickDay);
+        }
     }
 
 }

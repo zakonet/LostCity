@@ -1,9 +1,11 @@
 package common.cn.kafei.simukraft.logistics;
 
 import common.cn.kafei.simukraft.SimuKraft;
+import common.cn.kafei.simukraft.citizen.CitizenData;
 import common.cn.kafei.simukraft.config.ServerConfig;
 import common.cn.kafei.simukraft.economy.EconomyService;
 import common.cn.kafei.simukraft.material.GenericContainerAccess;
+import common.cn.kafei.simukraft.medical.MedicalService;
 import common.cn.kafei.simukraft.util.SaveScopedCacheKey;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
@@ -67,7 +69,10 @@ public final class LogisticsWorkService {
         try {
             LogisticsWarehouseData warehouse = LogisticsManager.get(level).warehouse(channel.warehouseId());
             LogisticsClientData client = LogisticsControlBoxService.resolveClient(level, channel.clientId());
-            if (!validRoute(warehouse, client) || LogisticsControlBoxService.findAssignedStorageWorker(level, warehouse.boxPos()) == null) {
+            CitizenData worker = warehouse != null
+                    ? LogisticsControlBoxService.findAssignedStorageWorker(level, warehouse.boxPos()) : null;
+            if (!validRoute(warehouse, client) || worker == null
+                    || MedicalService.isOnMedicalLeave(worker, level.getDayTime() / 24_000L)) {
                 return false;
             }
             List<BlockPos> sourcePositions;

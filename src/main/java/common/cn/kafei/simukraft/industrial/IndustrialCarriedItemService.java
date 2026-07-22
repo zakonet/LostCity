@@ -4,6 +4,10 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import common.cn.kafei.simukraft.SimuKraft;
+import common.cn.kafei.simukraft.citizen.CitizenData;
+import common.cn.kafei.simukraft.citizen.CitizenInventory;
+import common.cn.kafei.simukraft.citizen.CitizenTeleportService;
+import common.cn.kafei.simukraft.entity.CitizenEntity;
 import common.cn.kafei.simukraft.material.GenericContainerAccess;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -17,134 +21,199 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+/** 工业携带物品服务；新数据直接使用受雇 NPC 的实体 NBT 背包。 */
 @SuppressWarnings("null")
 public final class IndustrialCarriedItemService {
-    private static final String ITEMS_KEY = "items";
+    private static final String LEGACY_ITEMS_KEY = "items";
 
     private IndustrialCarriedItemService() {
     }
 
-    public static boolean hasItems(IndustrialBoxData data) {
-        return data != null && !data.workState().isBlank();
+    /** hasItems：判断 NPC 普通背包或尚未迁移的旧虚拟库存是否有物品。 */
+    public static boolean hasItems(ServerLevel level, IndustrialBoxManager manager, IndustrialBoxData data) {
+        CitizenInventory inventory = resolveInventory(level, manager, data);
+        return inventory != null ? inventory.hasBackpackItems() : data != null && !data.workState().isBlank();
     }
 
-    public static List<ItemStack> items(IndustrialBoxData data, HolderLookup.Provider registries) {
-        if (data == null || data.workState().isBlank()) {
+    /** items：返回 NPC 普通背包物品快照。 */
+    public static List<ItemStack> items(ServerLevel level, IndustrialBoxManager manager, IndustrialBoxData data) {
+        CitizenInventory inventory = resolveInventory(level, manager, data);
+        if (inventory == null) {
             return List.of();
         }
-        try {
-            JsonObject root = JsonParser.parseString(data.workState()).getAsJsonObject();
-            JsonArray array = root.has(ITEMS_KEY) && root.get(ITEMS_KEY).isJsonArray()
-                    ? root.getAsJsonArray(ITEMS_KEY)
-                    : new JsonArray();
-            List<ItemStack> items = new ArrayList<>();
-            for (int i = 0; i < array.size(); i++) {
-                if (!array.get(i).isJsonObject()) {
-                    continue;
-                }
-                ItemStack stack = stackFromJson(array.get(i).getAsJsonObject(), registries);
-                if (!stack.isEmpty()) {
-                    addStack(items, stack);
-                }
-            }
-            return List.copyOf(items);
-        } catch (RuntimeException exception) {
-            return List.of();
-        }
+        return inventory.backpackSnapshot().stream().filter(stack -> !stack.isEmpty()).map(ItemStack::copy).toList();
     }
 
-    public static int stackCount(IndustrialBoxData data, HolderLookup.Provider registries) {
-        return items(data, registries).size();
+    /** stackCount：统计 NPC 普通背包已占用的堆栈槽位。 */
+    public static int stackCount(ServerLevel level, IndustrialBoxManager manager, IndustrialBoxData data) {
+        CitizenInventory inventory = resolveInventory(level, manager, data);
+        return inventory != null ? inventory.occupiedBackpackSlots() : 0;
     }
 
-    public static boolean addItems(IndustrialBoxManager manager, IndustrialBoxData data, List<ItemStack> additions, HolderLookup.Provider registries) {
-        if (data == null || additions == null || additions.isEmpty()) {
-            return false;
-        }
-        List<ItemStack> merged = new ArrayList<>(items(data, registries));
-        boolean changed = false;
-        for (ItemStack addition : additions) {
-            if (addition != null && !addition.isEmpty()) {
-                addStack(merged, addition.copy());
-                changed = true;
-            }
-        }
-        return changed && setItems(manager, data, merged, registries);
+    /** addItems：仅在全部产物都能放入真实背包时原子插入。 */
+    public static boolean addItems(ServerLevel level,
+                                   IndustrialBoxManager manager,
+                                   IndustrialBoxData data,
+                                   List<ItemStack> additions) {
+        CitizenInventory inventory = resolveInventory(level, manager, data);
+        return inventory != null && inventory.insertBackpackAll(additions);
     }
 
-    public static boolean consumeFirstMatching(IndustrialBoxManager manager,
-                                              IndustrialBoxData data,
-                                              IndustrialItemStackSpec spec,
-                                              HolderLookup.Provider registries) {
-        return extractFirstMatching(manager, data, spec, registries).isPresent();
+    /** consumeFirstMatching：消耗 NPC 背包中的首个匹配物品。 */
+    public static boolean consumeFirstMatching(ServerLevel level,
+                                               IndustrialBoxManager manager,
+                                               IndustrialBoxData data,
+                                               IndustrialItemStackSpec spec) {
+        return extractFirstMatching(level, manager, data, spec).isPresent();
     }
 
-    public static java.util.Optional<ItemStack> extractFirstMatching(IndustrialBoxManager manager,
-                                                                     IndustrialBoxData data,
-                                                                     IndustrialItemStackSpec spec,
-                                                                     HolderLookup.Provider registries) {
-        if (data == null || spec == null || spec.isEmpty()) {
-            return java.util.Optional.empty();
+    /** extractFirstMatching：从 NPC 背包提取一个匹配物品。 */
+    public static Optional<ItemStack> extractFirstMatching(ServerLevel level,
+                                                           IndustrialBoxManager manager,
+                                                           IndustrialBoxData data,
+                                                           IndustrialItemStackSpec spec) {
+        if (level == null || spec == null || spec.isEmpty()) {
+            return Optional.empty();
         }
-        List<ItemStack> current = new ArrayList<>(items(data, registries));
-        for (int i = 0; i < current.size(); i++) {
-            ItemStack stack = current.get(i);
-            if (!spec.matches(stack, registries)) {
-                continue;
-            }
-            ItemStack extracted = stack.copyWithCount(1);
-            stack.shrink(1);
-            current.removeIf(ItemStack::isEmpty);
-            if (setItems(manager, data, current, registries)) {
-                return java.util.Optional.of(extracted);
-            }
-            return java.util.Optional.empty();
-        }
-        return java.util.Optional.empty();
+        CitizenInventory inventory = resolveInventory(level, manager, data);
+        return inventory != null
+                ? inventory.extractFirstBackpack(stack -> spec.matches(stack, level.registryAccess()))
+                : Optional.empty();
     }
 
+    /** depositToContainers：把 NPC 背包逐槽放入真实容器，未放下的部分保留在原槽。 */
     public static DepositResult depositToContainers(ServerLevel level,
-                                                    IndustrialBoxManager manager,
-                                                    IndustrialBoxData data,
-                                                    List<BlockPos> containers) {
-        List<ItemStack> current = new ArrayList<>(items(data, level.registryAccess()));
-        if (current.isEmpty()) {
-            clear(manager, data);
+                                                     IndustrialBoxManager manager,
+                                                     IndustrialBoxData data,
+                                                     List<BlockPos> containers) {
+        if (level == null || data == null) {
+            return DepositResult.MISSING_CONTAINER;
+        }
+        CitizenInventory inventory = resolveInventory(level, manager, data);
+        if (inventory == null) {
+            return depositLegacyToContainers(level, manager, data, containers);
+        }
+        if (!inventory.hasBackpackItems()) {
+            clearLegacy(manager, data);
             return DepositResult.SUCCESS;
         }
         if (containers == null || containers.isEmpty()) {
             return DepositResult.MISSING_CONTAINER;
         }
-        List<ItemStack> remainingItems = new ArrayList<>();
-        for (ItemStack stack : current) {
-            ItemStack remaining = stack.copy();
-            for (BlockPos container : containers) {
-                if (remaining.isEmpty()) {
-                    break;
+        boolean remainingFound = false;
+        List<ItemStack> updated = new ArrayList<>(CitizenInventory.BACKPACK_SIZE);
+        synchronized (inventory) {
+            for (int slot = 0; slot < CitizenInventory.BACKPACK_SIZE; slot++) {
+                ItemStack remaining = inventory.getItem(slot).copy();
+                for (BlockPos container : containers) {
+                    if (remaining.isEmpty()) {
+                        break;
+                    }
+                    remaining = GenericContainerAccess.insert(level, container, remaining);
                 }
-                remaining = GenericContainerAccess.insert(level, container, remaining);
+                updated.add(remaining);
+                remainingFound |= !remaining.isEmpty();
             }
-            if (!remaining.isEmpty()) {
-                addStack(remainingItems, remaining);
-            }
+            inventory.replaceBackpack(updated);
         }
-        setItems(manager, data, remainingItems, level.registryAccess());
-        return remainingItems.isEmpty() ? DepositResult.SUCCESS : DepositResult.OUTPUT_FULL;
+        return remainingFound ? DepositResult.OUTPUT_FULL : DepositResult.SUCCESS;
     }
 
-    public static void dropAndClear(ServerLevel level, IndustrialBoxManager manager, IndustrialBoxData data, BlockPos fallbackPos) {
+    /** dropAndClear：在控制箱失效时掉落 NPC 普通背包与旧虚拟库存。 */
+    public static void dropAndClear(ServerLevel level,
+                                    IndustrialBoxManager manager,
+                                    IndustrialBoxData data,
+                                    BlockPos fallbackPos) {
         if (level == null || data == null || fallbackPos == null) {
             return;
         }
-        for (ItemStack stack : items(data, level.registryAccess())) {
-            if (!stack.isEmpty()) {
-                Block.popResource(level, fallbackPos, stack.copy());
+        CitizenInventory inventory = resolveInventory(level, manager, data);
+        if (inventory != null) {
+            synchronized (inventory) {
+                for (int slot = 0; slot < CitizenInventory.BACKPACK_SIZE; slot++) {
+                    ItemStack stack = inventory.removeItemNoUpdate(slot);
+                    if (!stack.isEmpty()) {
+                        Block.popResource(level, fallbackPos, stack);
+                    }
+                }
+                inventory.setChanged();
+            }
+        } else {
+            for (ItemStack stack : legacyItems(data, level.registryAccess())) {
+                if (!stack.isEmpty()) {
+                    Block.popResource(level, fallbackPos, stack.copy());
+                }
             }
         }
-        clear(manager, data);
+        clearLegacy(manager, data);
     }
 
+    /** clear：兼容旧调用，仅清理已经废弃的虚拟库存字段。 */
     public static void clear(IndustrialBoxManager manager, IndustrialBoxData data) {
+        clearLegacy(manager, data);
+    }
+
+    private static CitizenInventory resolveInventory(ServerLevel level,
+                                                      IndustrialBoxManager manager,
+                                                      IndustrialBoxData data) {
+        if (level == null || data == null) {
+            return null;
+        }
+        CitizenData worker = IndustrialControlBoxService.findAssignedWorker(level, data.boxPos());
+        CitizenEntity entity = worker != null ? CitizenTeleportService.findCitizenEntity(level, worker.uuid()) : null;
+        if (entity == null) {
+            return null;
+        }
+        CitizenInventory inventory = entity.getCitizenInventory();
+        migrateLegacy(level, manager, data, entity, inventory);
+        return inventory;
+    }
+
+    private static void migrateLegacy(ServerLevel level,
+                                      IndustrialBoxManager manager,
+                                      IndustrialBoxData data,
+                                      CitizenEntity entity,
+                                      CitizenInventory inventory) {
+        if (data.workState().isBlank()) {
+            return;
+        }
+        List<ItemStack> legacy = legacyItems(data, level.registryAccess());
+        if (!legacy.isEmpty() && !inventory.insertBackpackAll(legacy)) {
+            BlockPos fallback = entity != null ? entity.blockPosition() : data.boxPos();
+            for (ItemStack stack : legacy) {
+                if (!stack.isEmpty()) {
+                    Block.popResource(level, fallback, stack.copy());
+                }
+            }
+            SimuKraft.LOGGER.warn("Simukraft: NPC inventory was full while migrating industrial carried items for box {}; dropped {} stacks",
+                    data.boxPos(), legacy.size());
+        }
+        clearLegacy(manager, data);
+    }
+
+    private static DepositResult depositLegacyToContainers(ServerLevel level,
+                                                            IndustrialBoxManager manager,
+                                                            IndustrialBoxData data,
+                                                            List<BlockPos> containers) {
+        List<ItemStack> legacy = legacyItems(data, level.registryAccess());
+        if (legacy.isEmpty()) {
+            clearLegacy(manager, data);
+            return DepositResult.SUCCESS;
+        }
+        if (containers == null || containers.isEmpty()) {
+            return DepositResult.MISSING_CONTAINER;
+        }
+        if (!IndustrialInventoryService.hasOutputSpace(level, containers, legacy)) {
+            return DepositResult.OUTPUT_FULL;
+        }
+        if (IndustrialInventoryService.insertItems(level, containers, legacy)) {
+            clearLegacy(manager, data);
+            return DepositResult.SUCCESS;
+        }
+        return DepositResult.OUTPUT_FULL;
+    }
+
+    private static void clearLegacy(IndustrialBoxManager manager, IndustrialBoxData data) {
         if (data == null || data.workState().isBlank()) {
             return;
         }
@@ -154,80 +223,35 @@ public final class IndustrialCarriedItemService {
         }
     }
 
-    private static boolean setItems(IndustrialBoxManager manager, IndustrialBoxData data, List<ItemStack> items, HolderLookup.Provider registries) {
-        if (items == null || items.isEmpty()) {
-            clear(manager, data);
-            return true;
-        }
-        if (registries == null) {
-            return false;
-        }
-        JsonObject root = new JsonObject();
-        JsonArray array = new JsonArray();
-        for (ItemStack stack : items) {
-            if (stack == null || stack.isEmpty()) {
-                continue;
-            }
-            Optional<JsonObject> encoded = stackToJson(stack, registries);
-            if (encoded.isEmpty()) {
-                return false;
-            }
-            array.add(encoded.get());
-        }
-        if (array.isEmpty()) {
-            clear(manager, data);
-            return true;
-        }
-        root.add(ITEMS_KEY, array);
-        data.setWorkState(root.toString());
-        if (manager != null) {
-            manager.persist(data);
-        }
-        return true;
-    }
-
-    private static Optional<JsonObject> stackToJson(ItemStack stack, HolderLookup.Provider registries) {
-        if (stack == null || stack.isEmpty() || registries == null) {
-            return Optional.empty();
+    private static List<ItemStack> legacyItems(IndustrialBoxData data, HolderLookup.Provider registries) {
+        if (data == null || data.workState().isBlank() || registries == null) {
+            return List.of();
         }
         try {
-            JsonObject object = new JsonObject();
-            object.addProperty("nbt", stack.saveOptional(registries).toString());
-            return Optional.of(object);
-        } catch (RuntimeException exception) {
-            SimuKraft.LOGGER.warn("Simukraft: Failed to serialize carried item {}", stack, exception);
-            return Optional.empty();
-        }
-    }
-
-    private static ItemStack stackFromJson(JsonObject object, HolderLookup.Provider registries) {
-        if (object == null || registries == null || !object.has("nbt")) {
-            return ItemStack.EMPTY;
-        }
-        try {
-            CompoundTag tag = TagParser.parseTag(object.get("nbt").getAsString());
-            return ItemStack.parseOptional(registries, tag);
+            JsonObject root = JsonParser.parseString(data.workState()).getAsJsonObject();
+            JsonArray array = root.has(LEGACY_ITEMS_KEY) && root.get(LEGACY_ITEMS_KEY).isJsonArray()
+                    ? root.getAsJsonArray(LEGACY_ITEMS_KEY)
+                    : new JsonArray();
+            List<ItemStack> result = new ArrayList<>();
+            for (int index = 0; index < array.size(); index++) {
+                if (!array.get(index).isJsonObject()) {
+                    continue;
+                }
+                JsonObject object = array.get(index).getAsJsonObject();
+                if (!object.has("nbt")) {
+                    continue;
+                }
+                CompoundTag tag = TagParser.parseTag(object.get("nbt").getAsString());
+                ItemStack stack = ItemStack.parseOptional(registries, tag);
+                if (!stack.isEmpty()) {
+                    result.add(stack);
+                }
+            }
+            return List.copyOf(result);
         } catch (Exception exception) {
-            return ItemStack.EMPTY;
-        }
-    }
-
-    private static void addStack(List<ItemStack> items, ItemStack stack) {
-        ItemStack remaining = stack.copy();
-        for (ItemStack existing : items) {
-            if (remaining.isEmpty() || !ItemStack.isSameItemSameComponents(existing, remaining)) {
-                continue;
-            }
-            int movable = Math.min(remaining.getCount(), existing.getMaxStackSize() - existing.getCount());
-            if (movable > 0) {
-                existing.grow(movable);
-                remaining.shrink(movable);
-            }
-        }
-        while (!remaining.isEmpty()) {
-            int amount = Math.min(remaining.getCount(), remaining.getMaxStackSize());
-            items.add(remaining.copyWithCount(amount));
-            remaining.shrink(amount);
+            SimuKraft.LOGGER.warn("Simukraft: Failed to read legacy industrial carried items for box {}",
+                    data.boxPos(), exception);
+            return List.of();
         }
     }
 

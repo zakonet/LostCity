@@ -22,11 +22,12 @@ public final class SimuKraftKeyMappings {
     public static final KeyMapping PREVIEW_MOVE_BACKWARD = key("key.simukraft.preview.move_backward", GLFW.GLFW_KEY_DOWN);
     public static final KeyMapping PREVIEW_MOVE_LEFT = key("key.simukraft.preview.move_left", GLFW.GLFW_KEY_LEFT);
     public static final KeyMapping PREVIEW_MOVE_RIGHT = key("key.simukraft.preview.move_right", GLFW.GLFW_KEY_RIGHT);
-    public static final KeyMapping PREVIEW_MOVE_UP = key("key.simukraft.preview.move_up", GLFW.GLFW_KEY_PAGE_UP);
-    public static final KeyMapping PREVIEW_MOVE_DOWN = key("key.simukraft.preview.move_down", GLFW.GLFW_KEY_PAGE_DOWN);
+    public static final KeyMapping PREVIEW_MOVE_UP = key("key.simukraft.preview.move_up", GLFW.GLFW_KEY_EQUAL);
+    public static final KeyMapping PREVIEW_MOVE_DOWN = key("key.simukraft.preview.move_down", GLFW.GLFW_KEY_MINUS);
     public static final KeyMapping PREVIEW_ROTATE = key("key.simukraft.preview.rotate", GLFW.GLFW_KEY_R);
     public static final KeyMapping PREVIEW_CONFIRM = key("key.simukraft.preview.confirm", GLFW.GLFW_KEY_ENTER);
     public static final KeyMapping PREVIEW_CANCEL = key("key.simukraft.preview.cancel", GLFW.GLFW_KEY_ESCAPE);
+    public static final KeyMapping PREVIEW_TOGGLE_HUD = key("key.simukraft.preview.toggle_hud", GLFW.GLFW_KEY_TAB);
 
     private SimuKraftKeyMappings() {
     }
@@ -45,6 +46,7 @@ public final class SimuKraftKeyMappings {
         event.register(PREVIEW_ROTATE);
         event.register(PREVIEW_CONFIRM);
         event.register(PREVIEW_CANCEL);
+        event.register(PREVIEW_TOGGLE_HUD);
     }
 
     public static boolean matches(KeyMapping mapping, int keyCode, int scanCode) {

@@ -39,8 +39,8 @@ public record CityCitizenManageResponsePacket(BlockPos pos, String cityName, boo
         for (CitizenEntry entry : packet.citizens()) {
             buffer.writeUUID(entry.citizenId());
             buffer.writeUtf(entry.name(), 64);
-            buffer.writeUtf(entry.jobKey(), 128);
-            buffer.writeUtf(entry.workStatusKey(), 128);
+            buffer.writeUtf(entry.jobKey(), 256);
+            buffer.writeUtf(entry.workStatusKey(), 256);
             buffer.writeVarInt(entry.age());
             buffer.writeUtf(entry.gender(), 16);
             buffer.writeUtf(entry.skinPath() != null ? entry.skinPath() : "", 256);
@@ -57,8 +57,8 @@ public record CityCitizenManageResponsePacket(BlockPos pos, String cityName, boo
             citizens.add(new CitizenEntry(
                     buffer.readUUID(),
                     buffer.readUtf(64),
-                    buffer.readUtf(128),
-                    buffer.readUtf(128),
+                    buffer.readUtf(256),
+                    buffer.readUtf(256),
                     buffer.readVarInt(),
                     buffer.readUtf(16),
                     buffer.readUtf(256)));

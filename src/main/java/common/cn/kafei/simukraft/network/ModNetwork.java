@@ -31,7 +31,7 @@ import common.cn.kafei.simukraft.network.citizen.manage.CityCitizenManageRespons
 import common.cn.kafei.simukraft.network.city.member.CityCoreMemberActionPacket;
 import common.cn.kafei.simukraft.network.city.member.CityCoreMembersRequestPacket;
 import common.cn.kafei.simukraft.network.city.member.CityCoreMembersResponsePacket;
-import common.cn.kafei.simukraft.network.citizen.info.CitizenInfoResponsePacket;
+import common.cn.kafei.simukraft.network.citizen.info.CitizenBehaviorActionPacket;
 import common.cn.kafei.simukraft.network.commercial.CommercialControlBoxOpenRequestPacket;
 import common.cn.kafei.simukraft.network.commercial.CommercialControlBoxOpenResponsePacket;
 import common.cn.kafei.simukraft.network.commercial.CommercialControlBoxActionPacket;
@@ -55,6 +55,8 @@ import common.cn.kafei.simukraft.network.logistics.LogisticsWarehouseGridOpenReq
 import common.cn.kafei.simukraft.network.logistics.LogisticsWarehouseGridRequestPacket;
 import common.cn.kafei.simukraft.network.logistics.LogisticsWarehouseGridResponsePacket;
 import common.cn.kafei.simukraft.network.logistics.LogisticsWarehouseGridShiftClickPacket;
+import common.cn.kafei.simukraft.network.medical.MedicalControlBoxOpenRequestPacket;
+import common.cn.kafei.simukraft.network.medical.MedicalControlBoxOpenResponsePacket;
 import common.cn.kafei.simukraft.network.manifest.ManifestTogglePacket;
 import common.cn.kafei.simukraft.network.planner.CreatePlanningTaskPacket;
 import common.cn.kafei.simukraft.network.planner.PlannerMaterialScanRequestPacket;
@@ -75,7 +77,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 @SuppressWarnings("null")
 public final class ModNetwork {
-    private static final String NETWORK_VERSION = "21";
+    private static final String NETWORK_VERSION = "23";
 
     private ModNetwork() {
     }
@@ -90,6 +92,7 @@ public final class ModNetwork {
         registrar.playToServer(CityCoreMemberActionPacket.TYPE, CityCoreMemberActionPacket.STREAM_CODEC, CityCoreMemberActionPacket::handle);
         registrar.playToServer(CityCitizenManageRequestPacket.TYPE, CityCitizenManageRequestPacket.STREAM_CODEC, CityCitizenManageRequestPacket::handle);
         registrar.playToServer(CityCitizenManageActionPacket.TYPE, CityCitizenManageActionPacket.STREAM_CODEC, CityCitizenManageActionPacket::handle);
+        registrar.playToServer(CitizenBehaviorActionPacket.TYPE, CitizenBehaviorActionPacket.STREAM_CODEC, CitizenBehaviorActionPacket::handle);
         registrar.playToServer(CityCoreMapRequestPacket.TYPE, CityCoreMapRequestPacket.STREAM_CODEC, CityCoreMapRequestPacket::handle);
         registrar.playToServer(CityChunkPurchasePacket.TYPE, CityChunkPurchasePacket.STREAM_CODEC, CityChunkPurchasePacket::handle);
         registrar.playToServer(CityChunkBatchPurchasePacket.TYPE, CityChunkBatchPurchasePacket.STREAM_CODEC, CityChunkBatchPurchasePacket::handle);
@@ -111,6 +114,7 @@ public final class ModNetwork {
         registrar.playToServer(IndustrialControlBoxActionPacket.TYPE, IndustrialControlBoxActionPacket.STREAM_CODEC, IndustrialControlBoxActionPacket::handle);
         registrar.playToServer(IndustrialControlBoxDemolishPacket.TYPE, IndustrialControlBoxDemolishPacket.STREAM_CODEC, IndustrialControlBoxDemolishPacket::handle);
         registrar.playToServer(CommercialControlBoxOpenRequestPacket.TYPE, CommercialControlBoxOpenRequestPacket.STREAM_CODEC, CommercialControlBoxOpenRequestPacket::handle);
+        registrar.playToServer(MedicalControlBoxOpenRequestPacket.TYPE, MedicalControlBoxOpenRequestPacket.STREAM_CODEC, MedicalControlBoxOpenRequestPacket::handle);
         registrar.playToServer(CommercialControlBoxActionPacket.TYPE, CommercialControlBoxActionPacket.STREAM_CODEC, CommercialControlBoxActionPacket::handle);
         registrar.playToServer(CommercialControlBoxDemolishPacket.TYPE, CommercialControlBoxDemolishPacket.STREAM_CODEC, CommercialControlBoxDemolishPacket::handle);
         registrar.playToServer(CommercialTradePacket.TYPE, CommercialTradePacket.STREAM_CODEC, CommercialTradePacket::handle);
@@ -132,7 +136,6 @@ public final class ModNetwork {
         registrar.playToClient(CityCitizenManageResponsePacket.TYPE, CityCitizenManageResponsePacket.STREAM_CODEC, CityCitizenManageResponsePacket::handle);
         registrar.playToClient(CityCoreMapResponsePacket.TYPE, CityCoreMapResponsePacket.STREAM_CODEC, CityCoreMapResponsePacket::handle);
         registrar.playToClient(CityChunkSyncPacket.TYPE, CityChunkSyncPacket.STREAM_CODEC, CityChunkSyncPacket::handle);
-        registrar.playToClient(CitizenInfoResponsePacket.TYPE, CitizenInfoResponsePacket.STREAM_CODEC, CitizenInfoResponsePacket::handle);
         registrar.playToClient(NpcHireListResponsePacket.TYPE, NpcHireListResponsePacket.STREAM_CODEC, NpcHireListResponsePacket::handle);
         registrar.playToClient(EmploymentStateResponsePacket.TYPE, EmploymentStateResponsePacket.STREAM_CODEC, EmploymentStateResponsePacket::handle);
         registrar.playToClient(HudSyncPacket.TYPE, HudSyncPacket.STREAM_CODEC, HudSyncPacket::handle);
@@ -145,6 +148,7 @@ public final class ModNetwork {
         registrar.playToClient(IndustrialControlBoxOpenResponsePacket.TYPE, IndustrialControlBoxOpenResponsePacket.STREAM_CODEC, IndustrialControlBoxOpenResponsePacket::handle);
         registrar.playToClient(IndustrialControlBoxViewUpdatePacket.TYPE, IndustrialControlBoxViewUpdatePacket.STREAM_CODEC, IndustrialControlBoxViewUpdatePacket::handle);
         registrar.playToClient(CommercialControlBoxOpenResponsePacket.TYPE, CommercialControlBoxOpenResponsePacket.STREAM_CODEC, CommercialControlBoxOpenResponsePacket::handle);
+        registrar.playToClient(MedicalControlBoxOpenResponsePacket.TYPE, MedicalControlBoxOpenResponsePacket.STREAM_CODEC, MedicalControlBoxOpenResponsePacket::handle);
         registrar.playToClient(CommercialTradeOpenResponsePacket.TYPE, CommercialTradeOpenResponsePacket.STREAM_CODEC, CommercialTradeOpenResponsePacket::handle);
         registrar.playToClient(LogisticsServerBoxOpenResponsePacket.TYPE, LogisticsServerBoxOpenResponsePacket.STREAM_CODEC, LogisticsServerBoxOpenResponsePacket::handle);
         registrar.playToClient(LogisticsClientBoxOpenResponsePacket.TYPE, LogisticsClientBoxOpenResponsePacket.STREAM_CODEC, LogisticsClientBoxOpenResponsePacket::handle);

@@ -13,6 +13,8 @@ import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.logistics.LogisticsConstants;
 import common.cn.kafei.simukraft.logistics.LogisticsControlBoxService;
 import common.cn.kafei.simukraft.network.logistics.LogisticsServerBoxOpenResponsePacket;
+import common.cn.kafei.simukraft.medical.MedicalControlBoxService;
+import common.cn.kafei.simukraft.network.medical.MedicalControlBoxOpenResponsePacket;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -71,6 +73,9 @@ public record NpcHireAssignPacket(BlockPos sourcePos, String sourceType, String 
             if (CommercialConstants.HIRE_SOURCE_TYPE.equals(access.sourceType())) {
                 CommercialControlBoxService.synchronizeAssignedWorkerMetadata(level, access.sourcePos());
                 PacketDistributor.sendToPlayer(player, CommercialControlBoxOpenResponsePacket.from(CommercialControlBoxService.buildView(level, access.sourcePos())));
+            }
+            if (MedicalControlBoxService.HIRE_SOURCE_TYPE.equals(access.sourceType())) {
+                PacketDistributor.sendToPlayer(player, MedicalControlBoxOpenResponsePacket.from(MedicalControlBoxService.buildView(level, access.sourcePos())));
             }
             if (LogisticsConstants.SERVER_SOURCE_TYPE.equals(access.sourceType())) {
                 PacketDistributor.sendToPlayer(player, LogisticsServerBoxOpenResponsePacket.from(LogisticsControlBoxService.buildServerView(level, access.sourcePos())));

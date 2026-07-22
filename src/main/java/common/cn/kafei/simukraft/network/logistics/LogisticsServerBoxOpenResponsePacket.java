@@ -48,12 +48,12 @@ public record LogisticsServerBoxOpenResponsePacket(BlockPos boxPos,
         buffer.writeBlockPos(packet.boxPos());
         buffer.writeBoolean(packet.hasCity());
         writeUuid(buffer, packet.cityId());
-        buffer.writeUtf(packet.cityName(), 128);
+        buffer.writeUtf(packet.cityName(), 256);
         buffer.writeDouble(packet.cityBalance());
         writeUuid(buffer, packet.warehouseId());
         buffer.writeBoolean(packet.hasWorker());
         writeUuid(buffer, packet.workerId());
-        buffer.writeUtf(packet.workerName(), 128);
+        buffer.writeUtf(packet.workerName(), 256);
         buffer.writeVarInt(packet.containers().size());
         for (BlockPos pos : packet.containers()) {
             buffer.writeBlockPos(pos);
@@ -84,12 +84,12 @@ public record LogisticsServerBoxOpenResponsePacket(BlockPos boxPos,
         BlockPos boxPos = buffer.readBlockPos();
         boolean hasCity = buffer.readBoolean();
         UUID cityId = readUuid(buffer);
-        String cityName = buffer.readUtf(128);
+        String cityName = buffer.readUtf(256);
         double balance = buffer.readDouble();
         UUID warehouseId = readUuid(buffer);
         boolean hasWorker = buffer.readBoolean();
         UUID workerId = readUuid(buffer);
-        String workerName = buffer.readUtf(128);
+        String workerName = buffer.readUtf(256);
         List<BlockPos> containers = new ArrayList<>();
         int containerCount = buffer.readVarInt();
         for (int i = 0; i < containerCount; i++) {
@@ -143,35 +143,35 @@ public record LogisticsServerBoxOpenResponsePacket(BlockPos boxPos,
     static void writeClient(RegistryFriendlyByteBuf buffer, LogisticsControlBoxService.ClientEntry client) {
         writeUuid(buffer, client.clientId());
         buffer.writeBlockPos(client.boxPos());
-        buffer.writeUtf(client.name(), 128);
+        buffer.writeUtf(client.name(), 256);
         buffer.writeBoolean(client.automatic());
         buffer.writeUtf(client.sourceType(), 64);
         buffer.writeVarInt(client.portCount());
     }
 
     static LogisticsControlBoxService.ClientEntry readClient(RegistryFriendlyByteBuf buffer) {
-        return new LogisticsControlBoxService.ClientEntry(readUuid(buffer), buffer.readBlockPos(), buffer.readUtf(128), buffer.readBoolean(), buffer.readUtf(64), buffer.readVarInt());
+        return new LogisticsControlBoxService.ClientEntry(readUuid(buffer), buffer.readBlockPos(), buffer.readUtf(256), buffer.readBoolean(), buffer.readUtf(64), buffer.readVarInt());
     }
 
     private static void writeInventoryEntry(RegistryFriendlyByteBuf buffer, LogisticsInventoryEntry entry) {
-        buffer.writeUtf(entry.itemId(), 128);
+        buffer.writeUtf(entry.itemId(), 256);
         buffer.writeUtf(entry.itemSpec(), 4096);
         buffer.writeVarInt(entry.count());
     }
 
     private static LogisticsInventoryEntry readInventoryEntry(RegistryFriendlyByteBuf buffer) {
-        return new LogisticsInventoryEntry(buffer.readUtf(128), buffer.readUtf(4096), buffer.readVarInt());
+        return new LogisticsInventoryEntry(buffer.readUtf(256), buffer.readUtf(4096), buffer.readVarInt());
     }
 
     static void writeChannel(RegistryFriendlyByteBuf buffer, LogisticsControlBoxService.ChannelEntry channel) {
         writeUuid(buffer, channel.channelId());
         writeUuid(buffer, channel.clientId());
         buffer.writeEnum(channel.direction() != null ? channel.direction() : LogisticsDirection.WAREHOUSE_TO_CLIENT);
-        buffer.writeUtf(channel.name(), 128);
+        buffer.writeUtf(channel.name(), 256);
         buffer.writeBoolean(channel.enabled());
         buffer.writeVarInt(channel.filters().size());
         for (String filter : channel.filters()) {
-            buffer.writeUtf(filter, 128);
+            buffer.writeUtf(filter, 256);
         }
         buffer.writeVarInt(channel.keepSourceQuantity());
         buffer.writeVarInt(channel.keepTargetQuantity());
@@ -181,12 +181,12 @@ public record LogisticsServerBoxOpenResponsePacket(BlockPos boxPos,
         UUID channelId = readUuid(buffer);
         UUID clientId = readUuid(buffer);
         LogisticsDirection direction = buffer.readEnum(LogisticsDirection.class);
-        String name = buffer.readUtf(128);
+        String name = buffer.readUtf(256);
         boolean enabled = buffer.readBoolean();
         List<String> filters = new ArrayList<>();
         int count = buffer.readVarInt();
         for (int i = 0; i < count; i++) {
-            filters.add(buffer.readUtf(128));
+            filters.add(buffer.readUtf(256));
         }
         int keepSourceQuantity = buffer.readVarInt();
         int keepTargetQuantity = buffer.readVarInt();

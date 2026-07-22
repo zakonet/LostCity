@@ -13,6 +13,7 @@ import common.cn.kafei.simukraft.industrial.IndustrialControlBoxService;
 import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.logistics.LogisticsConstants;
 import common.cn.kafei.simukraft.logistics.LogisticsControlBoxService;
+import common.cn.kafei.simukraft.medical.MedicalControlBoxService;
 import common.cn.kafei.simukraft.network.toast.InfoToastService;
 import common.cn.kafei.simukraft.registry.ModBlocks;
 import net.minecraft.core.BlockPos;
@@ -114,6 +115,12 @@ final class NpcHireAccessValidator {
             PlacedBuildingRecord building = CommercialControlBoxService.resolveBuilding(level, sourcePos);
             return building != null ? building.cityId() : null;
         }
+        if (MedicalControlBoxService.HIRE_SOURCE_TYPE.equals(sourceType)
+                && MedicalControlBoxService.HIRE_ROLE.equals(role)
+                && level.getBlockState(sourcePos).is(ModBlocks.MEDICAL_CONTROL_BOX.get())) {
+            PlacedBuildingRecord building = MedicalControlBoxService.resolveBuilding(level, sourcePos);
+            return building != null ? building.cityId() : null;
+        }
         if (LogisticsConstants.SERVER_SOURCE_TYPE.equals(sourceType)
                 && LogisticsConstants.STORAGE_ROLE.equals(role)
                 && level.getBlockState(sourcePos).is(ModBlocks.LOGISTICS_SERVER_BOX.get())) {
@@ -153,6 +160,9 @@ final class NpcHireAccessValidator {
         }
         if (CommercialConstants.HIRE_SOURCE_TYPE.equals(sourceType)) {
             return "message.simukraft.commercial_control_box.too_far";
+        }
+        if (MedicalControlBoxService.HIRE_SOURCE_TYPE.equals(sourceType)) {
+            return "message.simukraft.medical_control_box.too_far";
         }
         if (LogisticsConstants.SERVER_SOURCE_TYPE.equals(sourceType)) {
             return "message.simukraft.logistics.too_far";

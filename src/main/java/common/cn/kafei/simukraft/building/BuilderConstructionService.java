@@ -3,7 +3,6 @@ package common.cn.kafei.simukraft.building;
 import common.cn.kafei.simukraft.SimuKraft;
 import common.cn.kafei.simukraft.citizen.CitizenData;
 import common.cn.kafei.simukraft.citizen.CitizenHomeRestService;
-import common.cn.kafei.simukraft.citizen.CitizenHousingService;
 import common.cn.kafei.simukraft.citizen.CitizenLevelService;
 import common.cn.kafei.simukraft.citizen.CitizenService;
 import common.cn.kafei.simukraft.citizen.CitizenSelfFeedingService;
@@ -12,14 +11,15 @@ import common.cn.kafei.simukraft.citizen.CitizenWorkStatus;
 import common.cn.kafei.simukraft.city.poi.CityPoiManager;
 import common.cn.kafei.simukraft.city.poi.CityPoiType;
 import common.cn.kafei.simukraft.config.ServerConfig;
-import common.cn.kafei.simukraft.city.CityManager;
 import common.cn.kafei.simukraft.job.CityJobAssignmentService;
 import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.job.CityJobType;
+import common.cn.kafei.simukraft.material.WorkContainerService;
 import common.cn.kafei.simukraft.material.WorkMaterialCache;
 import common.cn.kafei.simukraft.material.WorkMaterialNotificationService;
 import common.cn.kafei.simukraft.material.WorkMaterialResult;
 import common.cn.kafei.simukraft.material.NpcWorkMaterialService;
+import common.cn.kafei.simukraft.medical.MedicalService;
 import common.cn.kafei.simukraft.protection.NpcBlockProtectionPolicy;
 import common.cn.kafei.simukraft.registry.ModBlocks;
 import common.cn.kafei.simukraft.storage.SimuSqliteStorage;
@@ -32,6 +32,8 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.Comparator;
@@ -206,6 +208,10 @@ public final class BuilderConstructionService {
             interruptTask(level, citizen.uuid(), "builder_not_assigned");
             return;
         }
+        if (MedicalService.isOnMedicalLeave(citizen, level.getDayTime() / 24_000L)) {
+            pauseForMedicalLeave(level, citizen, taskRuntime);
+            return;
+        }
         if (!level.getBlockState(task.buildBoxPos()).is(ModBlocks.BUILD_BOX.get())) {
             CitizenEmploymentService.fire(level, citizen.uuid(), "build_box", "builder", task.buildBoxPos(), "build_box_removed");
             return;
@@ -258,6 +264,12 @@ public final class BuilderConstructionService {
                 placed++;
                 continue;
             }
+            // 不替换空气：跳过结构中的空气方块，保留原有方块
+            if (targetState.isAir() && !task.replaceWithAir()) {
+                index++;
+                placed++;
+                continue;
+            }
             WorkMaterialResult materialResult = BuilderMaterialService.tryConsumeForBlock(level, taskRuntime.materialCache, targetState);
             if (!materialResult.available()) {
                 markWaitingForMaterials(level, citizen, taskRuntime, task, materialResult);
@@ -270,6 +282,13 @@ public final class BuilderConstructionService {
             }
             if (!level.isAreaLoaded(worldPos, 4)) {
                 break;
+            }
+            // 拆除原有方块时掉落物存入工作箱子，与 replaceWithAir 无关
+            if (!currentState.isAir()) {
+                List<ItemStack> obstructionDrops = Block.getDrops(currentState, level, worldPos, level.getBlockEntity(worldPos));
+                if (!obstructionDrops.isEmpty()) {
+                    WorkContainerService.depositDropsOrDrop(level, WorkContainerService.adjacentContainers(level, task.buildBoxPos()), obstructionDrops, worldPos);
+                }
             }
             level.setBlock(worldPos, BuildingBlockPlacementService.refreshedPlacementState(level, worldPos, targetState), 3);
             spawnBuildParticles(level, worldPos);
@@ -302,15 +321,30 @@ public final class BuilderConstructionService {
             for (BuildingPoiInstance poi : poiInstances) {
                 CityPoiManager.get(level).registerPoi(stablePoiId(poi), cityId, poi.worldPos(), poi.poiType(), poi.capacity());
             }
-            CitizenHousingService.fillVacantHomes(level, cityId);
-            CityManager.get(level).getCity(cityId).ifPresent(city -> CitizenHousingService.spawnCitizensForVacantHomes(level, cityId, city.cityCorePos().above(), ServerConfig.populationGrowthMaxPerInterval()));
             CityJobAssignmentService.invalidate(cityId);
         }
         BlockPos minPos = cached.blocks().stream().map(BuildingBlockData::relativePos).reduce(task.origin(), (current, pos) -> new BlockPos(Math.min(current.getX(), pos.getX()), Math.min(current.getY(), pos.getY()), Math.min(current.getZ(), pos.getZ())));
         BlockPos maxPos = cached.blocks().stream().map(BuildingBlockData::relativePos).reduce(task.origin(), (current, pos) -> new BlockPos(Math.max(current.getX(), pos.getX()), Math.max(current.getY(), pos.getY()), Math.max(current.getZ(), pos.getZ())));
-        PlacedBuildingRecord placedBuilding = new PlacedBuildingRecord(UUID.randomUUID(), cityId, task.dimensionId(), task.category(), task.buildingFileName(), task.displayName(), task.amount(), task.structureFileName(), BuildingTransform.directionFromRotation(task.rotationDegrees()).getSerializedName(), task.origin(), BlockPos.ZERO, minPos, maxPos, System.currentTimeMillis(), cached.blocks(), task.poiDefinitions(), poiInstances);
+        List<BuildingUnitDefinition> unitDefs = resolveUnitDefinitions(task);
+        List<BuildingUnitInstance> unitInsts = buildUnitInstances(unitDefs, poiInstances, task.origin());
+        if (cityId != null && !unitInsts.isEmpty()) {
+            CityPoiManager poiManager = CityPoiManager.get(level);
+            for (BuildingUnitInstance unit : unitInsts) {
+                for (java.util.UUID poiId : unit.poiIds()) {
+                    common.cn.kafei.simukraft.city.poi.CityPoiData poi = poiManager.getPoi(poiId);
+                    if (poi != null) {
+                        poiManager.updatePoiUnitId(poiId, unit.unitId());
+                    }
+                }
+            }
+        }
+        PlacedBuildingRecord placedBuilding = new PlacedBuildingRecord(UUID.randomUUID(), cityId, task.dimensionId(), task.category(), task.buildingFileName(), task.displayName(), task.amount(), task.structureFileName(), BuildingTransform.directionFromRotation(task.rotationDegrees()).getSerializedName(), task.origin(), BlockPos.ZERO, minPos, maxPos, System.currentTimeMillis(), cached.blocks(), task.poiDefinitions(), poiInstances, unitDefs, unitInsts);
         PlacedBuildingService.register(level, placedBuilding);
         ResidentialBedPoiService.addRecordedBeds(level, placedBuilding);
+        MedicalBedPoiService.addRecordedBeds(level, placedBuilding);
+        if (placedBuilding.cityId() != null) {
+            common.cn.kafei.simukraft.citizen.CitizenHousingService.fillVacantHomes(level, placedBuilding.cityId());
+        }
         ConstructionCompletionNotificationService.notifyCompleted(level, citizen, task);
         flushPendingBuilderXp(level, citizen, taskRuntime);
         NpcWorkChunkLoadService.release(level, task.buildBoxPos());
@@ -572,7 +606,10 @@ public final class BuilderConstructionService {
         BuildingStructure structure = structureOptional.get();
         List<BuildingBlockData> sourceBlocks = List.copyOf(structure.blocks());
         List<BuildingBlockData> placedBlocks = BuildingStructureService.resolvePlacedBlocks(structure, task.origin(), task.rotationDegrees()).stream()
-                .sorted(Comparator.comparingInt((BuildingBlockData block) -> block.relativePos().getY()).thenComparingInt(block -> block.relativePos().getX()).thenComparingInt(block -> block.relativePos().getZ()))
+                .sorted(Comparator.comparingInt((BuildingBlockData b) -> b.relativePos().getY())
+                        .thenComparingInt(b -> b.state().getFluidState().isEmpty() ? 0 : 1)
+                        .thenComparingInt(b -> b.relativePos().getX())
+                        .thenComparingInt(b -> b.relativePos().getZ()))
                 .toList();
         return new CachedStructure(placedBlocks, sourceBlocks, buildLayerRanges(placedBlocks));
     }
@@ -729,8 +766,11 @@ public final class BuilderConstructionService {
         if (shouldRegisterResidentialBeds(task.category(), pois)) {
             rewritten.addAll(resolveResidentialBedInstances(placedBlocks, task.dimensionId()));
         }
+        if (shouldRegisterMedicalBeds(task.category(), pois, placedBlocks)) {
+            rewritten.addAll(resolveMedicalBedInstances(placedBlocks, task.dimensionId()));
+        }
         for (BuildingPoiDefinition poi : pois) {
-            if (poi.poiType() == CityPoiType.RESIDENTIAL) {
+            if (poi.poiType() == CityPoiType.RESIDENTIAL || poi.poiType() == CityPoiType.MEDICAL) {
                 continue;
             }
             BlockPos pos = resolvePoiPosition(sourceBlocks, poi, task.origin(), task.rotationDegrees());
@@ -743,6 +783,27 @@ public final class BuilderConstructionService {
     private static boolean shouldRegisterResidentialBeds(String category, List<BuildingPoiDefinition> pois) {
         return isResidentialCategory(category)
                 || pois.stream().anyMatch(poi -> poi.poiType() == CityPoiType.RESIDENTIAL);
+    }
+
+    /** pauseForMedicalLeave：医疗休假期间暂停任务但保留原岗位和任务进度。 */
+    private static void pauseForMedicalLeave(ServerLevel level, CitizenData citizen, TaskRuntime taskRuntime) {
+        BuildingTaskData task = taskRuntime.task;
+        if (BuildingTaskStatus.from(task.status()) == BuildingTaskStatus.PAUSED_RESTING) {
+            return;
+        }
+        BuildingTaskData paused = task.withStatus(BuildingTaskStatus.PAUSED_RESTING);
+        taskRuntime.task = paused;
+        taskRuntime.dirty = true;
+        taskRuntime.lastPhaseKey = BuildingTaskStatus.PAUSED_RESTING.id();
+        persistTaskAsync(level, taskRuntime, paused);
+    }
+
+    private static boolean shouldRegisterMedicalBeds(String category,
+                                                      List<BuildingPoiDefinition> pois,
+                                                      List<BuildingBlockData> placedBlocks) {
+        return "medical".equalsIgnoreCase(category)
+                || pois.stream().anyMatch(poi -> poi.poiType() == CityPoiType.MEDICAL)
+                || placedBlocks.stream().anyMatch(block -> block.state().is(ModBlocks.MEDICAL_CONTROL_BOX.get()));
     }
 
     private static List<BuildingPoiInstance> resolveResidentialBedInstances(List<BuildingBlockData> placedBlocks, String dimensionId) {
@@ -767,6 +828,40 @@ public final class BuilderConstructionService {
         return resolveResidentialBedInstances(building.blocks(), building.dimensionId());
     }
 
+    /** resolveMedicalBedPois：从医疗建筑记录中重建白床医疗 POI。 */
+    public static List<BuildingPoiInstance> resolveMedicalBedPois(PlacedBuildingRecord building) {
+        if (!isMedicalBuildingRecord(building)) {
+            return List.of();
+        }
+        return resolveMedicalBedInstances(building.blocks(), building.dimensionId());
+    }
+
+    /** isMedicalBuildingRecord：兼容旧医疗分类，并通过 POI 或控制箱识别公共医院。 */
+    private static boolean isMedicalBuildingRecord(PlacedBuildingRecord building) {
+        if (building == null) {
+            return false;
+        }
+        return "medical".equalsIgnoreCase(building.category())
+                || building.poiDefinitions().stream().anyMatch(poi -> poi.poiType() == CityPoiType.MEDICAL)
+                || building.poiInstances().stream().anyMatch(poi -> poi.poiType() == CityPoiType.MEDICAL)
+                || building.blocks().stream().anyMatch(block -> block.state().is(ModBlocks.MEDICAL_CONTROL_BOX.get()));
+    }
+
+    private static List<BuildingPoiInstance> resolveMedicalBedInstances(List<BuildingBlockData> placedBlocks, String dimensionId) {
+        String scope = dimensionId == null || dimensionId.isBlank() ? "minecraft:overworld" : dimensionId;
+        return placedBlocks.stream()
+                .filter(block -> MedicalBedPoiService.isWhiteBedHead(block.state()))
+                .map(block -> block.relativePos().immutable())
+                .distinct()
+                .map(pos -> new BuildingPoiInstance(
+                        UUID.nameUUIDFromBytes((scope + ":medical_bed:" + pos.toShortString()).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString(),
+                        CityPoiType.MEDICAL,
+                        1,
+                        pos
+                ))
+                .toList();
+    }
+
     private static boolean isResidentialCategory(String category) {
         return "residential".equalsIgnoreCase(category);
     }
@@ -780,6 +875,37 @@ public final class BuilderConstructionService {
     }
 
     private record CachedStructure(List<BuildingBlockData> blocks, List<BuildingBlockData> sourceBlocks, List<LayerRange> layerRanges) {
+    }
+
+    private static List<BuildingUnitDefinition> resolveUnitDefinitions(BuildingTaskData task) {
+        BuildingCatalog.BuildingDefinition def = BuildingCatalog.findBuilding(task.category(), task.buildingFileName()).orElse(null);
+        if (def == null) return List.of();
+        return BuildingMetadataReader.readUnitDefinitions(def);
+    }
+
+    private static List<BuildingUnitInstance> buildUnitInstances(
+            List<BuildingUnitDefinition> unitDefs,
+            List<BuildingPoiInstance> poiInstances,
+            BlockPos anchor) {
+        if (unitDefs.isEmpty()) return List.of();
+        java.util.Map<String, List<java.util.UUID>> labelToPoiIds = new java.util.LinkedHashMap<>();
+        for (BuildingUnitDefinition def : unitDefs) {
+            labelToPoiIds.put(def.label(), new java.util.ArrayList<>());
+        }
+        for (BuildingPoiInstance poi : poiInstances) {
+            if (poi.poiType() != common.cn.kafei.simukraft.city.poi.CityPoiType.RESIDENTIAL) continue;
+            BlockPos relative = poi.worldPos().subtract(anchor);
+            for (BuildingUnitDefinition def : unitDefs) {
+                if (def.contains(relative)) {
+                    labelToPoiIds.get(def.label()).add(stablePoiId(poi));
+                    break;
+                }
+            }
+        }
+        return labelToPoiIds.entrySet().stream()
+                .filter(e -> !e.getValue().isEmpty())
+                .map(e -> new BuildingUnitInstance(java.util.UUID.randomUUID(), e.getKey(), java.util.List.copyOf(e.getValue())))
+                .toList();
     }
 
     private record LayerRange(int layerIndex, int y, int startIndex, int endIndex) {

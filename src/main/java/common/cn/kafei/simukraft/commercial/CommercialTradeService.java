@@ -323,9 +323,11 @@ public final class CommercialTradeService {
 
     private static void giveItem(ServerPlayer player, ItemStack stack) {
         if (stack.isEmpty()) return;
-        ItemEntity drop = new ItemEntity(player.serverLevel(), player.getX(), player.getY(), player.getZ(), stack, 0, 0, 0);
-        drop.setNoPickUpDelay();
-        player.serverLevel().addFreshEntity(drop);
+        if (!player.addItem(stack) && !stack.isEmpty()) {
+            ItemEntity drop = new ItemEntity(player.serverLevel(), player.getX(), player.getY(), player.getZ(), stack, 0, 0, 0);
+            drop.setNoPickUpDelay();
+            player.serverLevel().addFreshEntity(drop);
+        }
     }
 
     public record TradeResult(boolean success, Component message, ItemStack carriedStack) {

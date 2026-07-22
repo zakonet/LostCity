@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["CCC", "CCC", "CCC"],
+  "key": {
+    "C": { "item": "simukraft:cheese_chunk" }
+  },
+  "result": {
+    "id": "simukraft:cheese_block",
+    "count": 1
+  }
+}

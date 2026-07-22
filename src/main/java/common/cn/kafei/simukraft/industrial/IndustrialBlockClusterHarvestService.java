@@ -102,7 +102,7 @@ public final class IndustrialBlockClusterHarvestService {
             }
             return harvestActiveCluster(level, manager, data, building, definition, step, activeState, worker, workerId);
         }
-        if (IndustrialCarriedItemService.stackCount(data, level.registryAccess()) >= config.maxCarryStacks()) {
+        if (IndustrialCarriedItemService.stackCount(level, manager, data) >= config.maxCarryStacks()) {
             return ActionResult.CARRY_FULL;
         }
 
@@ -374,10 +374,16 @@ public final class IndustrialBlockClusterHarvestService {
             removed++;
             drops.addAll(blockDrops);
         }
-        if (!drops.isEmpty() && !IndustrialCarriedItemService.addItems(manager, data, drops, level.registryAccess())) {
+        boolean inventoryFull = !drops.isEmpty() && !IndustrialCarriedItemService.addItems(level, manager, data, drops);
+        if (inventoryFull) {
             dropFailedCarryItems(level, data, worker, drops);
         }
         HarvestState next = state.withClusterPositions(blocked);
+        if (inventoryFull) {
+            data.setMachineState("");
+            manager.persist(data);
+            return ActionResult.CARRY_FULL;
+        }
         if (!blocked.isEmpty()) {
             persistMachineState(manager, data, next);
             return ActionResult.BLOCKED;
@@ -389,7 +395,7 @@ public final class IndustrialBlockClusterHarvestService {
         data.setMachineState("");
         manager.persist(data);
         setStatus(manager, data, "gui.simukraft.industrial.status.harvesting_trees", "已砍倒树木 " + removed + " 方块");
-        return IndustrialCarriedItemService.stackCount(data, level.registryAccess()) >= Math.max(1, step.maxCarryStacks())
+        return IndustrialCarriedItemService.stackCount(level, manager, data) >= Math.max(1, step.maxCarryStacks())
                 ? ActionResult.CARRY_FULL
                 : ActionResult.HARVESTED;
     }
@@ -537,7 +543,7 @@ public final class IndustrialBlockClusterHarvestService {
         }
         data.setMachineState("");
         manager.persist(data);
-        return IndustrialCarriedItemService.stackCount(data, level.registryAccess()) >= Math.max(1, step.maxCarryStacks())
+        return IndustrialCarriedItemService.stackCount(level, manager, data) >= Math.max(1, step.maxCarryStacks())
                 ? ActionResult.CARRY_FULL
                 : ActionResult.HARVESTED;
     }
@@ -549,7 +555,7 @@ public final class IndustrialBlockClusterHarvestService {
                                                    IndustrialDefinition definition,
                                                    IndustrialDefinition.StepDefinition step,
                                                    IndustrialItemStackSpec plantSpec) {
-        Optional<ItemStack> carried = IndustrialCarriedItemService.extractFirstMatching(manager, data, plantSpec, level.registryAccess());
+        Optional<ItemStack> carried = IndustrialCarriedItemService.extractFirstMatching(level, manager, data, plantSpec);
         if (carried.isPresent()) {
             return new ExtractedSapling(carried.get(), true, null);
         }
@@ -569,7 +575,7 @@ public final class IndustrialBlockClusterHarvestService {
             return;
         }
         if (sapling.fromCarried() || sapling.sourceContainers() == null || sapling.sourceContainers().isEmpty()) {
-            IndustrialCarriedItemService.addItems(manager, data, List.of(sapling.stack()), level.registryAccess());
+            IndustrialCarriedItemService.addItems(level, manager, data, List.of(sapling.stack()));
             return;
         }
         ItemStack remaining = sapling.stack().copy();
@@ -580,7 +586,7 @@ public final class IndustrialBlockClusterHarvestService {
             remaining = GenericContainerAccess.insert(level, container, remaining);
         }
         if (!remaining.isEmpty()) {
-            IndustrialCarriedItemService.addItems(manager, data, List.of(remaining), level.registryAccess());
+            IndustrialCarriedItemService.addItems(level, manager, data, List.of(remaining));
         }
     }
 

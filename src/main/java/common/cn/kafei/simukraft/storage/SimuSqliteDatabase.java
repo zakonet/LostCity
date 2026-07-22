@@ -10,6 +10,8 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @SuppressWarnings("null")
@@ -21,6 +23,11 @@ public final class SimuSqliteDatabase implements Closeable {
 
     private final Path databasePath;
     private final String jdbcUrl;
+    private final ExecutorService writeExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "simukraft-db-write");
+        t.setDaemon(true);
+        return t;
+    });
 
     private SimuSqliteDatabase(Path databasePath) {
         loadDriver();
@@ -51,12 +58,18 @@ public final class SimuSqliteDatabase implements Closeable {
         return c;
     }
 
+    public void submitWrite(Runnable task) {
+        writeExecutor.execute(task);
+    }
+
     public Path databasePath() {
         return databasePath;
     }
 
     @Override
-    public void close() {}
+    public void close() {
+        writeExecutor.shutdown();
+    }
 
     private static void loadDriver() {
         if (DRIVER_LOADED.get()) {

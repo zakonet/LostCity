@@ -21,7 +21,13 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.state.properties.BedPart;
+import com.lowdragmc.lowdraglib2.gui.texture.ItemStackTexture;
+import common.cn.kafei.simukraft.city.poi.CityPoiType;
 
 import java.util.List;
 
@@ -59,6 +65,16 @@ public final class BuildingConfirmScreen extends ModularUIScreen {
         UIElement root = SimuKraftFlexLayout.root(screenSize);
 
         root.addChild(createSceneContainer(structure, regions.sceneRegion()));
+        int bedCount = (int) structure.blocks().stream()
+                .filter(b -> b.state().getBlock() instanceof BedBlock
+                        && b.state().getValue(BedBlock.PART) == BedPart.HEAD)
+                .count();
+        int doorCount = Math.max(1, (int) structure.poiDefinitions().stream()
+                .filter(p -> p.poiType() == CityPoiType.RESIDENTIAL)
+                .count());
+        if (bedCount > 0) {
+            root.addChild(createResidentialBadge(bedCount, doorCount, regions.sceneRegion()));
+        }
 
         UIElement infoRegion = absoluteRegion(regions.infoRegion());
         infoRegion.layout(layout -> {
@@ -222,6 +238,49 @@ public final class BuildingConfirmScreen extends ModularUIScreen {
             }
             return new Bounds(minX, minY, minZ, maxX, maxY, maxZ);
         }
+    }
+
+    private static UIElement createResidentialBadge(int bedCount, int doorCount, RegionBox region) {
+        // 住宅信息徽章：床位图标+数量，门图标+户数，无背景
+        UIElement badge = absoluteRegion(new RegionBox(region.left() + 4, region.top() + 4, 82, 16));
+        badge.setAllowHitTest(false);
+        badge.addChild(new UIElement().layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(0);
+            layout.top(0);
+            layout.width(16);
+            layout.height(16);
+        }).style(style -> style.backgroundTexture(new ItemStackTexture(new ItemStack(Items.RED_BED)))));
+        badge.addChild(new UIElement().layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(19);
+            layout.top(0);
+            layout.width(20);
+            layout.height(16);
+        }).style(style -> style.backgroundTexture(
+                new TextTexture(String.valueOf(bedCount))
+                        .setType(TextTexture.TextType.LEFT)
+                        .setColor(SimuKraftUiTheme.TEXT_PRIMARY_COLOR)
+                        .setDropShadow(true))));
+        badge.addChild(new UIElement().layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(43);
+            layout.top(0);
+            layout.width(16);
+            layout.height(16);
+        }).style(style -> style.backgroundTexture(new ItemStackTexture(new ItemStack(Items.OAK_DOOR)))));
+        badge.addChild(new UIElement().layout(layout -> {
+            layout.positionType(TaffyPosition.ABSOLUTE);
+            layout.left(62);
+            layout.top(0);
+            layout.width(20);
+            layout.height(16);
+        }).style(style -> style.backgroundTexture(
+                new TextTexture(String.valueOf(doorCount))
+                        .setType(TextTexture.TextType.LEFT)
+                        .setColor(SimuKraftUiTheme.TEXT_PRIMARY_COLOR)
+                        .setDropShadow(true))));
+        return badge;
     }
 
     private static UIElement text(Component text, int width, int color, int height, TextTexture.TextType type) {

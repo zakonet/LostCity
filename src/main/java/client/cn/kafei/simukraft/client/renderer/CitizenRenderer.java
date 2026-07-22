@@ -8,10 +8,12 @@ import common.cn.kafei.simukraft.entity.CitizenEntity;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.model.HumanoidArmorModel;
 import net.minecraft.client.model.geom.ModelLayers;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.MobRenderer;
+import net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer;
 import net.minecraft.client.renderer.entity.layers.ItemInHandLayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -21,6 +23,7 @@ import org.joml.Matrix4f;
 @OnlyIn(Dist.CLIENT)
 public class CitizenRenderer extends MobRenderer<CitizenEntity, CitizenModel> {
     private static final ResourceLocation DEFAULT_TEXTURE = ResourceLocation.fromNamespaceAndPath(SimuKraft.MOD_ID, "textures/entity/male/custom_male_entity_0.png");
+    private static final ThreadLocal<Boolean> HIDE_OVERHEAD_TEXT = ThreadLocal.withInitial(() -> false);
     private final CitizenModel slimModel;
     private final CitizenModel defaultModel;
 
@@ -28,6 +31,11 @@ public class CitizenRenderer extends MobRenderer<CitizenEntity, CitizenModel> {
         super(context, new CitizenModel(context.bakeLayer(ModelLayers.PLAYER_SLIM), true), 0.5F);
         this.slimModel = this.model;
         this.defaultModel = new CitizenModel(context.bakeLayer(ModelLayers.PLAYER), false);
+        this.addLayer(new HumanoidArmorLayer<>(
+                this,
+                new HumanoidArmorModel<>(context.bakeLayer(ModelLayers.PLAYER_INNER_ARMOR)),
+                new HumanoidArmorModel<>(context.bakeLayer(ModelLayers.PLAYER_OUTER_ARMOR)),
+                context.getModelManager()));
         this.addLayer(new ItemInHandLayer<>(this, context.getItemInHandRenderer()));
     }
 
@@ -42,9 +50,21 @@ public class CitizenRenderer extends MobRenderer<CitizenEntity, CitizenModel> {
         super.render(entity, entityYaw, partialTicks, poseStack, buffer, packedLight);
     }
 
+    private static final float ADULT_SCALE = 0.9375F;
+    private static final float CHILD_MIN_SCALE = 0.45F;
+
     @Override
     protected void scale(CitizenEntity livingEntity, PoseStack poseStack, float partialTickTime) {
-        poseStack.scale(0.9375F, 0.9375F, 0.9375F);
+        float scale;
+        if (livingEntity.isChildNpc()) {
+            int age = Math.max(1, livingEntity.getAge());
+            // 1岁到17岁线性从 CHILD_MIN_SCALE 渐变到 ADULT_SCALE
+            float t = Math.clamp((age - 1) / 16.0f, 0.0f, 1.0f);
+            scale = CHILD_MIN_SCALE + t * (ADULT_SCALE - CHILD_MIN_SCALE);
+        } else {
+            scale = ADULT_SCALE;
+        }
+        poseStack.scale(scale, scale, scale);
     }
 
     @Override
@@ -65,7 +85,7 @@ public class CitizenRenderer extends MobRenderer<CitizenEntity, CitizenModel> {
 
     @Override
     protected boolean shouldShowName(CitizenEntity entity) {
-        if (entity.isInvisible()) {
+        if (HIDE_OVERHEAD_TEXT.get() || entity.isInvisible()) {
             return false;
         }
         Camera camera = this.entityRenderDispatcher.camera;
@@ -74,6 +94,21 @@ public class CitizenRenderer extends MobRenderer<CitizenEntity, CitizenModel> {
         }
         double distance = camera.getPosition().distanceTo(entity.position());
         return distance < 45.0D || entity.hasCustomName() && entity == camera.getEntity();
+    }
+
+    /** withoutOverheadText：在布偶预览渲染期间屏蔽名称和工作状态文字。 */
+    public static void withoutOverheadText(Runnable renderAction) {
+        boolean previous = HIDE_OVERHEAD_TEXT.get();
+        HIDE_OVERHEAD_TEXT.set(true);
+        try {
+            renderAction.run();
+        } finally {
+            if (previous) {
+                HIDE_OVERHEAD_TEXT.set(true);
+            } else {
+                HIDE_OVERHEAD_TEXT.remove();
+            }
+        }
     }
 
     private static ResourceLocation textureFromPath(String skinPath) {

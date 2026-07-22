@@ -31,6 +31,7 @@ public final class PlacedBuildingDemolitionService {
             }
         });
         ResidentialBedPoiService.removeRecordedBeds(level, building);
+        MedicalBedPoiService.removeRecordedBeds(level, building);
         PlacedBuildingService.unregister(level, building.buildingId());
         return true;
     }

@@ -19,7 +19,11 @@ public record ResidentialControlBoxView(BlockPos controlBoxPos,
                                         double integrityPercent,
                                         int integrityRepairableBlocks,
                                         int integrityManualRepairBlocks,
-                                        double integrityRepairCost) {
+                                        double integrityRepairCost,
+                                        List<UnitView> units) {
     public record ResidentEntry(UUID citizenId, String name) {
+    }
+
+    public record UnitView(UUID unitId, String label, int bedCount, List<ResidentEntry> residents) {
     }
 }

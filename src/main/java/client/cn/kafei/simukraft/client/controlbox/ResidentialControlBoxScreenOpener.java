@@ -115,15 +115,18 @@ public final class ResidentialControlBoxScreenOpener {
         row.addChild(actionButton(BuildingIntegrityUi.repairText(packet.integrityRepairCost()), () -> repair(packet), packet.integrityAvailable() && (packet.integrityRepairableBlocks() > 0 || packet.integrityManualRepairBlocks() > 0)));
         panel.addChild(row);
 
-        UIElement occupancyRow = new UIElement().layout(layout -> {
-            layout.widthPercent(100);
-            layout.flexDirection(FlexDirection.ROW);
-            layout.justifyContent(AlignContent.CENTER);
-            layout.gapAll(6);
-        });
-        occupancyRow.addChild(actionButton(Component.translatable("gui.residential_control_box.assign_existing"), () -> occupancy(packet, ResidentialControlBoxOccupancyPacket.Action.ASSIGN_EXISTING), packet.hasBuildingBounds()));
-        occupancyRow.addChild(actionButton(Component.translatable("gui.residential_control_box.spawn_new"), () -> occupancy(packet, ResidentialControlBoxOccupancyPacket.Action.SPAWN_NEW), packet.hasBuildingBounds()));
-        panel.addChild(occupancyRow);
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null && mc.player.hasPermissions(2)) {
+            UIElement occupancyRow = new UIElement().layout(layout -> {
+                layout.widthPercent(100);
+                layout.flexDirection(FlexDirection.ROW);
+                layout.justifyContent(AlignContent.CENTER);
+                layout.gapAll(6);
+            });
+            occupancyRow.addChild(actionButton(Component.translatable("gui.residential_control_box.assign_existing"), () -> occupancy(packet, ResidentialControlBoxOccupancyPacket.Action.ASSIGN_EXISTING), packet.hasBuildingBounds()));
+            occupancyRow.addChild(actionButton(Component.translatable("gui.residential_control_box.spawn_new"), () -> occupancy(packet, ResidentialControlBoxOccupancyPacket.Action.SPAWN_NEW), packet.hasBuildingBounds()));
+            panel.addChild(occupancyRow);
+        }
 
         root.addChild(panel);
         return new ModularUI(SimuKraftUiTheme.createUi(root))

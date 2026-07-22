@@ -81,7 +81,7 @@ public record NpcPathDebugSyncPacket(UUID citizenId, boolean success, String rea
     public static void encode(RegistryFriendlyByteBuf buffer, NpcPathDebugSyncPacket packet) {
         buffer.writeUUID(packet.citizenId());
         buffer.writeBoolean(packet.success());
-        buffer.writeUtf(packet.reason(), 128);
+        buffer.writeUtf(packet.reason(), 256);
         buffer.writeUtf(packet.status(), 32);
         buffer.writeVarInt(packet.points().size());
         for (PathPoint point : packet.points()) {
@@ -95,7 +95,7 @@ public record NpcPathDebugSyncPacket(UUID citizenId, boolean success, String rea
     public static NpcPathDebugSyncPacket decode(RegistryFriendlyByteBuf buffer) {
         UUID citizenId = buffer.readUUID();
         boolean success = buffer.readBoolean();
-        String reason = buffer.readUtf(128);
+        String reason = buffer.readUtf(256);
         String status = buffer.readUtf(32);
         int encodedSize = Math.max(0, buffer.readVarInt());
         int acceptedSize = Math.min(encodedSize, MAX_POINTS);

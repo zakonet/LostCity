@@ -43,10 +43,24 @@ public final class CitizenJobVisualService {
         if (level == null || entity == null || data == null || data.dead()) {
             return;
         }
+        CitizenInventory inventory = entity.getCitizenInventory();
+        applySlot(entity, EquipmentSlot.HEAD, inventory.getItem(CitizenInventory.HEAD_SLOT), false);
+        applySlot(entity, EquipmentSlot.CHEST, inventory.getItem(CitizenInventory.CHEST_SLOT), false);
+        applySlot(entity, EquipmentSlot.LEGS, inventory.getItem(CitizenInventory.LEGS_SLOT), false);
+        applySlot(entity, EquipmentSlot.FEET, inventory.getItem(CitizenInventory.FEET_SLOT), false);
         CitizenJobVisualRule rule = RULES.getOrDefault(data.jobType(), EMPTY_RULE);
-        ItemStack rightHand = MAIN_HAND_OVERRIDES.getOrDefault(data.uuid(), rule.rightHand());
-        applySlot(entity, EquipmentSlot.MAINHAND, rightHand);
-        applySlot(entity, EquipmentSlot.OFFHAND, rule.leftHand());
+        ItemStack rightHand = MAIN_HAND_OVERRIDES.get(data.uuid());
+        boolean rightHandOverride = rightHand != null && !rightHand.isEmpty();
+        if (!rightHandOverride && !rule.rightHand().isEmpty()) {
+            rightHand = rule.rightHand();
+            rightHandOverride = true;
+        } else if (!rightHandOverride) {
+            rightHand = inventory.getItem(CitizenInventory.MAIN_HAND_SLOT);
+        }
+        boolean leftHandOverride = !rule.leftHand().isEmpty();
+        ItemStack leftHand = leftHandOverride ? rule.leftHand() : inventory.getItem(CitizenInventory.OFF_HAND_SLOT);
+        applySlot(entity, EquipmentSlot.MAINHAND, rightHand, rightHandOverride);
+        applySlot(entity, EquipmentSlot.OFFHAND, leftHand, leftHandOverride);
         applyAction(level, entity, data, rule.action());
     }
 
@@ -68,13 +82,15 @@ public final class CitizenJobVisualService {
         }
     }
 
-    private static void applySlot(CitizenEntity entity, EquipmentSlot slot, ItemStack desired) {
+    /** applySlot：把真实背包装备或职业临时外观写入原版装备槽；真实装备保留同一物品栈引用。 */
+    private static void applySlot(CitizenEntity entity, EquipmentSlot slot, ItemStack desired, boolean copyForVisualOverride) {
         ItemStack normalized = desired != null ? desired : ItemStack.EMPTY;
         ItemStack current = entity.getItemBySlot(slot);
-        if (ItemStack.isSameItemSameComponents(current, normalized) && current.getCount() == normalized.getCount()) {
+        boolean sameStack = ItemStack.isSameItemSameComponents(current, normalized) && current.getCount() == normalized.getCount();
+        if (sameStack && (copyForVisualOverride || current == normalized)) {
             return;
         }
-        entity.setItemSlot(slot, normalized.copy());
+        entity.setItemSlot(slot, copyForVisualOverride ? normalized.copy() : normalized);
         entity.setDropChance(slot, 0.0F);
     }
 

@@ -7,6 +7,7 @@ import common.cn.kafei.simukraft.citizen.CitizenLevelService;
 import common.cn.kafei.simukraft.citizen.CitizenService;
 import common.cn.kafei.simukraft.citizen.CitizenSelfFeedingService;
 import common.cn.kafei.simukraft.job.CityJobType;
+import common.cn.kafei.simukraft.medical.MedicalService;
 import common.cn.kafei.simukraft.util.SaveScopedCacheKey;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -89,6 +90,11 @@ public final class CommercialWorkService {
         var worker = CommercialControlBoxService.findAssignedWorker(level, data.boxPos());
         if (worker == null) {
             setStatus(manager, data, "gui.simukraft.commercial.status.no_worker", "");
+            runtime.nextTick = gameTime + IDLE_RETRY_TICKS;
+            return;
+        }
+        if (MedicalService.isOnMedicalLeave(worker, level.getDayTime() / 24_000L)) {
+            CitizenJobVisualService.clearMainHandOverride(worker.uuid());
             runtime.nextTick = gameTime + IDLE_RETRY_TICKS;
             return;
         }

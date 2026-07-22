@@ -193,8 +193,8 @@ public class BuildBoxScreenOpener {
         gridRegion.addChild(createCategoryButtonSlot("gui.category.residential", buildBoxPos));
         gridRegion.addChild(createCategoryButtonSlot("gui.category.commercial", buildBoxPos));
         gridRegion.addChild(createCategoryButtonSlot("gui.category.industrial", buildBoxPos));
-        gridRegion.addChild(createCategoryButtonSlot("gui.category.other", buildBoxPos));
         gridRegion.addChild(createCategoryButtonSlot("gui.category.public", buildBoxPos));
+        gridRegion.addChild(createCategoryButtonSlot("gui.category.other", buildBoxPos));
         root.addChild(gridRegion);
 
         return new ModularUI(SimuKraftUiTheme.createUi(root))

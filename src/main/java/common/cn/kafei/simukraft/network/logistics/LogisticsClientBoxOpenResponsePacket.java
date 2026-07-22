@@ -41,8 +41,8 @@ public record LogisticsClientBoxOpenResponsePacket(BlockPos boxPos,
         buffer.writeBoolean(packet.hasCity());
         LogisticsServerBoxOpenResponsePacket.writeUuid(buffer, packet.cityId());
         LogisticsServerBoxOpenResponsePacket.writeUuid(buffer, packet.clientId());
-        buffer.writeUtf(packet.cityName(), 128);
-        buffer.writeUtf(packet.name(), 128);
+        buffer.writeUtf(packet.cityName(), 256);
+        buffer.writeUtf(packet.name(), 256);
         buffer.writeVarInt(packet.ports().size());
         for (LogisticsPortData port : packet.ports()) {
             buffer.writeUtf(port.id(), 64);
@@ -61,8 +61,8 @@ public record LogisticsClientBoxOpenResponsePacket(BlockPos boxPos,
         boolean hasCity = buffer.readBoolean();
         UUID cityId = LogisticsServerBoxOpenResponsePacket.readUuid(buffer);
         UUID clientId = LogisticsServerBoxOpenResponsePacket.readUuid(buffer);
-        String cityName = buffer.readUtf(128);
-        String name = buffer.readUtf(128);
+        String cityName = buffer.readUtf(256);
+        String name = buffer.readUtf(256);
         List<LogisticsPortData> ports = new ArrayList<>();
         int portCount = buffer.readVarInt();
         for (int i = 0; i < portCount; i++) {

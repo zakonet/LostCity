@@ -5,7 +5,6 @@ import client.cn.kafei.simukraft.client.buildbox.BuildBoxScreenOpener;
 import client.cn.kafei.simukraft.client.buildbox.BuildingBoundsRenderer;
 import client.cn.kafei.simukraft.client.buildbox.BuildingCacheService;
 import client.cn.kafei.simukraft.client.buildbox.PlannerMaterialSelectionScreenOpener;
-import client.cn.kafei.simukraft.client.citizen.CitizenScreenOpener;
 import client.cn.kafei.simukraft.client.citizen.CityCitizenManageScreen;
 import client.cn.kafei.simukraft.client.city.ClientCityChunkCache;
 import client.cn.kafei.simukraft.client.city.CityCoreScreenOpener;
@@ -19,13 +18,13 @@ import client.cn.kafei.simukraft.client.hire.NpcHireScreen;
 import client.cn.kafei.simukraft.client.industrial.IndustrialControlBoxScreenOpener;
 import client.cn.kafei.simukraft.client.logistics.LogisticsClientBoxScreenOpener;
 import client.cn.kafei.simukraft.client.logistics.LogisticsServerBoxScreenOpener;
+import client.cn.kafei.simukraft.client.medical.MedicalControlBoxScreenOpener;
 import client.cn.kafei.simukraft.client.path.NpcPathDebugRenderer;
 import client.cn.kafei.simukraft.client.toast.ClientInfoToast;
 import common.cn.kafei.simukraft.network.building.BuildingCacheReloadPacket;
 import common.cn.kafei.simukraft.network.building.controlbox.ResidentialControlBoxBoundsUpdatePacket;
 import common.cn.kafei.simukraft.network.building.controlbox.ResidentialControlBoxOpenResponsePacket;
 import common.cn.kafei.simukraft.network.building.controlbox.ResidentialControlBoxViewUpdatePacket;
-import common.cn.kafei.simukraft.network.citizen.info.CitizenInfoResponsePacket;
 import common.cn.kafei.simukraft.network.citizen.manage.CityCitizenManageResponsePacket;
 import common.cn.kafei.simukraft.network.city.chunk.CityChunkSyncPacket;
 import common.cn.kafei.simukraft.network.city.core.CityCoreOpenResponsePacket;
@@ -42,6 +41,7 @@ import common.cn.kafei.simukraft.network.industrial.IndustrialControlBoxViewUpda
 import common.cn.kafei.simukraft.network.logistics.LogisticsClientBoxOpenResponsePacket;
 import common.cn.kafei.simukraft.network.logistics.LogisticsServerBoxOpenResponsePacket;
 import common.cn.kafei.simukraft.network.logistics.LogisticsWarehouseGridResponsePacket;
+import common.cn.kafei.simukraft.network.medical.MedicalControlBoxOpenResponsePacket;
 import common.cn.kafei.simukraft.network.npc.hire.NpcHireListResponsePacket;
 import common.cn.kafei.simukraft.network.npc.state.EmploymentStateResponsePacket;
 import common.cn.kafei.simukraft.network.path.NpcPathDebugSyncPacket;
@@ -88,11 +88,6 @@ public final class ClientboundNetworkHandlerImpl implements ClientboundNetworkHa
     @Override
     public void handleResidentialControlBoxViewUpdate(ResidentialControlBoxViewUpdatePacket packet) {
         ResidentialControlBoxScreenOpener.refreshIfOpen(packet.view());
-    }
-
-    @Override
-    public void handleCitizenInfoResponse(CitizenInfoResponsePacket packet) {
-        CitizenScreenOpener.open(packet);
     }
 
     @Override
@@ -159,6 +154,11 @@ public final class ClientboundNetworkHandlerImpl implements ClientboundNetworkHa
     @Override
     public void handleCommercialControlBoxOpenResponse(CommercialControlBoxOpenResponsePacket packet) {
         CommercialControlBoxScreenOpener.open(packet);
+    }
+
+    @Override
+    public void handleMedicalControlBoxOpenResponse(MedicalControlBoxOpenResponsePacket packet) {
+        MedicalControlBoxScreenOpener.open(packet);
     }
 
     @Override

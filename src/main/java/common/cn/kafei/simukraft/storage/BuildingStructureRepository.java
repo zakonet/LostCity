@@ -75,7 +75,9 @@ public final class BuildingStructureRepository {
                             resultSet.getLong("completed_at"),
                             loadBlocks(connection, buildingId),
                             loadPois(connection, buildingId),
-                            loadPoiInstances(connection, buildingId)
+                            loadPoiInstances(connection, buildingId),
+                            List.of(),
+                            List.of()
                     ));
                 }
             }

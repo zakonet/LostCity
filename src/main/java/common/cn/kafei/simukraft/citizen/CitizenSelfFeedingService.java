@@ -2,6 +2,7 @@ package common.cn.kafei.simukraft.citizen;
 
 import common.cn.kafei.simukraft.commercial.CommercialFoodMarketService;
 import common.cn.kafei.simukraft.entity.CitizenEntity;
+import common.cn.kafei.simukraft.medical.MedicalMealService;
 import common.cn.kafei.simukraft.path.CitizenNavigationService;
 import common.cn.kafei.simukraft.path.MovementIntent;
 import common.cn.kafei.simukraft.util.SaveScopedCacheKey;
@@ -88,6 +89,9 @@ public final class CitizenSelfFeedingService {
 
     private static boolean shouldStart(ServerLevel level, CitizenData citizen, long gameTime, LevelRuntime runtime) {
         if (citizen == null || citizen.dead() || citizen.child() || citizen.cityId() == null) {
+            return false;
+        }
+        if (MedicalMealService.isDoctorMealRunActive(level, citizen.uuid())) {
             return false;
         }
         if (citizen.workStatusType() == CitizenWorkStatus.RESTING || citizen.workStatusType() == CitizenWorkStatus.DEAD) {

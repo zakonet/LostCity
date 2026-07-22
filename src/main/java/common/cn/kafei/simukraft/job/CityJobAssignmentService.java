@@ -112,7 +112,10 @@ public final class CityJobAssignmentService {
     }
 
     private static AssignmentIndex index(ServerLevel level, UUID cityId) {
-        AssignmentCacheKey key = new AssignmentCacheKey(SaveScopedCacheKey.serverKey(level.getServer()), cityId);
+        AssignmentCacheKey key = new AssignmentCacheKey(
+                SaveScopedCacheKey.serverKey(level.getServer()),
+                level.dimension().location().toString(),
+                cityId);
         return INDICES.computeIfAbsent(key, ignored -> buildIndex(level, cityId));
     }
 
@@ -139,6 +142,6 @@ public final class CityJobAssignmentService {
         private final Map<CityJobType, Integer> assignedByJob = new EnumMap<>(CityJobType.class);
     }
 
-    private record AssignmentCacheKey(String serverKey, UUID cityId) {
+    private record AssignmentCacheKey(String serverKey, String dimensionId, UUID cityId) {
     }
 }

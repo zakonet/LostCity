@@ -31,7 +31,7 @@ public final class CitizenBedSleepService {
     public static boolean tryStartSleeping(ServerLevel level, CitizenEntity entity, BlockPos bedHeadPos, Vec3 wakeupPos) {
         if (entity.isSleeping()) return false;
         BlockState state = level.getBlockState(bedHeadPos);
-        if (!state.is(Blocks.RED_BED)) return false;
+        if (!isSupportedBed(state)) return false;
         if (state.hasProperty(BlockStateProperties.OCCUPIED) && state.getValue(BlockStateProperties.OCCUPIED)) return false;
         String levelKey = SaveScopedCacheKey.levelKey(level);
         UUID uuid = entity.getUUID();
@@ -47,13 +47,13 @@ public final class CitizenBedSleepService {
         return true;
     }
 
-    /** restoreSleeping: 重进游戏后重建床占用缓存，并把仍在睡觉的 NPC 重新贴回床面。 */
+    /** restoreSleeping：为已处于睡眠状态的 NPC 重建床位缓存，不重复触发原版睡眠定位。 */
     public static boolean restoreSleeping(ServerLevel level, CitizenEntity entity, @Nullable Vec3 wakeupPos) {
         if (level == null || entity == null || !entity.isSleeping()) {
             return false;
         }
         BlockPos bedHeadPos = entity.getSleepingPos().orElse(null);
-        if (bedHeadPos == null || !level.getBlockState(bedHeadPos).is(Blocks.RED_BED)) {
+        if (bedHeadPos == null || !isSupportedBed(level.getBlockState(bedHeadPos))) {
             return false;
         }
         String levelKey = SaveScopedCacheKey.levelKey(level);
@@ -68,7 +68,6 @@ public final class CitizenBedSleepService {
         if (wakeupPos != null) {
             CITIZEN_WAKEUP_POS.computeIfAbsent(levelKey, k -> new ConcurrentHashMap<>()).put(uuid, wakeupPos);
         }
-        entity.startSleeping(bedHeadPos);
         return true;
     }
 
@@ -98,7 +97,7 @@ public final class CitizenBedSleepService {
                 ConcurrentMap<BlockPos, UUID> beds = OCCUPIED_BEDS.get(levelKey);
                 if (beds != null) beds.remove(bedPos, uuid);
                 BlockState state = level.getBlockState(bedPos);
-                if (state.is(Blocks.RED_BED) && state.hasProperty(BlockStateProperties.OCCUPIED)) {
+                if (isSupportedBed(state) && state.hasProperty(BlockStateProperties.OCCUPIED)) {
                     level.setBlock(bedPos, state.setValue(BlockStateProperties.OCCUPIED, false), 3);
                 }
             }
@@ -125,5 +124,9 @@ public final class CitizenBedSleepService {
         OCCUPIED_BEDS.keySet().removeIf(k -> k.startsWith(prefix));
         CITIZEN_BED.keySet().removeIf(k -> k.startsWith(prefix));
         CITIZEN_WAKEUP_POS.keySet().removeIf(k -> k.startsWith(prefix));
+    }
+
+    private static boolean isSupportedBed(BlockState state) {
+        return state.is(Blocks.RED_BED) || state.is(Blocks.WHITE_BED);
     }
 }

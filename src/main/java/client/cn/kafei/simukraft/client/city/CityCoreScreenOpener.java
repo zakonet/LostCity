@@ -27,8 +27,10 @@ import common.cn.kafei.simukraft.network.city.member.CityCoreMembersResponsePack
 import com.lowdragmc.lowdraglib2.editor.ui.View;
 import com.lowdragmc.lowdraglib2.editor.ui.ViewContainer;
 import com.lowdragmc.lowdraglib2.gui.ColorPattern;
+import com.lowdragmc.lowdraglib2.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.Icons;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
+import common.cn.kafei.simukraft.ui.RecipeBookSearchUi;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
@@ -423,50 +425,114 @@ public final class CityCoreScreenOpener {
         });
         panel.addChild(sectionLabel("screen.simukraft.city_core.members.add_title"));
         panel.addChild(manualAddRow(packet));
-        if (!packet.onlineCandidates().isEmpty()) {
-            panel.addChild(sectionLabel("screen.simukraft.city_core.members.candidates"));
-            packet.onlineCandidates().forEach(candidate -> panel.addChild(candidateRow(packet, candidate)));
-        } else {
-            panel.addChild(line(Component.translatable("screen.simukraft.city_core.members.candidate_empty")));
-        }
         return panel;
     }
 
     private static UIElement manualAddRow(CityCoreMembersResponsePacket packet) {
-        TextField addField = textField("", 180);
-        addField.getTextFieldStyle().placeholder(Component.translatable("screen.simukraft.city_core.members.add_placeholder"));
+        UIElement wrapper = new UIElement().layout(layout -> {
+            layout.widthPercent(100);
+            layout.flexDirection(FlexDirection.COLUMN);
+            layout.gapAll(0);
+        });
+
         UIElement row = addRow();
-        row.addChild(addField.layout(layout -> {
+        UIElement searchContainer = new UIElement() {
+            @Override
+            public void drawBackgroundAdditional(@Nonnull GUIContext guiContext) {
+                int w = Math.round(getSizeWidth());
+                int h = Math.round(getSizeHeight());
+                RecipeBookSearchUi.renderFrame(guiContext,
+                        Math.round(getPositionX()), Math.round(getPositionY()),
+                        w, Math.min(RecipeBookSearchUi.FRAME_TEXTURE_WIDTH, w), h,
+                        RecipeBookSearchUi.TEXT_OFFSET_X,
+                        Math.max(1, (h - RecipeBookSearchUi.TEXT_HEIGHT) / 2),
+                        Math.max(RecipeBookSearchUi.TEXT_WIDTH, w - RecipeBookSearchUi.TEXT_OFFSET_X - 4),
+                        RecipeBookSearchUi.TEXT_HEIGHT);
+            }
+        };
+        searchContainer.layout(layout -> {
             layout.flex(1);
-            layout.height(20);
-        }));
-        row.addChild(memberActionButton("screen.simukraft.city_core.members.add_citizen", 72,
-                () -> sendAddMember(packet.pos(), CityCoreMemberActionPacket.EMPTY_PLAYER_ID, addField.getValue(), CityPermissionLevel.CITIZEN)));
+            layout.height(RecipeBookSearchUi.FRAME_HEIGHT);
+        });
+
+        TextField addField = new TextField();
+        addField.setAnyString();
+        addField.style(s -> s.backgroundTexture(IGuiTexture.EMPTY));
+        addField.textFieldStyle(s -> s
+                .textColor(0xFFFFFFFF)
+                .cursorColor(0xFFFFFFFF)
+                .textShadow(false)
+                .fontSize(9.0F)
+                .placeholder(Component.translatable("screen.simukraft.city_core.members.add_placeholder"))
+                .focusOverlay(IGuiTexture.EMPTY));
+        addField.layout(layout -> {
+            layout.widthPercent(100);
+            layout.height(RecipeBookSearchUi.FRAME_HEIGHT);
+            layout.paddingLeft(RecipeBookSearchUi.TEXT_OFFSET_X);
+            layout.paddingRight(4);
+            layout.paddingTop(Math.max(1, (RecipeBookSearchUi.FRAME_HEIGHT - RecipeBookSearchUi.TEXT_HEIGHT) / 2));
+        });
+        searchContainer.addChild(addField);
+        row.addChild(searchContainer);
+
         if (packet.viewerPermission() == CityPermissionLevel.MAYOR) {
             row.addChild(memberActionButton("screen.simukraft.city_core.members.add_official", 72,
                     () -> sendAddMember(packet.pos(), CityCoreMemberActionPacket.EMPTY_PLAYER_ID, addField.getValue(), CityPermissionLevel.OFFICIAL)));
             row.addChild(memberActionButton("screen.simukraft.city_core.members.add_mayor", 72,
                     () -> sendAddMember(packet.pos(), CityCoreMemberActionPacket.EMPTY_PLAYER_ID, addField.getValue(), CityPermissionLevel.MAYOR)));
         }
-        return row;
+        wrapper.addChild(row);
+
+        UIElement suggestionPanel = new UIElement().layout(layout -> {
+            layout.widthPercent(100);
+            layout.flexDirection(FlexDirection.COLUMN);
+            layout.gapAll(1);
+            layout.paddingTop(1);
+        });
+
+        Runnable rebuildSuggestions = () -> {
+            suggestionPanel.clearAllChildren();
+            String q = addField.getValue().trim().toLowerCase(java.util.Locale.ROOT);
+            List<CityCoreMembersResponsePacket.CandidateEntry> matches = packet.onlineCandidates().stream()
+                    .filter(c -> q.isEmpty() || c.playerName().toLowerCase(java.util.Locale.ROOT).contains(q))
+                    .limit(3)
+                    .toList();
+            for (CityCoreMembersResponsePacket.CandidateEntry candidate : matches) {
+                suggestionPanel.addChild(candidateSuggestionRow(candidate, addField, suggestionPanel));
+            }
+        };
+
+        addField.setTextResponder(t -> rebuildSuggestions.run());
+        rebuildSuggestions.run();
+        wrapper.addChild(suggestionPanel);
+        return wrapper;
     }
 
-    private static UIElement candidateRow(CityCoreMembersResponsePacket packet, CityCoreMembersResponsePacket.CandidateEntry candidate) {
-        UIElement row = addRow();
-        Label name = line(Component.literal(candidate.playerName()));
-        name.layout(layout -> {
-            layout.flex(1);
-            layout.height(13);
+    private static UIElement candidateSuggestionRow(CityCoreMembersResponsePacket.CandidateEntry candidate, TextField targetField, UIElement panel) {
+        UIElement row = new UIElement().layout(layout -> {
+            layout.widthPercent(100);
+            layout.height(14);
+            layout.flexDirection(FlexDirection.ROW);
+            layout.alignItems(AlignItems.CENTER);
+            layout.gapAll(4);
+            layout.paddingLeft(6);
+            layout.paddingRight(4);
         });
-        row.addChild(name);
-        row.addChild(memberActionButton("screen.simukraft.city_core.members.add_citizen", 72,
-                () -> sendAddMember(packet.pos(), candidate.playerId(), candidate.playerName(), CityPermissionLevel.CITIZEN)));
-        if (packet.viewerPermission() == CityPermissionLevel.MAYOR) {
-            row.addChild(memberActionButton("screen.simukraft.city_core.members.add_official", 72,
-                    () -> sendAddMember(packet.pos(), candidate.playerId(), candidate.playerName(), CityPermissionLevel.OFFICIAL)));
-            row.addChild(memberActionButton("screen.simukraft.city_core.members.add_mayor", 72,
-                    () -> sendAddMember(packet.pos(), candidate.playerId(), candidate.playerName(), CityPermissionLevel.MAYOR)));
-        }
+        row.style(s -> s.backgroundTexture(new ColorRectTexture(0xCC101010)));
+        UIElement dot = new UIElement().layout(l -> l.width(4).height(4).flexShrink(0));
+        dot.style(s -> s.backgroundTexture(new ColorRectTexture(0xFF888888)));
+        row.addChild(dot);
+        Label nameLabel = new Label();
+        nameLabel.setText(Component.literal(candidate.playerName()));
+        nameLabel.layout(l -> l.flex(1).height(9));
+        row.addChild(nameLabel);
+        row.addEventListener(UIEvents.MOUSE_DOWN, e -> {
+            if (e.button == 0) {
+                targetField.setValue(candidate.playerName());
+                panel.clearAllChildren();
+                e.stopPropagation();
+            }
+        });
         return row;
     }
 

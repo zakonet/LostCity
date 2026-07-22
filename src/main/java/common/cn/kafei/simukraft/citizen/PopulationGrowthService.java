@@ -5,7 +5,6 @@ import common.cn.kafei.simukraft.city.CityService;
 import common.cn.kafei.simukraft.config.ServerConfig;
 import net.minecraft.server.level.ServerLevel;
 
-@SuppressWarnings("unused")
 public final class PopulationGrowthService {
     private PopulationGrowthService() {
     }
@@ -14,9 +13,17 @@ public final class PopulationGrowthService {
         if (level == null || level.getServer() == null) {
             return 0;
         }
-        int interval = ServerConfig.populationGrowthIntervalTicks();
+        // 每游戏日检查一次（24000 ticks = 1天）
+        if (level.getGameTime() % 24_000L != 0L) {
+            return 0;
+        }
+        int timesPerWeek = ServerConfig.populationGrowthTimesPerWeek();
         int maxPerInterval = ServerConfig.populationGrowthMaxPerInterval();
-        if (interval <= 0 || maxPerInterval <= 0 || level.getGameTime() % interval != 0L) {
+        if (maxPerInterval <= 0 || timesPerWeek <= 0) {
+            return 0;
+        }
+        // 一周7天，随机命中 timesPerWeek 次
+        if (level.random.nextInt(7) >= timesPerWeek) {
             return 0;
         }
         int spawned = 0;

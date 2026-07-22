@@ -12,6 +12,7 @@ import common.cn.kafei.simukraft.citizen.CitizenTeleportService;
 import common.cn.kafei.simukraft.citizen.CitizenWorkStatus;
 import common.cn.kafei.simukraft.entity.CitizenEntity;
 import common.cn.kafei.simukraft.job.CityJobType;
+import common.cn.kafei.simukraft.medical.MedicalService;
 import common.cn.kafei.simukraft.path.CitizenNavigationService;
 import common.cn.kafei.simukraft.path.MovementIntent;
 import common.cn.kafei.simukraft.util.SaveScopedCacheKey;
@@ -106,9 +107,18 @@ public final class IndustrialWorkService {
 
     private static boolean isExplicitlyStoppedStatus(String statusKey) {
         return switch (statusKey != null ? statusKey : "") {
+            // 手动停机：需玩家重新操作
             case "gui.simukraft.industrial.status.paused",
                  "gui.simukraft.industrial.status.worker_fired",
-                 "gui.simukraft.industrial.status.interrupted" -> true;
+                 "gui.simukraft.industrial.status.interrupted",
+                 // 启动前提不满足：条件满足时不自动恢复，需玩家手动点"开始"
+                 "gui.simukraft.industrial.status.no_building",
+                 "gui.simukraft.industrial.status.invalid_definition",
+                 "gui.simukraft.industrial.status.no_worker",
+                 "gui.simukraft.industrial.status.no_recipe",
+                 // 初始/选配方未启动状态
+                 "gui.simukraft.industrial.status.recipe_selected",
+                 "" -> true;
             default -> false;
         };
     }
@@ -146,6 +156,11 @@ public final class IndustrialWorkService {
             boxRuntime.nextTick = gameTime + IDLE_RETRY_TICKS;
             return;
         }
+        if (MedicalService.isOnMedicalLeave(worker, level.getDayTime() / 24_000L)) {
+            CitizenJobVisualService.clearMainHandOverride(worker.uuid());
+            boxRuntime.nextTick = gameTime + IDLE_RETRY_TICKS;
+            return;
+        }
         IndustrialEntitySpawnService.ensureSpawned(level, manager, data, building, definition);
         if (CitizenHomeRestService.isRestTime(level)) {
             setStatus(manager, data, "gui.simukraft.industrial.status.resting", "");
@@ -164,6 +179,8 @@ public final class IndustrialWorkService {
         }
         IndustrialDefinition.RecipeDefinition recipe = definition.recipeById(data.selectedRecipeId());
         if (recipe == null || recipe.steps().isEmpty()) {
+            // 配方丢失时停止运行，避免 running=true 持续空转
+            data.setRunning(false);
             setStatus(manager, data, "gui.simukraft.industrial.status.no_recipe", "");
             boxRuntime.reset();
             boxRuntime.nextTick = gameTime + IDLE_RETRY_TICKS;
@@ -363,7 +380,7 @@ public final class IndustrialWorkService {
             setStatus(manager, data, "gui.simukraft.industrial.status.missing_container", containerId);
             return StepResult.WAITING_RETRY;
         }
-        if (!IndustrialCarriedItemService.hasItems(data)) {
+        if (!IndustrialCarriedItemService.hasItems(level, manager, data)) {
             IndustrialCarriedItemService.clear(manager, data);
             setStatus(manager, data, "gui.simukraft.industrial.status.running", "");
             return StepResult.PROGRESSED;
@@ -648,14 +665,14 @@ public final class IndustrialWorkService {
                                            CitizenData worker,
                                            CitizenEntity entity,
                                            IndustrialDefinition.StepDefinition step) {
-        if (IndustrialCarriedItemService.stackCount(data, level.registryAccess()) >= Math.max(1, step.maxCarryStacks())) {
+        if (IndustrialCarriedItemService.stackCount(level, manager, data) >= Math.max(1, step.maxCarryStacks())) {
             setStatus(manager, data, "gui.simukraft.industrial.status.carry_full", "");
             return StepResult.PROGRESSED;
         }
         var target = IndustrialEntityActionService.nearestDrop(level, building, definition, step, entity);
         if (target.isEmpty()) {
             setStatus(manager, data,
-                    IndustrialCarriedItemService.hasItems(data)
+                    IndustrialCarriedItemService.hasItems(level, manager, data)
                             ? "gui.simukraft.industrial.status.collecting_drops"
                             : "gui.simukraft.industrial.status.missing_drops",
                     "");
@@ -674,7 +691,7 @@ public final class IndustrialWorkService {
         return switch (result) {
             case SUCCESS -> {
                 setStatus(manager, data, "gui.simukraft.industrial.status.collecting_drops", "");
-                boolean full = IndustrialCarriedItemService.stackCount(data, level.registryAccess()) >= Math.max(1, step.maxCarryStacks());
+                boolean full = IndustrialCarriedItemService.stackCount(level, manager, data) >= Math.max(1, step.maxCarryStacks());
                 boolean empty = IndustrialEntityActionService.nearestDrop(level, building, definition, step, entity).isEmpty();
                 yield full || empty ? StepResult.PROGRESSED : StepResult.WAITING;
             }
@@ -684,11 +701,11 @@ public final class IndustrialWorkService {
             }
             case MISSING_DROPS -> {
                 setStatus(manager, data,
-                        IndustrialCarriedItemService.hasItems(data)
+                        IndustrialCarriedItemService.hasItems(level, manager, data)
                                 ? "gui.simukraft.industrial.status.collecting_drops"
                                 : "gui.simukraft.industrial.status.missing_drops",
                         "");
-                yield IndustrialCarriedItemService.hasItems(data) ? StepResult.PROGRESSED : StepResult.WAITING_RETRY;
+                yield IndustrialCarriedItemService.hasItems(level, manager, data) ? StepResult.PROGRESSED : StepResult.WAITING_RETRY;
             }
             case STORAGE_FAILED -> {
                 setStatus(manager, data, "gui.simukraft.industrial.status.carried_storage_failed", "");

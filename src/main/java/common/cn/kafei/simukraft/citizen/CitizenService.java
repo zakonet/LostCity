@@ -73,6 +73,13 @@ public final class CitizenService {
             }
             data.setHomeId(homeId);
             manager.saveCitizenNow(citizenId);
+            if (homeId != null) {
+                common.cn.kafei.simukraft.building.PlacedBuildingRecord building =
+                        common.cn.kafei.simukraft.building.PlacedBuildingService.findByPoi(level, homeId);
+                if (building != null && common.cn.kafei.simukraft.building.BuildingAbandonmentService.get(level, building.buildingId()) > 0) {
+                    common.cn.kafei.simukraft.building.BuildingAbandonmentService.reset(level, building.buildingId(), building.cityId());
+                }
+            }
         });
     }
 
@@ -162,6 +169,8 @@ public final class CitizenService {
         return data != null
                 && !data.dead()
                 && !data.child()
+                && !data.pregnant()
+                && !data.disease().isActive()
                 && data.jobType() == CityJobType.UNEMPLOYED
                 && data.workplaceId() == null;
     }
@@ -182,7 +191,9 @@ public final class CitizenService {
         if (level == null) {
             return List.of();
         }
+        String dimensionId = level.dimension().location().toString();
         return CitizenManager.get(level).allCitizens().stream()
+                .filter(data -> dimensionId.equals(data.dimensionId()))
                 .filter(CitizenService::isHireable)
                 .sorted(Comparator.comparing(CitizenData::name, String.CASE_INSENSITIVE_ORDER))
                 .toList();
@@ -238,6 +249,7 @@ public final class CitizenService {
         CitizenData data = ensureCitizen(level, entity);
         if (data != null) {
             data.setCityId(cityId);
+            data.setDimensionId(level.dimension().location().toString());
             CitizenManager manager = CitizenManager.get(level);
             manager.saveCitizenNow(data.uuid());
             manager.syncEntity(entity);

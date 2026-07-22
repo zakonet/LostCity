@@ -11,6 +11,7 @@ public final class ServerConfig {
     public static final ModConfigSpec.DoubleValue CITY_CHUNK_PRICE;
     public static final ModConfigSpec.IntValue POPULATION_GROWTH_INTERVAL_TICKS;
     public static final ModConfigSpec.IntValue POPULATION_GROWTH_MAX_PER_INTERVAL;
+    public static final ModConfigSpec.IntValue POPULATION_GROWTH_TIMES_PER_WEEK;
     public static final ModConfigSpec.EnumValue<CitizenNameStyle> NPC_NAME_STYLE;
     public static final ModConfigSpec.BooleanValue ENABLE_BLACKLIST_PROTECTION;
     public static final ModConfigSpec.BooleanValue ENABLE_CLAIM_PROTECTION;
@@ -61,6 +62,15 @@ public final class ServerConfig {
     public static final ModConfigSpec.DoubleValue LOGISTICS_STEP_COST;
     public static final ModConfigSpec.IntValue LOGISTICS_MAX_WAREHOUSE_CONTAINERS;
     public static final ModConfigSpec.IntValue LOGISTICS_MAX_CLIENT_PORTS;
+    public static final ModConfigSpec.IntValue FAMILY_PREGNANCY_DURATION_DAYS;
+    public static final ModConfigSpec.IntValue FAMILY_POSTPARTUM_RECOVERY_DAYS;
+    public static final ModConfigSpec.DoubleValue FAMILY_MARRIAGE_CHANCE_PER_DAY;
+    public static final ModConfigSpec.DoubleValue FAMILY_PREGNANCY_CHANCE_PER_DAY;
+    public static final ModConfigSpec.DoubleValue MEDICAL_LOW_HEALTH_THRESHOLD;
+    public static final ModConfigSpec.IntValue MEDICAL_HEAL_INTERVAL_TICKS;
+    public static final ModConfigSpec.DoubleValue MEDICAL_HEAL_AMOUNT;
+    public static final ModConfigSpec.DoubleValue MEDICAL_DISEASE_CHANCE_PER_DAY;
+    public static final ModConfigSpec.IntValue MEDICAL_DISEASE_TREATMENT_TICKS;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -88,6 +98,9 @@ public final class ServerConfig {
         builder.push("population");
         POPULATION_GROWTH_INTERVAL_TICKS = builder.defineInRange("growthIntervalTicks", 24_000, 20, 2_400_000);
         POPULATION_GROWTH_MAX_PER_INTERVAL = builder.defineInRange("growthMaxPerInterval", 1, 0, 100);
+        POPULATION_GROWTH_TIMES_PER_WEEK = builder
+                .comment("How many times per game week (7 days) the population growth check fires. Range: 1~7.")
+                .defineInRange("growthTimesPerWeek", 2, 1, 7);
         NPC_NAME_STYLE = builder
                 .comment("NPC name style used when generating new citizens.")
                 .translation("config.simukraft.npc.nameStyle")
@@ -336,6 +349,43 @@ public final class ServerConfig {
                 .translation("config.simukraft.logistics.maxClientPorts")
                 .defineInRange("maxClientPorts", 32, 1, 256);
         builder.pop();
+        builder.push("family");
+        FAMILY_PREGNANCY_DURATION_DAYS = builder
+                .comment("Game days a pregnancy lasts before childbirth.")
+                .defineInRange("pregnancyDurationDays", 3, 1, 3);
+        FAMILY_POSTPARTUM_RECOVERY_DAYS = builder
+                .comment("Game days an NPC rests after childbirth.")
+                .translation("config.simukraft.family.postpartumRecoveryDays")
+                .defineInRange("postpartumRecoveryDays", 1, 1, 3);
+        FAMILY_MARRIAGE_CHANCE_PER_DAY = builder
+                .comment("Probability per game day that two eligible NPCs will marry.")
+                .defineInRange("marriageChancePerDay", 0.05D, 0.0D, 1.0D);
+        FAMILY_PREGNANCY_CHANCE_PER_DAY = builder
+                .comment("Probability per game day that a married NPC wife becomes pregnant.")
+                .defineInRange("pregnancyChancePerDay", 0.10D, 0.0D, 1.0D);
+        builder.pop();
+        builder.push("medical");
+        MEDICAL_LOW_HEALTH_THRESHOLD = builder
+                .comment("NPCs at or below this health are eligible for hospital care.")
+                .translation("config.simukraft.medical.lowHealthThreshold")
+                .defineInRange("lowHealthThreshold", 8.0D, 1.0D, 19.0D);
+        MEDICAL_HEAL_INTERVAL_TICKS = builder
+                .comment("Ticks between hospital healing pulses.")
+                .translation("config.simukraft.medical.healIntervalTicks")
+                .defineInRange("healIntervalTicks", 100, 20, 24_000);
+        MEDICAL_HEAL_AMOUNT = builder
+                .comment("Health restored by each hospital healing pulse.")
+                .translation("config.simukraft.medical.healAmount")
+                .defineInRange("healAmount", 1.0D, 0.1D, 20.0D);
+        MEDICAL_DISEASE_CHANCE_PER_DAY = builder
+                .comment("Daily chance for an eligible NPC to contract a random disease.")
+                .translation("config.simukraft.medical.diseaseChancePerDay")
+                .defineInRange("diseaseChancePerDay", 0.02D, 0.0D, 1.0D);
+        MEDICAL_DISEASE_TREATMENT_TICKS = builder
+                .comment("Sleeping treatment ticks required to cure a disease.")
+                .translation("config.simukraft.medical.diseaseTreatmentTicks")
+                .defineInRange("diseaseTreatmentTicks", 24_000, 20, 2_400_000);
+        builder.pop();
         SPEC = builder.build();
     }
 
@@ -352,6 +402,10 @@ public final class ServerConfig {
 
     public static int populationGrowthMaxPerInterval() {
         return POPULATION_GROWTH_MAX_PER_INTERVAL.get();
+    }
+
+    public static int populationGrowthTimesPerWeek() {
+        return POPULATION_GROWTH_TIMES_PER_WEEK.get();
     }
 
     /** npcNameStyle: 返回新生成 NPC 名字使用的风格。 */
@@ -549,6 +603,42 @@ public final class ServerConfig {
 
     public static int logisticsMaxClientPorts() {
         return LOGISTICS_MAX_CLIENT_PORTS.get();
+    }
+
+    public static int familyPregnancyDurationDays() {
+        return Math.clamp(FAMILY_PREGNANCY_DURATION_DAYS.get(), 1, 3);
+    }
+
+    public static int familyPostpartumRecoveryDays() {
+        return FAMILY_POSTPARTUM_RECOVERY_DAYS.get();
+    }
+
+    public static double familyMarriageChancePerDay() {
+        return FAMILY_MARRIAGE_CHANCE_PER_DAY.get();
+    }
+
+    public static double familyPregnancyChancePerDay() {
+        return FAMILY_PREGNANCY_CHANCE_PER_DAY.get();
+    }
+
+    public static double medicalLowHealthThreshold() {
+        return MEDICAL_LOW_HEALTH_THRESHOLD.get();
+    }
+
+    public static int medicalHealIntervalTicks() {
+        return MEDICAL_HEAL_INTERVAL_TICKS.get();
+    }
+
+    public static double medicalHealAmount() {
+        return MEDICAL_HEAL_AMOUNT.get();
+    }
+
+    public static double medicalDiseaseChancePerDay() {
+        return MEDICAL_DISEASE_CHANCE_PER_DAY.get();
+    }
+
+    public static int medicalDiseaseTreatmentTicks() {
+        return MEDICAL_DISEASE_TREATMENT_TICKS.get();
     }
 
     private static boolean isStringEntry(Object value) {
