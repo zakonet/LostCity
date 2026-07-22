@@ -20,6 +20,9 @@ import common.cn.kafei.simukraft.building.BuilderConstructionService;
 import common.cn.kafei.simukraft.building.BuildingIntegrityService;
 import common.cn.kafei.simukraft.building.PlacedBuildingService;
 import common.cn.kafei.simukraft.building.ResidentialBedPoiService;
+import common.cn.kafei.simukraft.building.MedicalBedPoiService;
+import common.cn.kafei.simukraft.medical.MedicalDefinitionLoader;
+import common.cn.kafei.simukraft.medical.MedicalService;
 import common.cn.kafei.simukraft.commercial.CommercialBoxManager;
 import common.cn.kafei.simukraft.commercial.CommercialDefinitionLoader;
 import common.cn.kafei.simukraft.commercial.CommercialFoodMarketService;
@@ -173,8 +176,9 @@ public final class SimuKraft {
         if (!(event.getLevel() instanceof ServerLevel level)) return;
         net.minecraft.core.BlockPos clickedPos = event.getPos();
         net.minecraft.world.level.block.state.BlockState state = level.getBlockState(clickedPos);
-        if (!state.is(net.minecraft.world.level.block.Blocks.RED_BED)) return;
-        net.minecraft.core.BlockPos bedHeadPos = ResidentialBedPoiService.resolveBedHeadPos(clickedPos, state);
+        net.minecraft.core.BlockPos bedHeadPos = state.is(net.minecraft.world.level.block.Blocks.RED_BED)
+                ? ResidentialBedPoiService.resolveBedHeadPos(clickedPos, state)
+                : MedicalBedPoiService.resolveBedHeadPos(clickedPos, state);
         if (bedHeadPos == null) return;
         java.util.UUID occupant = CitizenBedSleepService.getOccupantUUID(level, bedHeadPos);
         if (occupant == null) return;
@@ -197,6 +201,7 @@ public final class SimuKraft {
             PlacedBuildingService.ensureCityPoisRegistered(level);
             BuildingIntegrityService.tick(level);
             CitizenHomeRestService.tick(level);
+            MedicalService.tick(level);
             CitizenSelfFeedingService.tick(level);
             BuilderConstructionService.tick(level);
             PlannerWorkService.tick(level);
@@ -230,6 +235,8 @@ public final class SimuKraft {
         FarmlandFarmingService.clearServerCaches(event.getServer());
         PlacedBuildingService.clearServerCaches(event.getServer());
         ResidentialBedPoiService.clearServerCaches(event.getServer());
+        MedicalBedPoiService.clearServerCaches(event.getServer());
+        MedicalDefinitionLoader.clearCache();
         CitizenHomeRestService.clearServerCaches(event.getServer());
         CitizenDroppedFoodService.clearServerCaches(event.getServer());
         CitizenSelfFeedingService.clearServerCaches(event.getServer());

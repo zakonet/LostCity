@@ -140,7 +140,7 @@ public final class IndustrialEntityActionService {
                                                      IndustrialDefinition definition,
                                                      IndustrialDefinition.StepDefinition step,
                                                      CitizenEntity worker) {
-        if (IndustrialCarriedItemService.stackCount(data, level.registryAccess()) >= Math.max(1, step.maxCarryStacks())) {
+        if (IndustrialCarriedItemService.stackCount(level, manager, data) >= Math.max(1, step.maxCarryStacks())) {
             return ActionResult.CARRY_FULL;
         }
         double range = Math.max(1.5D, step.range());
@@ -166,8 +166,8 @@ public final class IndustrialEntityActionService {
         if (picked.isEmpty()) {
             return ActionResult.MISSING_DROPS;
         }
-        if (!IndustrialCarriedItemService.addItems(manager, data, picked, level.registryAccess())) {
-            return ActionResult.STORAGE_FAILED;
+        if (!IndustrialCarriedItemService.addItems(level, manager, data, picked)) {
+            return ActionResult.CARRY_FULL;
         }
         for (ItemEntity drop : pickedEntities) {
             drop.discard();

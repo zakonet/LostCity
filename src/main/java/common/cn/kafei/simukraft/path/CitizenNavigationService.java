@@ -88,6 +88,12 @@ public final class CitizenNavigationService {
         if (citizen == null) {
             return false;
         }
+        if (citizen.isStayInPlace()) {
+            return false;
+        }
+        if (citizen.getFollowPlayerId() != null && normalizedIntent != MovementIntent.FOLLOW) {
+            return false;
+        }
         if (citizen.isSleeping()) {
             return false;
         }

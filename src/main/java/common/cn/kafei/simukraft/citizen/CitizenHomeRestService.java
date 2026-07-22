@@ -7,6 +7,7 @@ import common.cn.kafei.simukraft.entity.CitizenEntity;
 import common.cn.kafei.simukraft.job.CityJobType;
 import common.cn.kafei.simukraft.path.CitizenNavigationService;
 import common.cn.kafei.simukraft.path.MovementIntent;
+import common.cn.kafei.simukraft.medical.MedicalService;
 import common.cn.kafei.simukraft.util.SaveScopedCacheKey;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -71,6 +72,9 @@ public final class CitizenHomeRestService {
         String dimensionId = level.dimension().location().toString();
         for (CitizenData citizen : manager.allCitizens()) {
             if (citizen.dead()) {
+                continue;
+            }
+            if (MedicalService.isAdmitted(citizen)) {
                 continue;
             }
             if (!dimensionId.equals(citizen.dimensionId())) {
@@ -220,7 +224,7 @@ public final class CitizenHomeRestService {
     }
 
     private static BlockPos resolveHomeAnchor(ServerLevel level, BlockPos homePos) {
-        if (isResidentialBedHead(level.getBlockState(homePos))) {
+        if (isSupportedBedHead(level.getBlockState(homePos))) {
             return homePos;
         }
         // 旧存档里 POI 可能记录在床侧，先回找床头作为安全点搜索中心。
@@ -241,7 +245,7 @@ public final class CitizenHomeRestService {
     }
 
     private static List<BlockPos> collectBedsideCandidates(ServerLevel level, BlockPos bedHeadPos) {
-        if (!isResidentialBedHead(level.getBlockState(bedHeadPos))) {
+        if (!isSupportedBedHead(level.getBlockState(bedHeadPos))) {
             return List.of();
         }
         BlockPos bedFootPos = resolveBedFootPos(bedHeadPos, level.getBlockState(bedHeadPos));
@@ -381,5 +385,10 @@ public final class CitizenHomeRestService {
     public static boolean isResidentialBedHead(BlockState state) {
         return state.is(Blocks.RED_BED)
                 && (!state.hasProperty(BlockStateProperties.BED_PART) || state.getValue(BlockStateProperties.BED_PART) == BedPart.HEAD);
+    }
+
+    private static boolean isSupportedBedHead(BlockState state) {
+        return isResidentialBedHead(state)
+                || common.cn.kafei.simukraft.building.MedicalBedPoiService.isWhiteBedHead(state);
     }
 }

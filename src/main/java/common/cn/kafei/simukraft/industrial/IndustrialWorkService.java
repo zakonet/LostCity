@@ -12,6 +12,7 @@ import common.cn.kafei.simukraft.citizen.CitizenTeleportService;
 import common.cn.kafei.simukraft.citizen.CitizenWorkStatus;
 import common.cn.kafei.simukraft.entity.CitizenEntity;
 import common.cn.kafei.simukraft.job.CityJobType;
+import common.cn.kafei.simukraft.medical.MedicalService;
 import common.cn.kafei.simukraft.path.CitizenNavigationService;
 import common.cn.kafei.simukraft.path.MovementIntent;
 import common.cn.kafei.simukraft.util.SaveScopedCacheKey;
@@ -152,6 +153,11 @@ public final class IndustrialWorkService {
         if (worker == null) {
             setStatus(manager, data, "gui.simukraft.industrial.status.no_worker", "");
             boxRuntime.reset();
+            boxRuntime.nextTick = gameTime + IDLE_RETRY_TICKS;
+            return;
+        }
+        if (MedicalService.isOnMedicalLeave(worker, level.getDayTime() / 24_000L)) {
+            CitizenJobVisualService.clearMainHandOverride(worker.uuid());
             boxRuntime.nextTick = gameTime + IDLE_RETRY_TICKS;
             return;
         }
@@ -374,7 +380,7 @@ public final class IndustrialWorkService {
             setStatus(manager, data, "gui.simukraft.industrial.status.missing_container", containerId);
             return StepResult.WAITING_RETRY;
         }
-        if (!IndustrialCarriedItemService.hasItems(data)) {
+        if (!IndustrialCarriedItemService.hasItems(level, manager, data)) {
             IndustrialCarriedItemService.clear(manager, data);
             setStatus(manager, data, "gui.simukraft.industrial.status.running", "");
             return StepResult.PROGRESSED;
@@ -659,14 +665,14 @@ public final class IndustrialWorkService {
                                            CitizenData worker,
                                            CitizenEntity entity,
                                            IndustrialDefinition.StepDefinition step) {
-        if (IndustrialCarriedItemService.stackCount(data, level.registryAccess()) >= Math.max(1, step.maxCarryStacks())) {
+        if (IndustrialCarriedItemService.stackCount(level, manager, data) >= Math.max(1, step.maxCarryStacks())) {
             setStatus(manager, data, "gui.simukraft.industrial.status.carry_full", "");
             return StepResult.PROGRESSED;
         }
         var target = IndustrialEntityActionService.nearestDrop(level, building, definition, step, entity);
         if (target.isEmpty()) {
             setStatus(manager, data,
-                    IndustrialCarriedItemService.hasItems(data)
+                    IndustrialCarriedItemService.hasItems(level, manager, data)
                             ? "gui.simukraft.industrial.status.collecting_drops"
                             : "gui.simukraft.industrial.status.missing_drops",
                     "");
@@ -685,7 +691,7 @@ public final class IndustrialWorkService {
         return switch (result) {
             case SUCCESS -> {
                 setStatus(manager, data, "gui.simukraft.industrial.status.collecting_drops", "");
-                boolean full = IndustrialCarriedItemService.stackCount(data, level.registryAccess()) >= Math.max(1, step.maxCarryStacks());
+                boolean full = IndustrialCarriedItemService.stackCount(level, manager, data) >= Math.max(1, step.maxCarryStacks());
                 boolean empty = IndustrialEntityActionService.nearestDrop(level, building, definition, step, entity).isEmpty();
                 yield full || empty ? StepResult.PROGRESSED : StepResult.WAITING;
             }
@@ -695,11 +701,11 @@ public final class IndustrialWorkService {
             }
             case MISSING_DROPS -> {
                 setStatus(manager, data,
-                        IndustrialCarriedItemService.hasItems(data)
+                        IndustrialCarriedItemService.hasItems(level, manager, data)
                                 ? "gui.simukraft.industrial.status.collecting_drops"
                                 : "gui.simukraft.industrial.status.missing_drops",
                         "");
-                yield IndustrialCarriedItemService.hasItems(data) ? StepResult.PROGRESSED : StepResult.WAITING_RETRY;
+                yield IndustrialCarriedItemService.hasItems(level, manager, data) ? StepResult.PROGRESSED : StepResult.WAITING_RETRY;
             }
             case STORAGE_FAILED -> {
                 setStatus(manager, data, "gui.simukraft.industrial.status.carried_storage_failed", "");

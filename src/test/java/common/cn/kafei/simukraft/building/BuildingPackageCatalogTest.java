@@ -44,6 +44,39 @@ class BuildingPackageCatalogTest {
     }
 
     @Test
+    void loadsMedicalBuildingsFromPublicCategory() throws Exception {
+        writePackage("public.zip", List.of(
+                entry("buildings/public/yiyuan.sk", "name:医院\nstructure:yiyuan.nbt\nmedical:yiyuan.json\n"),
+                entry("buildings/public/yiyuan.nbt", structureNbtBytes(3)),
+                entry("buildings/public/yiyuan.json", "{\"serviceRangeRings\":3}"),
+                entry("buildings/public/zhensuo.sk", "name:诊所\nstructure:zhensuo.nbt\nmedical:zhensuo.json\n"),
+                entry("buildings/public/zhensuo.nbt", structureNbtBytes(5)),
+                entry("buildings/public/zhensuo.json", "{\"serviceRangeRings\":3}")
+        ));
+
+        BuildingPackageCatalog.CatalogSnapshot snapshot = BuildingPackageCatalog.scanPackages(tempDir);
+        List<BuildingCatalog.BuildingDefinition> definitions = snapshot.listBuildings("public");
+        BuildingCatalog.BuildingDefinition hospital = definitions.stream()
+                .filter(definition -> "yiyuan.sk".equals(definition.metaFileName()))
+                .findFirst()
+                .orElseThrow();
+        BuildingCatalog.BuildingDefinition clinic = definitions.stream()
+                .filter(definition -> "zhensuo.sk".equals(definition.metaFileName()))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(2, definitions.size());
+        assertEquals("医院", hospital.displayName());
+        assertEquals("public", hospital.category());
+        assertEquals("yiyuan.nbt", hospital.structureFileName());
+        assertTrue(hospital.hasFile("yiyuan.json"));
+        assertEquals("{\"serviceRangeRings\":3}", hospital.readFileText("yiyuan.json").orElseThrow());
+        assertEquals("诊所", clinic.displayName());
+        assertEquals("zhensuo.nbt", clinic.structureFileName());
+        assertTrue(clinic.hasFile("zhensuo.json"));
+    }
+
+    @Test
     void laterPackageOverridesSameBuildingName() throws Exception {
         writePackage("a_base.zip", List.of(
                 entry("buildings/residential/home.sk", "name:Base Home\nstructure:home.nbt\n"),

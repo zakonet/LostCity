@@ -19,7 +19,8 @@ public enum CityJobType {
     STORAGE_WORKER,
     GUARD,
     GATHERER,
-    OTHER;
+    OTHER,
+    DOCTOR;
 
     private static final Map<CityPoiType, CityJobType> POI_MAPPING = new EnumMap<>(CityPoiType.class);
 

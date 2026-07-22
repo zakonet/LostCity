@@ -10,6 +10,7 @@ import common.cn.kafei.simukraft.city.poi.CityPoiData;
 import common.cn.kafei.simukraft.city.poi.CityPoiManager;
 import common.cn.kafei.simukraft.city.poi.CityPoiType;
 import common.cn.kafei.simukraft.config.ServerConfig;
+import common.cn.kafei.simukraft.building.MedicalBedPoiService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -43,7 +44,7 @@ public final class NpcChildbirthService {
     private static void giveBirth(ServerLevel level, CitizenManager manager,
             FamilyManager familyManager, FamilyData family,
             CitizenData wife, RandomSource random, long currentDay) {
-        BlockPos spawnPos = resolveSpawnPos(level, wife);
+        BlockPos spawnPos = resolveDeliveryPos(level, wife);
         if (spawnPos == null) return;
 
         // 必须有空床才能出生，无空床保留孕期状态等下一天
@@ -70,6 +71,7 @@ public final class NpcChildbirthService {
         child.setChild(true);
         child.setBornDay(currentDay);
         child.setAge(1);
+        child.setLastAgeGrowthDay(currentDay);
         child.setHomeId(vacantBedPoiId);
         child.setFamilyId(family.familyId());
         child.setOriginFamilyId(family.familyId());
@@ -81,7 +83,8 @@ public final class NpcChildbirthService {
 
         wife.setPregnant(false);
         wife.setPregnantSince(0L);
-        wife.setStatusLabel("");
+        wife.medical().setPostpartumUntilDay(currentDay + Math.max(0, ServerConfig.familyPostpartumRecoveryDays()));
+        wife.setStatusLabel("pregnancy.postpartum");
         manager.saveCitizenNow(wife.uuid());
 
         if (wife.cityId() != null) {
@@ -91,7 +94,15 @@ public final class NpcChildbirthService {
         FamilyRelocationService.tryRelocate(level, family);
     }
 
-    private static BlockPos resolveSpawnPos(ServerLevel level, CitizenData wife) {
+    private static BlockPos resolveDeliveryPos(ServerLevel level, CitizenData wife) {
+        UUID medicalBedId = wife.medical().medicalBedPoiId();
+        if (medicalBedId != null) {
+            CityPoiData medicalBed = CityPoiManager.get(level).getPoi(medicalBedId);
+            if (medicalBed != null && medicalBed.active()
+                    && MedicalBedPoiService.isWhiteBedHead(level.getBlockState(medicalBed.pos()))) {
+                return medicalBed.pos();
+            }
+        }
         UUID homeId = wife.homeId();
         if (homeId == null) return null;
         CityPoiData poi = CityPoiManager.get(level).getPoi(homeId);

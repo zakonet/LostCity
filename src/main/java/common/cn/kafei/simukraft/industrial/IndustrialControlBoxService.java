@@ -317,7 +317,7 @@ public final class IndustrialControlBoxService {
                                            IndustrialBoxData data,
                                            PlacedBuildingRecord building,
                                            IndustrialDefinition definition) {
-        if (level == null || data == null || !IndustrialCarriedItemService.hasItems(data)) {
+        if (level == null || data == null || !IndustrialCarriedItemService.hasItems(level, manager, data)) {
             return;
         }
         IndustrialBoxManager safeManager = manager != null ? manager : IndustrialBoxManager.get(level);

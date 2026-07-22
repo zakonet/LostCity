@@ -170,6 +170,7 @@ public final class CitizenService {
                 && !data.dead()
                 && !data.child()
                 && !data.pregnant()
+                && !data.disease().isActive()
                 && data.jobType() == CityJobType.UNEMPLOYED
                 && data.workplaceId() == null;
     }

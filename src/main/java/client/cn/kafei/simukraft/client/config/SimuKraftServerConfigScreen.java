@@ -25,7 +25,7 @@ public final class SimuKraftServerConfigScreen {
     private static final int FOOTER_HEIGHT = 42;
     private static final int WRAPPED_FOOTER_HEIGHT = 70;
     private static final int TAB_HEADER_HEIGHT = 24;
-    private static final int TAB_COUNT = 7;
+    private static final int TAB_COUNT = 8;
 
     private SimuKraftServerConfigScreen() {
     }
@@ -98,6 +98,7 @@ public final class SimuKraftServerConfigScreen {
         Tab materials = tab("gui.simukraft.config.tab.materials", tabWidth);
         tabs.addTab(materials, materialsPage(parent, draft));
         tabs.addTab(tab("gui.simukraft.config.tab.family", tabWidth), familyPage(draft));
+        tabs.addTab(tab("gui.simukraft.config.tab.medical", tabWidth), medicalPage(draft));
         tabs.selectTab("gui.simukraft.config.tab.materials".equals(selectedTabKey) ? materials : general);
         return tabs;
     }
@@ -274,9 +275,25 @@ public final class SimuKraftServerConfigScreen {
         page.addChild(SimuKraftConfigWidgets.row(Component.translatable("config.simukraft.family.pregnancyChancePerDay"),
                 SimuKraftConfigWidgets.doubleField(draft.familyPregnancyChancePerDay, 0.0D, 1.0D, value -> draft.familyPregnancyChancePerDay = value)));
         page.addChild(SimuKraftConfigWidgets.row(Component.translatable("config.simukraft.family.pregnancyDurationDays"),
-                SimuKraftConfigWidgets.intField(draft.familyPregnancyDurationDays, 1, 30, value -> draft.familyPregnancyDurationDays = value)));
-        page.addChild(SimuKraftConfigWidgets.row(Component.translatable("config.simukraft.family.childGrowthDurationDays"),
-                SimuKraftConfigWidgets.intField(draft.familyChildGrowthDurationDays, 1, 60, value -> draft.familyChildGrowthDurationDays = value)));
+                SimuKraftConfigWidgets.intField(draft.familyPregnancyDurationDays, 1, 3, value -> draft.familyPregnancyDurationDays = value)));
+        page.addChild(SimuKraftConfigWidgets.row(Component.translatable("config.simukraft.family.postpartumRecoveryDays"),
+                SimuKraftConfigWidgets.intField(draft.familyPostpartumRecoveryDays, 1, 3, value -> draft.familyPostpartumRecoveryDays = value)));
+        return SimuKraftConfigWidgets.scroller(page);
+    }
+
+    private static UIElement medicalPage(SimuKraftServerConfigDraft draft) {
+        UIElement page = pageColumn();
+        page.addChild(SimuKraftConfigWidgets.section(Component.translatable("gui.simukraft.config.section.medical")));
+        page.addChild(SimuKraftConfigWidgets.row(Component.translatable("config.simukraft.medical.lowHealthThreshold"),
+                SimuKraftConfigWidgets.doubleField(draft.medicalLowHealthThreshold, 1.0D, 19.0D, value -> draft.medicalLowHealthThreshold = value)));
+        page.addChild(SimuKraftConfigWidgets.row(Component.translatable("config.simukraft.medical.healIntervalTicks"),
+                SimuKraftConfigWidgets.intField(draft.medicalHealIntervalTicks, 20, 24_000, value -> draft.medicalHealIntervalTicks = value)));
+        page.addChild(SimuKraftConfigWidgets.row(Component.translatable("config.simukraft.medical.healAmount"),
+                SimuKraftConfigWidgets.doubleField(draft.medicalHealAmount, 0.1D, 20.0D, value -> draft.medicalHealAmount = value)));
+        page.addChild(SimuKraftConfigWidgets.row(Component.translatable("config.simukraft.medical.diseaseChancePerDay"),
+                SimuKraftConfigWidgets.doubleField(draft.medicalDiseaseChancePerDay, 0.0D, 1.0D, value -> draft.medicalDiseaseChancePerDay = value)));
+        page.addChild(SimuKraftConfigWidgets.row(Component.translatable("config.simukraft.medical.diseaseTreatmentTicks"),
+                SimuKraftConfigWidgets.intField(draft.medicalDiseaseTreatmentTicks, 20, 2_400_000, value -> draft.medicalDiseaseTreatmentTicks = value)));
         return SimuKraftConfigWidgets.scroller(page);
     }
 

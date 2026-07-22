@@ -8,6 +8,8 @@ import net.minecraft.util.RandomSource;
 import java.util.UUID;
 
 public final class NpcGrowthService {
+    private static final long DAYS_PER_YEAR = 4L;
+
     private NpcGrowthService() {
     }
 
@@ -17,8 +19,18 @@ public final class NpcGrowthService {
 
         for (CitizenData data : manager.allCitizens()) {
             if (data.dead()) continue;
-            // 每游戏日 age+1
-            data.setAge(data.age() + 1);
+            long lastGrowthDay = data.lastAgeGrowthDay();
+            if (lastGrowthDay < 0L || currentDay < lastGrowthDay) {
+                data.setLastAgeGrowthDay(currentDay);
+                manager.saveCitizenNow(data.uuid());
+                continue;
+            }
+            long yearsToGrow = completedYears(lastGrowthDay, currentDay);
+            if (yearsToGrow <= 0L) {
+                continue;
+            }
+            data.setAge((int) Math.min(Integer.MAX_VALUE, (long) data.age() + yearsToGrow));
+            data.setLastAgeGrowthDay(lastGrowthDay + yearsToGrow * DAYS_PER_YEAR);
 
             if (data.child()) {
                 // 孩子：18岁成年
@@ -46,6 +58,14 @@ public final class NpcGrowthService {
                 }
             }
         }
+    }
+
+    /** completedYears：计算两个游戏日之间已经完成的四天年龄周期数。 */
+    static long completedYears(long lastGrowthDay, long currentDay) {
+        if (lastGrowthDay < 0L || currentDay <= lastGrowthDay) {
+            return 0L;
+        }
+        return (currentDay - lastGrowthDay) / DAYS_PER_YEAR;
     }
 
     private static void graduate(ServerLevel level, CitizenManager manager,

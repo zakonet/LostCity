@@ -3,13 +3,18 @@ package common.cn.kafei.simukraft.entity;
 import common.cn.kafei.simukraft.citizen.CitizenBedSleepService;
 import common.cn.kafei.simukraft.citizen.CitizenData;
 import common.cn.kafei.simukraft.citizen.CitizenHomeRestService;
+import common.cn.kafei.simukraft.citizen.CitizenInventory;
+import common.cn.kafei.simukraft.citizen.CitizenInfoMenuProvider;
+import common.cn.kafei.simukraft.citizen.CitizenJobVisualService;
+import common.cn.kafei.simukraft.citizen.CitizenManager;
+import common.cn.kafei.simukraft.citizen.CitizenManualControlService;
 import common.cn.kafei.simukraft.citizen.CitizenDroppedFoodService;
 import common.cn.kafei.simukraft.citizen.CitizenService;
 import common.cn.kafei.simukraft.citizen.CitizenTeleportService;
 import common.cn.kafei.simukraft.citizen.CitizenWorkStatus;
 import common.cn.kafei.simukraft.commercial.CommercialControlBoxService;
-import common.cn.kafei.simukraft.network.citizen.info.CitizenInfoResponsePacket;
 import common.cn.kafei.simukraft.path.CitizenNavigationService;
+import common.cn.kafei.simukraft.medical.MedicalService;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -21,6 +26,7 @@ import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -34,7 +40,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.PacketDistributor;
+
+import java.util.UUID;
 
 @SuppressWarnings("null")
 public class CitizenEntity extends PathfinderMob {
@@ -57,16 +64,25 @@ public class CitizenEntity extends PathfinderMob {
     private static final String LEGACY_ENGLISH_CITIZEN_PREFIX = "Citizen ";
     private static final String LEGACY_CHINESE_CITIZEN_PREFIX = "市民 ";
     private static final String TAG_HUNGER = "Hunger";
+    private static final String TAG_INVENTORY = "CitizenInventory";
+    private static final String TAG_FOLLOW_PLAYER = "FollowPlayer";
+    private static final String TAG_STAY_IN_PLACE = "StayInPlace";
     private static final int WORK_SWING_DURATION_TICKS = 6;
     private static final int WALL_RESCUE_INTERVAL_TICKS = 20;
     private static final double WALL_RESCUE_COLLISION_DEFLATE = 0.0625D;
     private double hunger = DEFAULT_HUNGER;
+    private final CitizenInventory citizenInventory = new CitizenInventory();
+    private boolean nativeInventoryTagPresent;
+    private boolean inventoryReconciled;
+    private UUID followPlayerId;
+    private boolean stayInPlace;
     private int lastWorkSwingPulse = -1;
     private int workSwingStartTick = -WORK_SWING_DURATION_TICKS;
 
     public CitizenEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
         this.setPersistenceRequired();
+        citizenInventory.addListener(ignored -> onCitizenInventoryChanged());
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -87,7 +103,7 @@ public class CitizenEntity extends PathfinderMob {
                 if (CommercialControlBoxService.openForWorker(serverLevel, serverPlayer, data)) {
                     return InteractionResult.sidedSuccess(level().isClientSide());
                 }
-                PacketDistributor.sendToPlayer(serverPlayer, CitizenInfoResponsePacket.from(serverLevel, this, data));
+                CitizenInfoMenuProvider.open(serverLevel, serverPlayer, this, data);
             }
         }
         return InteractionResult.sidedSuccess(level().isClientSide());
@@ -102,8 +118,28 @@ public class CitizenEntity extends PathfinderMob {
         boolean result = super.hurt(source, amount);
         if (result && !level().isClientSide()) {
             addEffect(new MobEffectInstance(MobEffects.GLOWING, 60, 0, false, false));
+            if (level() instanceof ServerLevel serverLevel && isAlive()) {
+                CitizenData data = CitizenManager.get(serverLevel).getCitizen(getUUID()).orElse(null);
+                if (data != null) {
+                    data.setHealth(getHealth());
+                    CitizenService.save(serverLevel, getUUID());
+                }
+                citizenInventory.setChanged();
+            }
         }
         return result;
+    }
+
+    /** hurtArmor：让 NPC 盔甲沿用玩家的原版耐久消耗与 NeoForge 护甲受损事件。 */
+    @Override
+    protected void hurtArmor(DamageSource source, float amount) {
+        doHurtEquipment(source, amount, EquipmentSlot.FEET, EquipmentSlot.LEGS, EquipmentSlot.CHEST, EquipmentSlot.HEAD);
+    }
+
+    /** hurtHelmet：处理铁砧等只损伤头盔的原版伤害来源。 */
+    @Override
+    protected void hurtHelmet(DamageSource source, float amount) {
+        doHurtEquipment(source, amount, EquipmentSlot.HEAD);
     }
 
     @Override
@@ -151,7 +187,9 @@ public class CitizenEntity extends PathfinderMob {
                 discard();
                 return;
             }
-            if (isSleeping() && !CitizenHomeRestService.isRestTime(serverLevel)) {
+            CitizenManualControlService.tick(serverLevel, this);
+            if (isSleeping() && !CitizenHomeRestService.isRestTime(serverLevel)
+                    && !MedicalService.isHospitalized(serverLevel, getUUID())) {
                 stopSleeping();
                 CitizenBedSleepService.release(serverLevel, getUUID());
                 CitizenTeleportService.teleportCitizenToNearbySafePosition(serverLevel, this);
@@ -249,6 +287,11 @@ public class CitizenEntity extends PathfinderMob {
         compound.putInt("Lifespan", getLifespan());
         compound.putBoolean("IsSick", isSick());
         compound.putBoolean("IsChildNpc", isChildNpc());
+        compound.put(TAG_INVENTORY, citizenInventory.saveToTag(registryAccess()));
+        if (followPlayerId != null) {
+            compound.putUUID(TAG_FOLLOW_PLAYER, followPlayerId);
+        }
+        compound.putBoolean(TAG_STAY_IN_PLACE, stayInPlace);
     }
 
     @Override
@@ -266,6 +309,62 @@ public class CitizenEntity extends PathfinderMob {
         setLifespan(compound.contains("Lifespan") ? compound.getInt("Lifespan") : -1);
         setSick(compound.getBoolean("IsSick"));
         setChildNpc(compound.getBoolean("IsChildNpc"));
+        nativeInventoryTagPresent = compound.contains(TAG_INVENTORY, CompoundTag.TAG_COMPOUND);
+        citizenInventory.loadFromTag(
+                nativeInventoryTagPresent ? compound.getCompound(TAG_INVENTORY) : new CompoundTag(),
+                registryAccess());
+        inventoryReconciled = false;
+        followPlayerId = compound.hasUUID(TAG_FOLLOW_PLAYER) ? compound.getUUID(TAG_FOLLOW_PLAYER) : null;
+        stayInPlace = compound.getBoolean(TAG_STAY_IN_PLACE);
+    }
+
+    /** getFollowPlayerId：返回当前手动跟随的玩家 UUID。 */
+    public UUID getFollowPlayerId() {
+        return followPlayerId;
+    }
+
+    /** setFollowPlayerId：设置或取消手动跟随目标。 */
+    public void setFollowPlayerId(UUID followPlayerId) {
+        this.followPlayerId = followPlayerId;
+    }
+
+    /** isStayInPlace：返回“待在原地”最高优先级开关状态。 */
+    public boolean isStayInPlace() {
+        return stayInPlace;
+    }
+
+    /** setStayInPlace：切换最高优先级原地停留状态。 */
+    public void setStayInPlace(boolean stayInPlace) {
+        this.stayInPlace = stayInPlace;
+    }
+
+    /** getCitizenInventory：返回由实体 NBT 持久化的 NPC 真实物品栏。 */
+    public CitizenInventory getCitizenInventory() {
+        return citizenInventory;
+    }
+
+    /** hasNativeInventoryTag：判断本次实体加载是否带有新版背包 NBT。 */
+    public boolean hasNativeInventoryTag() {
+        return nativeInventoryTagPresent;
+    }
+
+    /** inventoryReconciled：判断实体背包是否已与世界 NBT 灾备完成一次同步。 */
+    public boolean inventoryReconciled() {
+        return inventoryReconciled;
+    }
+
+    /** markInventoryReconciled：标记背包同步完成，避免每 tick 重复复制 NBT。 */
+    public void markInventoryReconciled() {
+        nativeInventoryTagPresent = true;
+        inventoryReconciled = true;
+    }
+
+    private void onCitizenInventoryChanged() {
+        if (level() instanceof ServerLevel serverLevel && !isRemoved()) {
+            CitizenManager manager = CitizenManager.get(serverLevel);
+            manager.getCitizen(getUUID()).ifPresent(data -> CitizenJobVisualService.sync(serverLevel, this, data));
+            manager.backupEntityInventory(this);
+        }
     }
 
     public String getCitizenName() {

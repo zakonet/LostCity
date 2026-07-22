@@ -19,6 +19,7 @@ import common.cn.kafei.simukraft.material.WorkMaterialCache;
 import common.cn.kafei.simukraft.material.WorkMaterialNotificationService;
 import common.cn.kafei.simukraft.material.WorkMaterialResult;
 import common.cn.kafei.simukraft.material.NpcWorkMaterialService;
+import common.cn.kafei.simukraft.medical.MedicalService;
 import common.cn.kafei.simukraft.protection.NpcBlockProtectionPolicy;
 import common.cn.kafei.simukraft.registry.ModBlocks;
 import common.cn.kafei.simukraft.storage.SimuSqliteStorage;
@@ -207,6 +208,10 @@ public final class BuilderConstructionService {
             interruptTask(level, citizen.uuid(), "builder_not_assigned");
             return;
         }
+        if (MedicalService.isOnMedicalLeave(citizen, level.getDayTime() / 24_000L)) {
+            pauseForMedicalLeave(level, citizen, taskRuntime);
+            return;
+        }
         if (!level.getBlockState(task.buildBoxPos()).is(ModBlocks.BUILD_BOX.get())) {
             CitizenEmploymentService.fire(level, citizen.uuid(), "build_box", "builder", task.buildBoxPos(), "build_box_removed");
             return;
@@ -336,6 +341,7 @@ public final class BuilderConstructionService {
         PlacedBuildingRecord placedBuilding = new PlacedBuildingRecord(UUID.randomUUID(), cityId, task.dimensionId(), task.category(), task.buildingFileName(), task.displayName(), task.amount(), task.structureFileName(), BuildingTransform.directionFromRotation(task.rotationDegrees()).getSerializedName(), task.origin(), BlockPos.ZERO, minPos, maxPos, System.currentTimeMillis(), cached.blocks(), task.poiDefinitions(), poiInstances, unitDefs, unitInsts);
         PlacedBuildingService.register(level, placedBuilding);
         ResidentialBedPoiService.addRecordedBeds(level, placedBuilding);
+        MedicalBedPoiService.addRecordedBeds(level, placedBuilding);
         if (placedBuilding.cityId() != null) {
             common.cn.kafei.simukraft.citizen.CitizenHousingService.fillVacantHomes(level, placedBuilding.cityId());
         }
@@ -760,8 +766,11 @@ public final class BuilderConstructionService {
         if (shouldRegisterResidentialBeds(task.category(), pois)) {
             rewritten.addAll(resolveResidentialBedInstances(placedBlocks, task.dimensionId()));
         }
+        if (shouldRegisterMedicalBeds(task.category(), pois, placedBlocks)) {
+            rewritten.addAll(resolveMedicalBedInstances(placedBlocks, task.dimensionId()));
+        }
         for (BuildingPoiDefinition poi : pois) {
-            if (poi.poiType() == CityPoiType.RESIDENTIAL) {
+            if (poi.poiType() == CityPoiType.RESIDENTIAL || poi.poiType() == CityPoiType.MEDICAL) {
                 continue;
             }
             BlockPos pos = resolvePoiPosition(sourceBlocks, poi, task.origin(), task.rotationDegrees());
@@ -774,6 +783,27 @@ public final class BuilderConstructionService {
     private static boolean shouldRegisterResidentialBeds(String category, List<BuildingPoiDefinition> pois) {
         return isResidentialCategory(category)
                 || pois.stream().anyMatch(poi -> poi.poiType() == CityPoiType.RESIDENTIAL);
+    }
+
+    /** pauseForMedicalLeave：医疗休假期间暂停任务但保留原岗位和任务进度。 */
+    private static void pauseForMedicalLeave(ServerLevel level, CitizenData citizen, TaskRuntime taskRuntime) {
+        BuildingTaskData task = taskRuntime.task;
+        if (BuildingTaskStatus.from(task.status()) == BuildingTaskStatus.PAUSED_RESTING) {
+            return;
+        }
+        BuildingTaskData paused = task.withStatus(BuildingTaskStatus.PAUSED_RESTING);
+        taskRuntime.task = paused;
+        taskRuntime.dirty = true;
+        taskRuntime.lastPhaseKey = BuildingTaskStatus.PAUSED_RESTING.id();
+        persistTaskAsync(level, taskRuntime, paused);
+    }
+
+    private static boolean shouldRegisterMedicalBeds(String category,
+                                                      List<BuildingPoiDefinition> pois,
+                                                      List<BuildingBlockData> placedBlocks) {
+        return "medical".equalsIgnoreCase(category)
+                || pois.stream().anyMatch(poi -> poi.poiType() == CityPoiType.MEDICAL)
+                || placedBlocks.stream().anyMatch(block -> block.state().is(ModBlocks.MEDICAL_CONTROL_BOX.get()));
     }
 
     private static List<BuildingPoiInstance> resolveResidentialBedInstances(List<BuildingBlockData> placedBlocks, String dimensionId) {
@@ -796,6 +826,40 @@ public final class BuilderConstructionService {
             return List.of();
         }
         return resolveResidentialBedInstances(building.blocks(), building.dimensionId());
+    }
+
+    /** resolveMedicalBedPois：从医疗建筑记录中重建白床医疗 POI。 */
+    public static List<BuildingPoiInstance> resolveMedicalBedPois(PlacedBuildingRecord building) {
+        if (!isMedicalBuildingRecord(building)) {
+            return List.of();
+        }
+        return resolveMedicalBedInstances(building.blocks(), building.dimensionId());
+    }
+
+    /** isMedicalBuildingRecord：兼容旧医疗分类，并通过 POI 或控制箱识别公共医院。 */
+    private static boolean isMedicalBuildingRecord(PlacedBuildingRecord building) {
+        if (building == null) {
+            return false;
+        }
+        return "medical".equalsIgnoreCase(building.category())
+                || building.poiDefinitions().stream().anyMatch(poi -> poi.poiType() == CityPoiType.MEDICAL)
+                || building.poiInstances().stream().anyMatch(poi -> poi.poiType() == CityPoiType.MEDICAL)
+                || building.blocks().stream().anyMatch(block -> block.state().is(ModBlocks.MEDICAL_CONTROL_BOX.get()));
+    }
+
+    private static List<BuildingPoiInstance> resolveMedicalBedInstances(List<BuildingBlockData> placedBlocks, String dimensionId) {
+        String scope = dimensionId == null || dimensionId.isBlank() ? "minecraft:overworld" : dimensionId;
+        return placedBlocks.stream()
+                .filter(block -> MedicalBedPoiService.isWhiteBedHead(block.state()))
+                .map(block -> block.relativePos().immutable())
+                .distinct()
+                .map(pos -> new BuildingPoiInstance(
+                        UUID.nameUUIDFromBytes((scope + ":medical_bed:" + pos.toShortString()).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString(),
+                        CityPoiType.MEDICAL,
+                        1,
+                        pos
+                ))
+                .toList();
     }
 
     private static boolean isResidentialCategory(String category) {

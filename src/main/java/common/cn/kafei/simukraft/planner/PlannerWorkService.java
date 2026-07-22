@@ -13,6 +13,7 @@ import common.cn.kafei.simukraft.job.CitizenEmploymentService;
 import common.cn.kafei.simukraft.job.CityJobType;
 import common.cn.kafei.simukraft.material.GenericContainerAccess;
 import common.cn.kafei.simukraft.material.WorkContainerService;
+import common.cn.kafei.simukraft.medical.MedicalService;
 import common.cn.kafei.simukraft.path.CitizenNavigationService;
 import common.cn.kafei.simukraft.path.MovementIntent;
 import common.cn.kafei.simukraft.protection.NpcBlockProtectionPolicy;
@@ -190,6 +191,10 @@ public final class PlannerWorkService {
         BlockPos boxPos = task.buildBoxPos();
         if (citizen.jobType() != CityJobType.PLANNER || citizen.workplaceId() == null) {
             interruptTask(level, citizen.uuid(), "planner_not_assigned");
+            return;
+        }
+        if (MedicalService.isOnMedicalLeave(citizen, level.getDayTime() / 24_000L)) {
+            pauseForMedicalLeave(level, citizen, taskRuntime);
             return;
         }
         if (!level.isLoaded(boxPos)) {
@@ -420,6 +425,17 @@ public final class PlannerWorkService {
         citizen.setStatusLabel(label);
         citizen.setWorkNeedDetail("plan:" + taskRuntime.task.taskId());
         CitizenService.save(level, citizen.uuid());
+    }
+
+    /** pauseForMedicalLeave：医疗休假期间暂停规划任务并保留职业绑定。 */
+    private static void pauseForMedicalLeave(ServerLevel level, CitizenData citizen, TaskRuntime taskRuntime) {
+        PlanningTaskData task = taskRuntime.task;
+        if (PlanningTaskStatus.from(task.status()) == PlanningTaskStatus.PAUSED_RESTING) {
+            return;
+        }
+        PlanningTaskData paused = task.withStatus(PlanningTaskStatus.PAUSED_RESTING.id(), System.currentTimeMillis());
+        taskRuntime.task = paused;
+        persistAsync(level, taskRuntime, paused);
     }
 
     private static int consumeBudget(TaskRuntime taskRuntime, CitizenData citizen) {

@@ -4,7 +4,6 @@ import common.cn.kafei.simukraft.network.building.BuildingCacheReloadPacket;
 import common.cn.kafei.simukraft.network.building.controlbox.ResidentialControlBoxBoundsUpdatePacket;
 import common.cn.kafei.simukraft.network.building.controlbox.ResidentialControlBoxOpenResponsePacket;
 import common.cn.kafei.simukraft.network.building.controlbox.ResidentialControlBoxViewUpdatePacket;
-import common.cn.kafei.simukraft.network.citizen.info.CitizenInfoResponsePacket;
 import common.cn.kafei.simukraft.network.citizen.manage.CityCitizenManageResponsePacket;
 import common.cn.kafei.simukraft.network.city.chunk.CityChunkSyncPacket;
 import common.cn.kafei.simukraft.network.city.core.CityCoreOpenResponsePacket;
@@ -20,6 +19,7 @@ import common.cn.kafei.simukraft.network.industrial.IndustrialControlBoxViewUpda
 import common.cn.kafei.simukraft.network.logistics.LogisticsClientBoxOpenResponsePacket;
 import common.cn.kafei.simukraft.network.logistics.LogisticsServerBoxOpenResponsePacket;
 import common.cn.kafei.simukraft.network.logistics.LogisticsWarehouseGridResponsePacket;
+import common.cn.kafei.simukraft.network.medical.MedicalControlBoxOpenResponsePacket;
 import common.cn.kafei.simukraft.network.npc.hire.NpcHireListResponsePacket;
 import common.cn.kafei.simukraft.network.npc.state.EmploymentStateResponsePacket;
 import common.cn.kafei.simukraft.network.path.NpcPathDebugSyncPacket;
@@ -47,10 +47,6 @@ public interface ClientboundNetworkHandler {
 
     /** handleResidentialControlBoxViewUpdate: 处理住宅控制箱视图刷新。 */
     default void handleResidentialControlBoxViewUpdate(ResidentialControlBoxViewUpdatePacket packet) {
-    }
-
-    /** handleCitizenInfoResponse: 处理 NPC 信息界面响应。 */
-    default void handleCitizenInfoResponse(CitizenInfoResponsePacket packet) {
     }
 
     /** handleCityChunkSync: 处理城市区块缓存同步。 */
@@ -95,6 +91,10 @@ public interface ClientboundNetworkHandler {
 
     /** handleCommercialControlBoxOpenResponse: 处理商业控制箱打开响应。 */
     default void handleCommercialControlBoxOpenResponse(CommercialControlBoxOpenResponsePacket packet) {
+    }
+
+    /** handleMedicalControlBoxOpenResponse：打开医疗控制箱 LDLib 界面。 */
+    default void handleMedicalControlBoxOpenResponse(MedicalControlBoxOpenResponsePacket packet) {
     }
 
     /** handleCommercialTradeOpenResponse: 处理 NPC 商业交易界面响应。 */

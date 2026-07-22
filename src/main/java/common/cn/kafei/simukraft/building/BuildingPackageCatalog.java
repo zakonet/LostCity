@@ -321,6 +321,9 @@ public final class BuildingPackageCatalog {
         if ("commerce".equals(normalized)) {
             normalized = "commercial";
         }
+        if ("medical".equals(normalized)) {
+            normalized = "public";
+        }
         return CATEGORY_SET.contains(normalized) ? normalized : "other";
     }
 

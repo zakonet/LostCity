@@ -192,6 +192,18 @@ public final class PlacedBuildingService {
                     ));
                 }
             }
+            if (poiInstances.stream().noneMatch(instance -> instance.poiType() == common.cn.kafei.simukraft.city.poi.CityPoiType.MEDICAL)) {
+                List<BuildingPoiInstance> repaired = BuilderConstructionService.resolveMedicalBedPois(record);
+                if (!repaired.isEmpty()) {
+                    poiInstances = mergePoiInstances(poiInstances, repaired);
+                    register(level, new PlacedBuildingRecord(
+                            record.buildingId(), record.cityId(), record.dimensionId(), record.category(),
+                            record.buildingFileName(), record.displayName(), record.amount(), record.structureFileName(),
+                            record.facing(), record.worldOrigin(), record.structureAnchor(), record.minPos(), record.maxPos(),
+                            record.completedAt(), record.blocks(), record.poiDefinitions(), poiInstances,
+                            record.unitDefinitions(), record.unitInstances()));
+                }
+            }
             for (BuildingPoiInstance poi : poiInstances) {
                 manager.registerPoi(stablePoiId(poi, record.dimensionId()), record.cityId(), poi.worldPos(), poi.poiType(), poi.capacity());
             }

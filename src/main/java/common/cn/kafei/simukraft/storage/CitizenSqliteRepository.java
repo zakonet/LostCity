@@ -128,6 +128,12 @@ public final class CitizenSqliteRepository {
                     SqliteNbtHelper.putNullableUuid(citizen, "OriginFamilyId", resultSet.getString("origin_family_id"));
                     citizen.putBoolean("Pregnant", resultSet.getInt("pregnant") != 0);
                     citizen.putLong("PregnantSince", resultSet.getLong("pregnant_since"));
+                    citizen.putLong("LastAgeGrowthDay", resultSet.getLong("last_age_growth_day"));
+                    citizen.putString("DiseaseId", resultSet.getString("disease_id"));
+                    citizen.putLong("DiseaseSinceDay", resultSet.getLong("disease_since_day"));
+                    citizen.putLong("DiseaseTreatmentTicks", resultSet.getLong("disease_treatment_ticks"));
+                    SqliteNbtHelper.putNullableUuid(citizen, "MedicalBedPoiId", resultSet.getString("medical_bed_poi_id"));
+                    citizen.putLong("PostpartumUntilDay", resultSet.getLong("postpartum_until_day"));
                     citizen.put("Skills", skillsByUuid.getOrDefault(uuid, new CompoundTag()));
                     citizens.add(citizen);
                 }
@@ -142,7 +148,8 @@ public final class CitizenSqliteRepository {
 
     private void saveCitizen(Connection connection, CompoundTag citizen) throws SQLException {
         String uuid = citizen.getUUID("Uuid").toString();
-        try (PreparedStatement citizenStatement = connection.prepareStatement("INSERT INTO citizens(uuid, name, gender, age, lifespan, job_type, job_id, status, work_status, work_need_detail, status_label, is_working, npc_id, skin_path, city_id, home_id, workplace_id, workplace_pos_long, health, happiness, sick, child, child_growth_due_day, born_day, dimension_id, family_id, origin_family_id, pregnant, pregnant_since) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET name = excluded.name, gender = excluded.gender, age = excluded.age, lifespan = excluded.lifespan, job_type = excluded.job_type, job_id = excluded.job_id, status = excluded.status, work_status = excluded.work_status, work_need_detail = excluded.work_need_detail, status_label = excluded.status_label, is_working = excluded.is_working, npc_id = excluded.npc_id, skin_path = excluded.skin_path, city_id = excluded.city_id, home_id = excluded.home_id, workplace_id = excluded.workplace_id, workplace_pos_long = excluded.workplace_pos_long, health = excluded.health, happiness = excluded.happiness, sick = excluded.sick, child = excluded.child, child_growth_due_day = excluded.child_growth_due_day, born_day = excluded.born_day, dimension_id = excluded.dimension_id, family_id = excluded.family_id, origin_family_id = excluded.origin_family_id, pregnant = excluded.pregnant, pregnant_since = excluded.pregnant_since");
+        String valuePlaceholders = String.join(", ", java.util.Collections.nCopies(35, "?"));
+        try (PreparedStatement citizenStatement = connection.prepareStatement("INSERT INTO citizens(uuid, name, gender, age, lifespan, job_type, job_id, status, work_status, work_need_detail, status_label, is_working, npc_id, skin_path, city_id, home_id, workplace_id, workplace_pos_long, health, happiness, sick, child, child_growth_due_day, born_day, dimension_id, family_id, origin_family_id, pregnant, pregnant_since, last_age_growth_day, disease_id, disease_since_day, disease_treatment_ticks, medical_bed_poi_id, postpartum_until_day) VALUES(" + valuePlaceholders + ") ON CONFLICT(uuid) DO UPDATE SET name = excluded.name, gender = excluded.gender, age = excluded.age, lifespan = excluded.lifespan, job_type = excluded.job_type, job_id = excluded.job_id, status = excluded.status, work_status = excluded.work_status, work_need_detail = excluded.work_need_detail, status_label = excluded.status_label, is_working = excluded.is_working, npc_id = excluded.npc_id, skin_path = excluded.skin_path, city_id = excluded.city_id, home_id = excluded.home_id, workplace_id = excluded.workplace_id, workplace_pos_long = excluded.workplace_pos_long, health = excluded.health, happiness = excluded.happiness, sick = excluded.sick, child = excluded.child, child_growth_due_day = excluded.child_growth_due_day, born_day = excluded.born_day, dimension_id = excluded.dimension_id, family_id = excluded.family_id, origin_family_id = excluded.origin_family_id, pregnant = excluded.pregnant, pregnant_since = excluded.pregnant_since, last_age_growth_day = excluded.last_age_growth_day, disease_id = excluded.disease_id, disease_since_day = excluded.disease_since_day, disease_treatment_ticks = excluded.disease_treatment_ticks, medical_bed_poi_id = excluded.medical_bed_poi_id, postpartum_until_day = excluded.postpartum_until_day");
              PreparedStatement deleteSkills = connection.prepareStatement("DELETE FROM citizen_skills WHERE citizen_id = ?");
              PreparedStatement skillStatement = connection.prepareStatement("INSERT INTO citizen_skills(citizen_id, skill_key, skill_value) VALUES(?, ?, ?)")) {
             citizenStatement.setString(1, uuid);
@@ -179,6 +186,12 @@ public final class CitizenSqliteRepository {
             SqliteNbtHelper.setNullableString(citizenStatement, 27, citizen.hasUUID("OriginFamilyId") ? citizen.getUUID("OriginFamilyId").toString() : null);
             citizenStatement.setInt(28, citizen.getBoolean("Pregnant") ? 1 : 0);
             citizenStatement.setLong(29, citizen.getLong("PregnantSince"));
+            citizenStatement.setLong(30, citizen.getLong("LastAgeGrowthDay"));
+            citizenStatement.setString(31, citizen.getString("DiseaseId"));
+            citizenStatement.setLong(32, citizen.getLong("DiseaseSinceDay"));
+            citizenStatement.setLong(33, citizen.getLong("DiseaseTreatmentTicks"));
+            SqliteNbtHelper.setNullableString(citizenStatement, 34, citizen.hasUUID("MedicalBedPoiId") ? citizen.getUUID("MedicalBedPoiId").toString() : null);
+            citizenStatement.setLong(35, citizen.getLong("PostpartumUntilDay"));
             citizenStatement.executeUpdate();
             deleteSkills.setString(1, uuid);
             deleteSkills.executeUpdate();

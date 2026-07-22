@@ -1,6 +1,8 @@
 package common.cn.kafei.simukraft.citizen;
 
 import common.cn.kafei.simukraft.job.CityJobType;
+import common.cn.kafei.simukraft.medical.DiseaseType;
+import common.cn.kafei.simukraft.medical.MedicalPatientData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 
@@ -43,6 +45,8 @@ public final class CitizenData {
     private UUID originFamilyId;
     private boolean pregnant;
     private long pregnantSince;
+    private long lastAgeGrowthDay = -1L;
+    private final MedicalPatientData medical = new MedicalPatientData();
 
     public CitizenData(UUID uuid) {
         this.uuid = Objects.requireNonNull(uuid, "uuid");
@@ -100,6 +104,8 @@ public final class CitizenData {
         data.originFamilyId = tag.hasUUID("OriginFamilyId") ? tag.getUUID("OriginFamilyId") : null;
         data.pregnant = tag.getBoolean("Pregnant");
         data.pregnantSince = tag.getLong("PregnantSince");
+        data.lastAgeGrowthDay = tag.contains("LastAgeGrowthDay") ? Math.max(-1L, tag.getLong("LastAgeGrowthDay")) : -1L;
+        data.medical.fromTag(tag);
         CompoundTag skillTag = tag.getCompound("Skills");
         for (String key : skillTag.getAllKeys()) {
             data.skills.put(key, skillTag.getInt(key));
@@ -149,6 +155,8 @@ public final class CitizenData {
         if (originFamilyId != null) tag.putUUID("OriginFamilyId", originFamilyId);
         tag.putBoolean("Pregnant", pregnant);
         tag.putLong("PregnantSince", pregnantSince);
+        tag.putLong("LastAgeGrowthDay", lastAgeGrowthDay);
+        medical.toTag(tag);
         CompoundTag skillTag = new CompoundTag();
         skills.forEach(skillTag::putInt);
         tag.put("Skills", skillTag);
@@ -198,6 +206,10 @@ public final class CitizenData {
         if (health <= 0.0D) {
             health = 20.0D;
         }
+        if (sick && !medical.disease().isActive()) {
+            medical.setDisease(DiseaseType.GENERIC, 0L);
+        }
+        sick = medical.disease().isActive();
         if (dead || workStatus == CitizenWorkStatus.DEAD || isDeadMarker(status) || isDeadMarker(jobId)) {
             dead = true;
             health = 0.0D;
@@ -404,6 +416,11 @@ public final class CitizenData {
 
     public void setSick(boolean sick) {
         this.sick = sick;
+        if (!sick) {
+            medical.clearDisease();
+        } else if (!medical.disease().isActive()) {
+            medical.setDisease(DiseaseType.GENERIC, 0L);
+        }
     }
 
     public boolean child() {
@@ -443,6 +460,8 @@ public final class CitizenData {
         this.homeId = null;
         this.pregnant = false;
         this.pregnantSince = 0L;
+        this.lastAgeGrowthDay = -1L;
+        this.medical.clear();
     }
 
     public long childGrowthDueDay() {
@@ -495,5 +514,31 @@ public final class CitizenData {
 
     public void setPregnantSince(long pregnantSince) {
         this.pregnantSince = Math.max(0L, pregnantSince);
+    }
+
+    public long lastAgeGrowthDay() {
+        return lastAgeGrowthDay;
+    }
+
+    public void setLastAgeGrowthDay(long lastAgeGrowthDay) {
+        this.lastAgeGrowthDay = Math.max(-1L, lastAgeGrowthDay);
+    }
+
+    public MedicalPatientData medical() {
+        return medical;
+    }
+
+    public DiseaseType disease() {
+        return medical.disease();
+    }
+
+    public void setDisease(DiseaseType disease, long sinceDay) {
+        medical.setDisease(disease, sinceDay);
+        sick = medical.disease().isActive();
+    }
+
+    public void clearDisease() {
+        medical.clearDisease();
+        sick = false;
     }
 }

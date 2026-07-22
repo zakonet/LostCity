@@ -7,6 +7,7 @@ import common.cn.kafei.simukraft.building.PlacedBuildingService;
 import common.cn.kafei.simukraft.city.poi.CityPoiManager;
 import common.cn.kafei.simukraft.city.poi.CityPoiType;
 import common.cn.kafei.simukraft.config.ServerConfig;
+import common.cn.kafei.simukraft.medical.MedicalService;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 
@@ -23,10 +24,17 @@ public final class NpcPregnancyService {
         for (FamilyData family : familyManager.allFamilies()) {
             tryPregnancy(family, manager, familyManager, level, random, chance, currentDay);
         }
-        // 已怀孕但仍在岗的女NPC自动解雇，防止永久空闲
+        // 每日刷新妊娠阶段标签；岗位保留，晚期由医疗服务临时安排住院休假。
         for (CitizenData data : manager.allCitizens()) {
-            if (data.pregnant() && !data.dead() && data.jobType() != common.cn.kafei.simukraft.job.CityJobType.UNEMPLOYED) {
-                common.cn.kafei.simukraft.job.CitizenEmploymentService.fire(level, data.uuid(), null, null, data.workplacePos(), "pregnant");
+            if (!data.pregnant() || data.dead()) {
+                continue;
+            }
+            PregnancyStage stage = PregnancyStage.resolve(
+                    currentDay - data.pregnantSince(), ServerConfig.familyPregnancyDurationDays());
+            if (!MedicalService.isAdmitted(data) && !MedicalService.MEDICAL_CARE_MARKER.equals(data.workNeedDetail())
+                    && !stage.translationKey().equals(data.statusLabel())) {
+                data.setStatusLabel(stage.translationKey());
+                manager.saveCitizenNow(data.uuid());
             }
         }
     }

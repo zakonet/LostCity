@@ -4,7 +4,6 @@ import common.cn.kafei.simukraft.network.building.BuildingCacheReloadPacket;
 import common.cn.kafei.simukraft.network.building.controlbox.ResidentialControlBoxBoundsUpdatePacket;
 import common.cn.kafei.simukraft.network.building.controlbox.ResidentialControlBoxOpenResponsePacket;
 import common.cn.kafei.simukraft.network.building.controlbox.ResidentialControlBoxViewUpdatePacket;
-import common.cn.kafei.simukraft.network.citizen.info.CitizenInfoResponsePacket;
 import common.cn.kafei.simukraft.network.citizen.manage.CityCitizenManageResponsePacket;
 import common.cn.kafei.simukraft.network.city.chunk.CityChunkSyncPacket;
 import common.cn.kafei.simukraft.network.city.core.CityCoreOpenResponsePacket;
@@ -20,6 +19,7 @@ import common.cn.kafei.simukraft.network.industrial.IndustrialControlBoxViewUpda
 import common.cn.kafei.simukraft.network.logistics.LogisticsClientBoxOpenResponsePacket;
 import common.cn.kafei.simukraft.network.logistics.LogisticsServerBoxOpenResponsePacket;
 import common.cn.kafei.simukraft.network.logistics.LogisticsWarehouseGridResponsePacket;
+import common.cn.kafei.simukraft.network.medical.MedicalControlBoxOpenResponsePacket;
 import common.cn.kafei.simukraft.network.npc.hire.NpcHireListResponsePacket;
 import common.cn.kafei.simukraft.network.npc.state.EmploymentStateResponsePacket;
 import common.cn.kafei.simukraft.network.path.NpcPathDebugSyncPacket;
@@ -66,11 +66,6 @@ public final class ClientboundNetworkBridge {
     /** handleResidentialControlBoxViewUpdate: 分发住宅控制箱视图刷新。 */
     public static void handleResidentialControlBoxViewUpdate(ResidentialControlBoxViewUpdatePacket packet) {
         HANDLER.get().handleResidentialControlBoxViewUpdate(packet);
-    }
-
-    /** handleCitizenInfoResponse: 分发 NPC 信息界面响应。 */
-    public static void handleCitizenInfoResponse(CitizenInfoResponsePacket packet) {
-        HANDLER.get().handleCitizenInfoResponse(packet);
     }
 
     /** handleCityChunkSync: 分发城市区块缓存同步。 */
@@ -126,6 +121,11 @@ public final class ClientboundNetworkBridge {
     /** handleCommercialControlBoxOpenResponse: 分发商业控制箱打开响应。 */
     public static void handleCommercialControlBoxOpenResponse(CommercialControlBoxOpenResponsePacket packet) {
         HANDLER.get().handleCommercialControlBoxOpenResponse(packet);
+    }
+
+    /** handleMedicalControlBoxOpenResponse：分发医疗控制箱打开响应。 */
+    public static void handleMedicalControlBoxOpenResponse(MedicalControlBoxOpenResponsePacket packet) {
+        HANDLER.get().handleMedicalControlBoxOpenResponse(packet);
     }
 
     /** handleCommercialTradeOpenResponse: 分发 NPC 商业交易界面响应。 */

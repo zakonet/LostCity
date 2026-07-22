@@ -15,6 +15,8 @@ import common.cn.kafei.simukraft.industrial.IndustrialDefinition;
 import common.cn.kafei.simukraft.industrial.IndustrialDefinitionLoader;
 import common.cn.kafei.simukraft.industrial.IndustrialWorkService;
 import common.cn.kafei.simukraft.logistics.LogisticsConstants;
+import common.cn.kafei.simukraft.medical.MedicalControlBoxService;
+import common.cn.kafei.simukraft.medical.MedicalService;
 import common.cn.kafei.simukraft.planner.PlannerWorkService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -194,6 +196,9 @@ public final class CitizenEmploymentService {
         if (workplaceId(LogisticsConstants.SERVER_SOURCE_TYPE, LogisticsConstants.STORAGE_ROLE, workplacePos).equals(workplaceId)) {
             return CityJobType.STORAGE_WORKER;
         }
+        if (workplaceId(MedicalControlBoxService.HIRE_SOURCE_TYPE, MedicalControlBoxService.HIRE_ROLE, workplacePos).equals(workplaceId)) {
+            return CityJobType.DOCTOR;
+        }
         return null;
     }
 
@@ -224,6 +229,12 @@ public final class CitizenEmploymentService {
         }
         if (jobType == CityJobType.STORAGE_WORKER || LogisticsConstants.SERVER_SOURCE_TYPE.equals(normalizedSource)) {
             common.cn.kafei.simukraft.citizen.CitizenJobVisualService.clearMainHandOverride(citizen.uuid());
+        }
+        if (jobType == CityJobType.DOCTOR || MedicalControlBoxService.HIRE_SOURCE_TYPE.equals(normalizedSource)) {
+            BlockPos boxPos = sourcePos != null ? sourcePos : citizen.workplacePos();
+            if (boxPos != null) {
+                MedicalService.releasePatientsForControlBox(level, boxPos);
+            }
         }
     }
 

@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @SuppressWarnings("null")
 public final class CitizenManager extends SavedData {
     private static final String DATA_NAME = SimuKraft.MOD_ID + "_citizens";
+    private static final String INVENTORY_BACKUPS_TAG = "CitizenInventories";
     private static final ExecutorService IO_EXECUTOR = Executors.newSingleThreadExecutor(r -> { Thread t = new Thread(r, "simukraft-citizen-io"); t.setDaemon(true); return t; });
     private static final int AI_BUDGET_PER_TICK = 20;
     private static final int SAVE_DIRTY_INTERVAL_TICKS = 100;
@@ -39,6 +40,7 @@ public final class CitizenManager extends SavedData {
 
     // 居民主数据在服务端内存中维护，SQLite 负责档案持久化，饱食度独立保存在实体 NBT。
     private final ConcurrentMap<UUID, CitizenData> citizens = new ConcurrentHashMap<>();
+    private final ConcurrentMap<UUID, CompoundTag> inventoryBackups = new ConcurrentHashMap<>();
     private final Set<UUID> pendingSaves = ConcurrentHashMap.newKeySet();
     // 分帧处理居民状态，避免城市人口变大后单 tick 扫全量。
     private final ConcurrentLinkedQueue<UUID> aiQueue = new ConcurrentLinkedQueue<>();
@@ -71,6 +73,13 @@ public final class CitizenManager extends SavedData {
             CitizenData data = CitizenData.fromTag(citizensTag.getCompound(i));
             manager.putLoadedCitizen(data);
         }
+        ListTag inventoryTags = tag.getList(INVENTORY_BACKUPS_TAG, CompoundTag.TAG_COMPOUND);
+        for (int i = 0; i < inventoryTags.size(); i++) {
+            CompoundTag entry = inventoryTags.getCompound(i);
+            if (entry.hasUUID("Uuid") && entry.contains("Inventory", CompoundTag.TAG_COMPOUND)) {
+                manager.inventoryBackups.put(entry.getUUID("Uuid"), entry.getCompound("Inventory").copy());
+            }
+        }
         if (tag.contains("LastFamilyTickDay")) {
             manager.lastFamilyTickDay = tag.getLong("LastFamilyTickDay");
         }
@@ -82,6 +91,14 @@ public final class CitizenManager extends SavedData {
         ListTag citizensTag = new ListTag();
         citizens.values().forEach(data -> citizensTag.add(data.toTag()));
         tag.put("Citizens", citizensTag);
+        ListTag inventoryTags = new ListTag();
+        inventoryBackups.forEach((uuid, inventory) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putUUID("Uuid", uuid);
+            entry.put("Inventory", inventory.copy());
+            inventoryTags.add(entry);
+        });
+        tag.put(INVENTORY_BACKUPS_TAG, inventoryTags);
         tag.putLong("LastFamilyTickDay", lastFamilyTickDay);
         return tag;
     }
@@ -94,7 +111,7 @@ public final class CitizenManager extends SavedData {
             return;
         }
         if (!citizens.isEmpty()) {
-            SimuSqliteStorage.saveCitizens(level, save(new CompoundTag(), level.registryAccess()));
+            SimuSqliteStorage.saveCitizens(level, citizenMetadataSnapshot());
         }
     }
 
@@ -183,8 +200,41 @@ public final class CitizenManager extends SavedData {
                 entity.discard();
                 return;
             }
+            reconcileEntityInventory(entity);
             syncEntityFromData(entity, data);
         }
+    }
+
+    /** backupEntityInventory：仅写入世界 SavedData NBT 灾备，不触发 SQLite 物品双写。 */
+    public synchronized void backupEntityInventory(CitizenEntity entity) {
+        if (entity == null || !(entity.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        inventoryBackups.put(entity.getUUID(), entity.getCitizenInventory().saveToTag(serverLevel.registryAccess()));
+        setDirty();
+    }
+
+    /** reconcileEntityInventory：实体无新版背包标签时从世界 NBT 灾备恢复一次。 */
+    private synchronized void reconcileEntityInventory(CitizenEntity entity) {
+        if (entity == null || entity.inventoryReconciled() || !(entity.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        CompoundTag backup = inventoryBackups.get(entity.getUUID());
+        if (!entity.hasNativeInventoryTag() && backup != null) {
+            entity.getCitizenInventory().loadFromTag(backup.copy(), serverLevel.registryAccess());
+        }
+        entity.markInventoryReconciled();
+        inventoryBackups.put(entity.getUUID(), entity.getCitizenInventory().saveToTag(serverLevel.registryAccess()));
+        setDirty();
+    }
+
+    private CompoundTag citizenMetadataSnapshot() {
+        CompoundTag tag = new CompoundTag();
+        ListTag citizensTag = new ListTag();
+        citizens.values().forEach(data -> citizensTag.add(data.toTag()));
+        tag.put("Citizens", citizensTag);
+        tag.putLong("LastFamilyTickDay", lastFamilyTickDay);
+        return tag;
     }
 
     private void saveCitizenIncremental(CitizenData data) {
@@ -231,6 +281,7 @@ public final class CitizenManager extends SavedData {
             entity.discard();
             return data;
         }
+        reconcileEntityInventory(entity);
         if (!aiQueue.contains(data.uuid())) {
             aiQueue.offer(data.uuid());
         }
@@ -278,6 +329,7 @@ public final class CitizenManager extends SavedData {
 
     public void removeCitizen(UUID uuid) {
         citizens.remove(uuid);
+        inventoryBackups.remove(uuid);
         aiQueue.remove(uuid);
         deleteCitizenIncremental(uuid);
         setDirty();
@@ -329,6 +381,7 @@ public final class CitizenManager extends SavedData {
         NpcChildbirthService.tickChildbirths(level, random, currentDay);
         NpcPregnancyService.tickPregnancies(level, random, currentDay);
         NpcMarriageService.tickMarriages(level, random, currentDay);
+        common.cn.kafei.simukraft.medical.MedicalService.tickDaily(level, random, currentDay);
         common.cn.kafei.simukraft.building.BuildingAbandonmentService.tickDaily(level, currentDay);
         // 每1天补跑一次家庭搬迁，确保后建的新房也能触发搬入
         if (currentDay % 1 == 0) {
@@ -348,6 +401,7 @@ public final class CitizenManager extends SavedData {
         data.setStatusLabel(entity.getStatusLabel());
         data.setAge(entity.getAge());
         data.setLifespan(entity.getLifespan());
+        data.setHealth(entity.getHealth());
         data.setSick(entity.isSick());
         data.setChild(entity.isChildNpc());
         data.setDimensionId(entity.level().dimension().location().toString());
@@ -417,6 +471,7 @@ public final class CitizenManager extends SavedData {
         if (data.lifespan() > 0) {
             entity.setLifespan(data.lifespan());
         }
+        entity.setHealth((float) data.health());
         entity.setSick(data.sick());
         entity.setChildNpc(data.child());
         if (entity.level() instanceof ServerLevel level) {

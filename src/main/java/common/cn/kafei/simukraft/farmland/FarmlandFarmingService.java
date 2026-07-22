@@ -10,6 +10,7 @@ import common.cn.kafei.simukraft.config.ServerConfig;
 import common.cn.kafei.simukraft.entity.CitizenEntity;
 import common.cn.kafei.simukraft.material.GenericContainerAccess;
 import common.cn.kafei.simukraft.material.WorkContainerService;
+import common.cn.kafei.simukraft.medical.MedicalService;
 import common.cn.kafei.simukraft.path.CitizenNavigationService;
 import common.cn.kafei.simukraft.path.MovementIntent;
 import common.cn.kafei.simukraft.registry.ModBlocks;
@@ -102,6 +103,12 @@ public final class FarmlandFarmingService {
             data.setRunning(false);
             manager.persist(data);
             clearActiveTarget(boxRuntime);
+            return;
+        }
+        if (MedicalService.isOnMedicalLeave(farmer, level.getDayTime() / 24_000L)) {
+            clearActiveTarget(boxRuntime);
+            boxRuntime.setVisual(ItemStack.EMPTY, false);
+            idle(boxRuntime, gameTime);
             return;
         }
         if (CitizenHomeRestService.isRestTime(level)) {
