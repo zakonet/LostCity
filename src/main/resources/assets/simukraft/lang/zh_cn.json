@@ -106,6 +106,8 @@
     "gui.npc.status.buying_food":  "正在买饭",
     "gui.npc.status.eating_food":  "正在吃饭",
     "gui.npc.status.too_hungry_on_strike":  "太饿了，等待商店供餐",
+    "gui.npc.status.medical_buying_meals":  "正在为住院病人采购餐食",
+    "gui.npc.status.medical_delivering_meals":  "正在给住院病人送餐",
     "screen.simukraft.citizen_info.title":  "市民信息：%s",
     "screen.simukraft.citizen_info.menu.identity":  "身份卡",
     "screen.simukraft.citizen_info.menu.work":  "工作卡",

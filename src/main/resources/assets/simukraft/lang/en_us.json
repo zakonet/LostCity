@@ -105,6 +105,8 @@
     "gui.npc.status.buying_food":  "Buying food",
     "gui.npc.status.eating_food":  "Eating",
     "gui.npc.status.too_hungry_on_strike":  "Too hungry, waiting for food service",
+    "gui.npc.status.medical_buying_meals":  "Buying meals for hospitalized patients",
+    "gui.npc.status.medical_delivering_meals":  "Delivering meals to hospitalized patients",
     "screen.simukraft.citizen_info.title":  "Citizen Info: %s",
     "screen.simukraft.citizen_info.menu.identity":  "Identity Card",
     "screen.simukraft.citizen_info.menu.work":  "Work Card",

@@ -5,6 +5,7 @@ import common.cn.kafei.simukraft.building.PlacedBuildingRecord;
 import common.cn.kafei.simukraft.building.PlacedBuildingService;
 import common.cn.kafei.simukraft.citizen.CitizenBedSleepService;
 import common.cn.kafei.simukraft.citizen.CitizenData;
+import common.cn.kafei.simukraft.citizen.CitizenFoodConsumptionService;
 import common.cn.kafei.simukraft.citizen.CitizenHomeRestService;
 import common.cn.kafei.simukraft.citizen.CitizenManager;
 import common.cn.kafei.simukraft.citizen.CitizenService;
@@ -184,6 +185,7 @@ public final class MedicalService {
             CitizenService.save(level, citizen.uuid());
             processAdmittedPatient(level, citizen, bed, currentDay);
         }
+        MedicalMealService.tick(level, mealContexts(level, hospitals, citizens));
     }
 
     private static List<Hospital> findOperationalHospitals(ServerLevel level) {
@@ -272,6 +274,7 @@ public final class MedicalService {
             return;
         }
         CitizenBedSleepService.restoreSleeping(level, entity, target);
+        CitizenFoodConsumptionService.tryEatBackpackFood(level, entity, citizen);
         int interval = Math.max(20, ServerConfig.medicalHealIntervalTicks());
         if (level.getGameTime() % interval != 0L) {
             return;
@@ -395,6 +398,27 @@ public final class MedicalService {
     /** canBypassResidentialCoverage：疾病患者无需住宅即可直接前往同城医院。 */
     static boolean canBypassResidentialCoverage(CitizenData citizen) {
         return citizen != null && citizen.disease().isActive();
+    }
+
+    /** mealContexts：将当前营业医院、医生和实际住院患者整理为供餐服务输入。 */
+    private static List<MedicalMealService.HospitalContext> mealContexts(ServerLevel level,
+                                                                         List<Hospital> hospitals,
+                                                                         List<CitizenData> citizens) {
+        List<MedicalMealService.HospitalContext> contexts = new ArrayList<>();
+        for (Hospital hospital : hospitals) {
+            CitizenData doctor = MedicalControlBoxService.findAssignedDoctor(level, hospital.controlBoxPos());
+            if (doctor == null) {
+                continue;
+            }
+            Set<UUID> bedIds = ConcurrentHashMap.newKeySet();
+            hospital.beds().stream().map(CityPoiData::poiId).forEach(bedIds::add);
+            List<UUID> patientIds = citizens.stream()
+                    .filter(citizen -> containsMedicalBed(bedIds, citizen.medical().medicalBedPoiId()))
+                    .map(CitizenData::uuid)
+                    .toList();
+            contexts.add(new MedicalMealService.HospitalContext(hospital.controlBoxPos(), doctor.uuid(), patientIds));
+        }
+        return List.copyOf(contexts);
     }
 
     public record BuildingSnapshot(int bedCount, int occupiedBedCount, List<MedicalControlBoxView.PatientEntry> patients) {

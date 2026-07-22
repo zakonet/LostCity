@@ -11,6 +11,7 @@ public final class MedicalPatientData {
     private long diseaseTreatmentTicks;
     private UUID medicalBedPoiId;
     private long postpartumUntilDay;
+    private long lastHospitalMealDay = -1L;
 
     /** fromTag：从居民标签读取医疗状态。 */
     public void fromTag(CompoundTag tag) {
@@ -19,6 +20,7 @@ public final class MedicalPatientData {
         diseaseTreatmentTicks = Math.max(0L, tag.getLong("DiseaseTreatmentTicks"));
         medicalBedPoiId = tag.hasUUID("MedicalBedPoiId") ? tag.getUUID("MedicalBedPoiId") : null;
         postpartumUntilDay = Math.max(0L, tag.getLong("PostpartumUntilDay"));
+        lastHospitalMealDay = tag.contains("LastHospitalMealDay") ? Math.max(-1L, tag.getLong("LastHospitalMealDay")) : -1L;
     }
 
     /** toTag：将医疗状态写入居民标签。 */
@@ -30,6 +32,7 @@ public final class MedicalPatientData {
             tag.putUUID("MedicalBedPoiId", medicalBedPoiId);
         }
         tag.putLong("PostpartumUntilDay", postpartumUntilDay);
+        tag.putLong("LastHospitalMealDay", lastHospitalMealDay);
     }
 
     /** setDisease：设置疾病并重置本次疾病的治疗进度。 */
@@ -54,6 +57,7 @@ public final class MedicalPatientData {
         clearDisease();
         medicalBedPoiId = null;
         postpartumUntilDay = 0L;
+        lastHospitalMealDay = -1L;
     }
 
     public DiseaseType disease() {
@@ -86,5 +90,14 @@ public final class MedicalPatientData {
 
     public void setPostpartumUntilDay(long postpartumUntilDay) {
         this.postpartumUntilDay = Math.max(0L, postpartumUntilDay);
+    }
+
+    public long lastHospitalMealDay() {
+        return lastHospitalMealDay;
+    }
+
+    /** setLastHospitalMealDay：记录住院患者最近一次收到医院餐食的游戏日。 */
+    public void setLastHospitalMealDay(long lastHospitalMealDay) {
+        this.lastHospitalMealDay = Math.max(-1L, lastHospitalMealDay);
     }
 }

@@ -22,6 +22,7 @@ import common.cn.kafei.simukraft.building.PlacedBuildingService;
 import common.cn.kafei.simukraft.building.ResidentialBedPoiService;
 import common.cn.kafei.simukraft.building.MedicalBedPoiService;
 import common.cn.kafei.simukraft.medical.MedicalDefinitionLoader;
+import common.cn.kafei.simukraft.medical.MedicalMealService;
 import common.cn.kafei.simukraft.medical.MedicalService;
 import common.cn.kafei.simukraft.commercial.CommercialBoxManager;
 import common.cn.kafei.simukraft.commercial.CommercialDefinitionLoader;
@@ -237,6 +238,7 @@ public final class SimuKraft {
         ResidentialBedPoiService.clearServerCaches(event.getServer());
         MedicalBedPoiService.clearServerCaches(event.getServer());
         MedicalDefinitionLoader.clearCache();
+        MedicalMealService.clearServerCaches(event.getServer());
         CitizenHomeRestService.clearServerCaches(event.getServer());
         CitizenDroppedFoodService.clearServerCaches(event.getServer());
         CitizenSelfFeedingService.clearServerCaches(event.getServer());

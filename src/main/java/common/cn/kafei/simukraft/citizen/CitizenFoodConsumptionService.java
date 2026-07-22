@@ -38,6 +38,30 @@ public final class CitizenFoodConsumptionService {
         return properties != null && properties.nutrition() > 0;
     }
 
+    /** isFoodStack：判断物品是否为可供 NPC 食用的有效食物，不受当前饱食度影响。 */
+    public static boolean isFoodStack(CitizenEntity entity, ItemStack stack) {
+        FoodProperties properties = foodProperties(entity, stack);
+        return properties != null && properties.nutrition() > 0;
+    }
+
+    /** tryEatBackpackFood：让未吃饱的 NPC 从真实背包取出并食用一份食物。 */
+    public static boolean tryEatBackpackFood(ServerLevel level, CitizenEntity entity, CitizenData data) {
+        if (level == null || entity == null || data == null || data.dead() || entity.getHungerValue() >= FULL_HUNGER) {
+            return false;
+        }
+        var extracted = entity.getCitizenInventory().extractFirstBackpack(stack -> isFoodStack(entity, stack));
+        if (extracted.isEmpty()) {
+            return false;
+        }
+        ItemStack meal = extracted.get();
+        FoodProperties properties = foodProperties(entity, meal);
+        if (applyFood(level, entity, data, meal, properties)) {
+            return true;
+        }
+        entity.getCitizenInventory().insertBackpackAll(java.util.List.of(meal));
+        return false;
+    }
+
     /** foodProperties: 兼容读取原版和模组食物属性，异常只记录一次。 */
     static FoodProperties foodProperties(CitizenEntity entity, ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
